@@ -54,8 +54,41 @@ const register = async (req, res) => {
     }
 };
 
+const googleCallback = async (req, res) => {
+    try {
+        const user = req.user;
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            config.JWT_SECRET,
+            { expiresIn: '2d' }
+        );
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            sameSite: 'lax',
+            maxAge: 2 * 24 * 60 * 60 * 1000,
+        });
+
+        const userData = user.toObject();
+        delete userData.password;
+
+        return res.status(200).json({
+            success: true,
+            message: 'Google login successful',
+            user: userData,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 const authController = {
     register,
+    googleCallback,
 };
 
 export default authController;

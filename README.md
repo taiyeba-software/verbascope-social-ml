@@ -1,74 +1,44 @@
 # Verbascope Social ML
 
-Verbascope Social ML is a multi-service backend workspace for a social platform with machine-learning support.
+Verbascope Social ML is a multi-service backend workspace for a social platform with machine learning support.
 
-This repository currently contains one active service, auth-service, and scaffolded folders for gateway, feed, post, and ml services.
+At the moment, the only implemented service is `auth-service`. The remaining folders are scaffolded for future work:
 
-## Current Status
+- `gateway/`
+- `services/feed-service/`
+- `services/ml-service/`
+- `services/post-service/`
+- `shared/`
 
-- auth-service: implemented and runnable
-- feed-service: scaffolded (empty)
-- post-service: scaffolded (empty)
-- ml-service: scaffolded (empty)
-- gateway: scaffolded (empty)
-- shared: scaffolded (empty)
-- docs and docsmkdir: scaffolded (empty)
+## Current State
 
-## Repository Structure
+- `auth-service`: implemented and runnable
+- `feed-service`: scaffolded only
+- `post-service`: scaffolded only
+- `ml-service`: scaffolded only
+- `gateway`: scaffolded only
+- `shared`: scaffolded only
+- `docs/` and `docsmkdir/`: placeholder documentation folders
 
-```text
-verbascope-social-ml/
-	docs/
-	docsmkdir/
-	gateway/
-	services/
-		auth-service/
-			.env
-			package.json
-			package-lock.json
-			server.js
-			src/
-				app.js
-				config/
-					config.js
-				controller/
-					auth.controller.js
-				db/
-					db.js
-				middlewares/
-					validation.middleware.js
-				model/
-					user.model.js
-				routes/
-					auth.routes.js
-		feed-service/
-		ml-service/
-		post-service/
-	shared/
-	README.md
-	about.md
-```
+## Auth Service Overview
 
-## Auth Service
+The auth service is an Express + MongoDB service that currently supports:
 
-The auth-service is an Express + MongoDB service with user registration.
+- user registration
+- Google OAuth login with Passport
+- JWT creation
+- auth token cookie handling
+- MongoDB persistence for users
 
-### Implemented Features
+### Implemented Flow
 
-- Request logging with morgan
-- JSON body parsing
-- Cookie parsing
-- MongoDB connection bootstrap
-- User model with email, fullname, password, googleID, role
-- Register endpoint with:
-	- input validation
-	- duplicate user check
-	- bcrypt password hashing
-	- JWT creation (2d expiry)
-	- auth token cookie
-	- password removed from response
+- `server.js` connects to MongoDB, mounts the auth routes, and starts the service on port `3000`
+- `src/app.js` sets up Express, request logging, JSON parsing, cookie parsing, and Passport initialization
+- `src/config/passport.js` configures the Google strategy
+- `src/controller/auth.controller.js` handles local registration and Google callback login
+- `src/routes/auth.routes.js` exposes the auth endpoints
 
-### API
+## API Endpoints
 
 Base path:
 
@@ -76,49 +46,126 @@ Base path:
 /api/auth
 ```
 
-Register endpoint:
+### Register a User
 
-```text
+```http
 POST /api/auth/register
 ```
 
-Example request body:
+Request body:
 
 ```json
 {
-	"email": "user@example.com",
-	"password": "secret123",
-	"fullname": {
-		"firstName": "Taiyeba",
-		"lastName": "Islam"
-	}
+  "email": "user@example.com",
+  "password": "secret123",
+  "fullname": {
+    "firstName": "Taiyeba",
+    "lastName": "Islam"
+  }
 }
 ```
 
-### Environment Variables
+Validation rules:
 
-The auth-service reads environment variables from services/auth-service/.env:
+- `email` must be a valid email address
+- `password` must be at least 6 characters long
+- `fullname.firstName` is required
+- `fullname.lastName` is required
 
-- MONGO_URI
-- JWT_SECRET (optional, falls back to a dev default)
+### Google Login
 
-## Run Locally (Auth Service)
+```http
+GET /api/auth/google
+```
 
-From services/auth-service:
+Redirects the user to Google for authentication.
+
+### Google Callback
+
+```http
+GET /api/auth/google/callback
+```
+
+Google redirects here after login. The service creates or links the user, issues a JWT, and sets a `token` cookie.
+
+### Google Failure
+
+```http
+GET /api/auth/google/failure
+```
+
+Returns a 401 response if Google authentication fails.
+
+## Environment Variables
+
+The auth service reads its local environment from `services/auth-service/.env`.
+
+Required:
+
+- `MONGO_URI`
+
+Optional:
+
+- `JWT_SECRET` - defaults to `dev_jwt_secret`
+- `GOOGLE_CLIENT_ID` or legacy `CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET` or legacy `CLIENT_SECRET`
+- `GOOGLE_CALLBACK_URL` - defaults to `http://localhost:3000/api/auth/google/callback`
+
+## Run the Auth Service
+
+From `services/auth-service`:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Or:
+Or start it directly:
 
 ```bash
 node server.js
 ```
 
-The server runs on port 3000.
+The service runs on port `3000`.
 
-## Detailed File and Folder Guide
+## Project Structure
 
-For a detailed explanation of each file and folder, see about.md.
+```text
+verbascope-social-ml/
+├── about.md
+├── README.md
+├── docs/
+├── docsmkdir/
+├── gateway/
+├── services/
+│   ├── auth-service/
+│   │   ├── .env
+│   │   ├── package.json
+│   │   ├── package-lock.json
+│   │   ├── server.js
+│   │   └── src/
+│   │       ├── app.js
+│   │       ├── config/
+│   │       │   ├── config.js
+│   │       │   └── passport.js
+│   │       ├── controller/
+│   │       │   └── auth.controller.js
+│   │       ├── db/
+│   │       │   └── db.js
+│   │       ├── middlewares/
+│   │       │   └── validation.middleware.js
+│   │       ├── model/
+│   │       │   └── user.model.js
+│   │       └── routes/
+│   │           └── auth.routes.js
+│   ├── feed-service/
+│   ├── ml-service/
+│   └── post-service/
+└── shared/
+```
+
+## Notes
+
+- `auth-service` is the only active implementation right now.
+- The other service folders are placeholders for future feature work.
+- For a folder-by-folder explanation, see [about.md](about.md).

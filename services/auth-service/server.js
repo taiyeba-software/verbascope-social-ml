@@ -11,9 +11,11 @@ const isDbConnected = await connectDB();
 app.use('/api/auth', authRoutes);
 
 //server port
-app.listen(3000, () => {
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
     if (!isDbConnected) {
         console.warn('Auth service started without MongoDB connection. Check Atlas IP whitelist and MONGO_URI.');
     }
-    console.log('Auth service is running on port 3000');
+    console.log(`✅ Server running on http://localhost:${PORT}`);
 });   

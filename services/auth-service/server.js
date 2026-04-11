@@ -1,21 +1,16 @@
-//import app from express
 import app from './src/app.js';
-//import connectdb dunction
 import connectDB from './src/db/db.js';
 import authRoutes from './src/routes/auth.routes.js';
+import { connect } from './src/broker/rabbit.js';  // ← add this
 
-//call connectDB function to connect to the database
 const isDbConnected = await connectDB();
+await connect();  // ← connect to RabbitMQ on startup
 
-//register auth routes
 app.use('/api/auth', authRoutes);
 
-//server port
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
+app.listen(3000, () => {
     if (!isDbConnected) {
-        console.warn('Auth service started without MongoDB connection. Check Atlas IP whitelist and MONGO_URI.');
+        console.warn('⚠️  Auth service started without MongoDB.');
     }
-    console.log(`✅ Server running on http://localhost:${PORT}`);
-});   
+    console.log('Auth service running on port 3000');
+});

@@ -12,6 +12,8 @@ const _config = {
     REFRESH_TOKEN: process.env.REFRESH_TOKEN,
     ACCESS_TOKEN:  process.env.ACCESS_TOKEN,
     EMAIL_USER:    process.env.EMAIL_USER,
+    // RabbitMQ URI for message broker
+    RABBITMQ_URI:  process.env.RABBITMQ_URI,
 };
 
 export default Object.freeze(_config);

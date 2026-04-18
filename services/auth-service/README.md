@@ -1,35 +1,45 @@
 # Auth Service
 
-The auth service is the implemented backend service for Verbascope Social ML. It handles local user registration and Google OAuth login, then issues a JWT cookie for authenticated sessions.
+This service handles user authentication for Verbascope Social ML.
 
-## What It Does
+It currently supports:
 
-- Registers new users with email, password, and fullname
-- Supports Google login with Passport
-- Links Google accounts to existing users when possible
-- Signs JWTs with the service secret
-- Stores the token in an HTTP-only cookie
-- Persists users in MongoDB
+- Email/password registration
+- Google OAuth login via Passport
+- JWT cookie issuance after successful auth
+- Publishing user creation events to RabbitMQ (`user_created` queue)
+
+## Current Behavior
+
+- Connects to MongoDB during startup (`src/db/db.js`)
+- Connects to RabbitMQ during startup (`src/broker/rabbit.js`)
+- Mounts auth routes under `/api/auth`
+- Runs on port `3000` (hardcoded in `server.js`)
+- If MongoDB is unavailable, the service still starts but logs a warning
 
 ## Tech Stack
 
-- Node.js
+- Node.js (ES modules)
 - Express
-- MongoDB with Mongoose
-- JWT
-- bcryptjs
-- Passport Google OAuth 2.0
-- express-validator
+- MongoDB + Mongoose
+- Passport + `passport-google-oauth20`
+- JWT (`jsonwebtoken`)
+- `bcryptjs`
+- `express-validator`
+- RabbitMQ (`amqplib`)
+- `cookie-parser`, `morgan`, `dotenv`
 
-## Project Structure
+## Folder Structure
 
 ```text
 services/auth-service/
-├── .env
-├── package.json
 ├── server.js
+├── package.json
+├── .env
 └── src/
     ├── app.js
+    ├── broker/
+    │   └── rabbit.js
     ├── config/
     │   ├── config.js
     │   └── passport.js
@@ -47,56 +57,59 @@ services/auth-service/
 
 ## Setup
 
-From this folder:
+From `services/auth-service`:
 
 ```bash
 npm install
 ```
 
-Make sure `.env` is filled in before running the service.
+Create/update `.env` with the required values.
 
-### Environment Variables
+## Environment Variables
 
-Required:
+Used by `src/config/config.js`:
 
-- `MONGO_URI`
+- `MONGO_URI` (required for DB connectivity)
+- `RABBITMQ_URI` (required for RabbitMQ connectivity)
+- `JWT_SECRET` (optional, defaults to `dev_jwt_secret`)
+- `GOOGLE_CLIENT_ID` (or fallback `CLIENT_ID`)
+- `GOOGLE_CLIENT_SECRET` (or fallback `CLIENT_SECRET`)
+- `GOOGLE_CALLBACK_URL` (optional, default: `http://localhost:3000/api/auth/google/callback`)
 
-Optional:
+Example:
 
-- `JWT_SECRET` - defaults to `dev_jwt_secret`
-- `GOOGLE_CLIENT_ID` or legacy `CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET` or legacy `CLIENT_SECRET`
-- `GOOGLE_CALLBACK_URL` - defaults to `http://localhost:3000/api/auth/google/callback`
+```env
+MONGO_URI=mongodb://localhost:27017/verbascope
+RABBITMQ_URI=amqp://localhost:5672
+JWT_SECRET=super_secret_key
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+```
 
-## Run the Service
+## Run
+
+Development:
 
 ```bash
 npm run dev
 ```
 
-Or:
+Production-style:
 
 ```bash
-node server.js
+npm start
 ```
 
-The service listens on port `3000`.
+## API
 
-## API Routes
+Base URL path: `/api/auth`
 
-Base path:
+### 1. Register User
 
-```text
-/api/auth
-```
+`POST /api/auth/register`
 
-### Register User
-
-```http
-POST /api/auth/register
-```
-
-Example body:
+Request body:
 
 ```json
 {
@@ -109,49 +122,80 @@ Example body:
 }
 ```
 
-Validation rules:
+Validation:
 
-- `email` must be valid
-- `password` must be at least 6 characters
+- `email` must be a valid email
+- `password` minimum length is 6
 - `fullname.firstName` is required
 - `fullname.lastName` is required
 
-### Start Google Login
+On success:
 
-```http
-GET /api/auth/google
+- Password is hashed with bcrypt
+- User is created in MongoDB
+- JWT is signed with `{ id, role }` and 2-day expiry
+- `token` cookie is set (`httpOnly`, `sameSite: lax`)
+- Event is published to RabbitMQ queue `user_created`
+- Response returns user data without password
+
+### 2. Start Google OAuth
+
+`GET /api/auth/google`
+
+Redirects user to Google consent screen.
+
+### 3. Google OAuth Callback
+
+`GET /api/auth/google/callback`
+
+Behavior:
+
+- Finds user by `googleID` or email
+- If email user exists without `googleID`, links that account
+- Otherwise creates a new Google-based user
+- Signs JWT and sets `token` cookie
+- Publishes `user_created` event to RabbitMQ
+- Returns user data (without password)
+
+### 4. Google OAuth Failure
+
+`GET /api/auth/google/failure`
+
+Returns:
+
+- `401 Unauthorized`
+- JSON: `{ success: false, message: 'Google authentication failed. Try again.' }`
+
+## User Model Notes
+
+The user schema includes:
+
+- `email` (unique, required)
+- `fullname.firstName` and `fullname.lastName` (required)
+- `password` (required only when `googleID` is not set)
+- `googleID` (optional)
+- `role` (defaults to `"user"`)
+
+## RabbitMQ Event Contract
+
+Queue: `user_created`
+
+Published payload shape:
+
+```json
+{
+  "id": "<mongodb_user_id>",
+  "email": "user@example.com",
+  "fullname": {
+    "firstName": "Taiyeba",
+    "lastName": "Islam"
+  },
+  "role": "user"
+}
 ```
 
-Redirects the user to Google for authentication.
+## Important Implementation Notes
 
-### Google Callback
-
-```http
-GET /api/auth/google/callback
-```
-
-Google redirects here after login. The service creates or links the user, generates a JWT, and sets the `token` cookie.
-
-### Google Failure
-
-```http
-GET /api/auth/google/failure
-```
-
-Returns a 401 response if Google login fails.
-
-## Response Behavior
-
-### Registration
-
-On success, the service returns the created user without the password field and sets a `token` cookie.
-
-### Google Login
-
-On success, the service returns the matched or created user without the password field and sets a `token` cookie.
-
-## Notes
-
-- The user model supports `googleID`, so email-based users can be linked later to Google accounts.
-- The current service starts the auth router in `server.js` under `/api/auth`.
-- MongoDB connection is required for normal startup.
+- The service does not currently expose a login endpoint for email/password.
+- RabbitMQ publish depends on a valid channel created at startup.
+- Cookies are not marked `secure`; this is suitable for local HTTP development but should be reviewed for production HTTPS.

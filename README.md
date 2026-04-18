@@ -1,132 +1,123 @@
 # Verbascope Social ML
 
-Verbascope Social ML is a multi-service backend workspace for a social platform with machine learning support.
+Verbascope Social ML is a microservices-style backend workspace for a social platform with machine learning features planned.
 
-At the moment, the only implemented service is `auth-service`. The remaining folders are scaffolded for future work:
+Two services are currently implemented and connected through RabbitMQ:
 
-- `gateway/`
-- `services/feed-service/`
-- `services/ml-service/`
-- `services/post-service/`
-- `shared/`
+- auth-service: handles registration and Google OAuth
+- notification-service: listens for new-user events and sends welcome emails
 
 ## Current State
 
-- `auth-service`: implemented and runnable
-- `feed-service`: scaffolded only
-- `post-service`: scaffolded only
-- `ml-service`: scaffolded only
-- `gateway`: scaffolded only
-- `shared`: scaffolded only
-- `docs/` and `docsmkdir/`: placeholder documentation folders
+- auth-service: implemented and runnable
+- notification-service: implemented and runnable
+- feed-service: scaffolded only
+- post-service: scaffolded only
+- ml-service: scaffolded only
+- gateway: scaffolded only
+- shared: scaffolded only
+- docs and docsmkdir: documentation folders
 
-## Auth Service Overview
+## Implemented Architecture
 
-The auth service is an Express + MongoDB service that currently supports:
+1. A user signs up in auth-service (local registration or Google OAuth).
+2. auth-service creates/signs a JWT cookie and publishes a user_created event to RabbitMQ.
+3. notification-service consumes user_created and sends a welcome email.
 
-- user registration
-- Google OAuth login with Passport
-- JWT creation
-- auth token cookie handling
-- MongoDB persistence for users
+Queue contract currently used:
 
-### Implemented Flow
+- queue name: user_created
+- payload fields: id, email, fullname, role
 
-- `server.js` connects to MongoDB, mounts the auth routes, and starts the service on port `3000`
-- `src/app.js` sets up Express, request logging, JSON parsing, cookie parsing, and Passport initialization
-- `src/config/passport.js` configures the Google strategy
-- `src/controller/auth.controller.js` handles local registration and Google callback login
-- `src/routes/auth.routes.js` exposes the auth endpoints
+## Auth Service Summary
 
-## API Endpoints
+Location: services/auth-service
 
-Base path:
+What it does:
 
-```text
-/api/auth
-```
+- POST /api/auth/register with validation
+- GET /api/auth/google for OAuth start
+- GET /api/auth/google/callback for OAuth return
+- GET /api/auth/google/failure for failed OAuth flow
+- stores users in MongoDB
+- sets token cookie (httpOnly, sameSite=lax)
+- publishes user_created event after successful registration and Google callback
 
-### Register a User
+Auth service default port: 3000
 
-```http
-POST /api/auth/register
-```
+Key environment variables:
 
-Request body:
+- MONGO_URI
+- RABBITMQ_URI
+- JWT_SECRET (optional default: dev_jwt_secret)
+- GOOGLE_CLIENT_ID (or CLIENT_ID)
+- GOOGLE_CLIENT_SECRET (or CLIENT_SECRET)
+- GOOGLE_CALLBACK_URL (optional default: http://localhost:3000/api/auth/google/callback)
 
-```json
-{
-  "email": "user@example.com",
-  "password": "secret123",
-  "fullname": {
-    "firstName": "Taiyeba",
-    "lastName": "Islam"
-  }
-}
-```
+## Notification Service Summary
 
-Validation rules:
+Location: services/notification-service
 
-- `email` must be a valid email address
-- `password` must be at least 6 characters long
-- `fullname.firstName` is required
-- `fullname.lastName` is required
+What it does:
 
-### Google Login
+- connects to RabbitMQ on startup
+- subscribes to user_created queue
+- sends welcome emails via Nodemailer (Gmail OAuth2)
+- exposes POST /api/notification/test-email for manual email testing
 
-```http
-GET /api/auth/google
-```
+Notification service default port: 3001
 
-Redirects the user to Google for authentication.
+Key environment variables:
 
-### Google Callback
+- RABBITMQ_URI
+- EMAIL_USER
+- CLIENT_ID
+- CLIENT_SECRET
+- REFRESH_TOKEN
+- ACCESS_TOKEN
 
-```http
-GET /api/auth/google/callback
-```
+Variables currently present but not used by notification runtime logic:
 
-Google redirects here after login. The service creates or links the user, issues a JWT, and sets a `token` cookie.
+- MONGO_URI
+- JWT_SECRET
 
-### Google Failure
+## Local Run Guide
 
-```http
-GET /api/auth/google/failure
-```
+Prerequisites:
 
-Returns a 401 response if Google authentication fails.
+- Node.js installed
+- MongoDB available for auth-service
+- RabbitMQ available for both services
+- Google OAuth credentials configured in each service env where needed
 
-## Environment Variables
-
-The auth service reads its local environment from `services/auth-service/.env`.
-
-Required:
-
-- `MONGO_URI`
-
-Optional:
-
-- `JWT_SECRET` - defaults to `dev_jwt_secret`
-- `GOOGLE_CLIENT_ID` or legacy `CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET` or legacy `CLIENT_SECRET`
-- `GOOGLE_CALLBACK_URL` - defaults to `http://localhost:3000/api/auth/google/callback`
-
-## Run the Auth Service
-
-From `services/auth-service`:
+Run auth-service:
 
 ```bash
+cd services/auth-service
 npm install
 npm run dev
 ```
 
-Or start it directly:
+Run notification-service in another terminal:
 
 ```bash
-node server.js
+cd services/notification-service
+npm install
+npm run dev
 ```
 
-The service runs on port `3000`.
+## Service Endpoints
+
+Auth service:
+
+- POST /api/auth/register
+- GET /api/auth/google
+- GET /api/auth/google/callback
+- GET /api/auth/google/failure
+
+Notification service:
+
+- POST /api/notification/test-email
 
 ## Project Structure
 
@@ -139,25 +130,7 @@ verbascope-social-ml/
 ├── gateway/
 ├── services/
 │   ├── auth-service/
-│   │   ├── .env
-│   │   ├── package.json
-│   │   ├── package-lock.json
-│   │   ├── server.js
-│   │   └── src/
-│   │       ├── app.js
-│   │       ├── config/
-│   │       │   ├── config.js
-│   │       │   └── passport.js
-│   │       ├── controller/
-│   │       │   └── auth.controller.js
-│   │       ├── db/
-│   │       │   └── db.js
-│   │       ├── middlewares/
-│   │       │   └── validation.middleware.js
-│   │       ├── model/
-│   │       │   └── user.model.js
-│   │       └── routes/
-│   │           └── auth.routes.js
+│   ├── notification-service/
 │   ├── feed-service/
 │   ├── ml-service/
 │   └── post-service/
@@ -166,6 +139,7 @@ verbascope-social-ml/
 
 ## Notes
 
-- `auth-service` is the only active implementation right now.
-- The other service folders are placeholders for future feature work.
-- For a folder-by-folder explanation, see [about.md](about.md).
+- Detailed per-service docs:
+  - services/auth-service/README.md
+  - services/notification-service/README.md
+- For broader folder context, see [about.md](about.md).

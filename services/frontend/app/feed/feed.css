@@ -1,0 +1,128 @@
+/* ──────────────────────────────────────────────────────────
+   Feed Layout — Social Media Style
+   ────────────────────────────────────────────────────────── */
+
+.feed-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  gap: var(--v-space-lg);
+}
+
+.feed-layout > nav {
+  grid-column: 1 / -1;
+}
+
+.feed-main {
+  grid-column: 1;
+  padding: var(--v-space-lg) 0;
+  overflow-y: auto;
+}
+
+.feed-sidebar {
+  grid-column: 2;
+  grid-row: 2;
+  padding: var(--v-space-lg) var(--v-space-lg) var(--v-space-lg) 0;
+}
+
+/* ── Trending Card ─────────────────────────────────────── */
+.trending-card {
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border);
+  border-radius: var(--v-radius-md);
+  padding: var(--v-space-lg);
+  position: sticky;
+  top: 80px;
+}
+
+.trending-card h3 {
+  margin-bottom: var(--v-space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-sm);
+}
+
+.trending-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-md);
+}
+
+.trending-item {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-md);
+  padding: var(--v-space-md);
+  border-radius: var(--v-radius-sm);
+  background: rgba(28, 43, 42, 0.2);
+  transition: all var(--v-transition);
+  text-decoration: none;
+}
+
+.trending-item:hover {
+  background: rgba(28, 43, 42, 0.35);
+  transform: translateX(4px);
+}
+
+.trending-tag {
+  font-weight: 600;
+  color: var(--v-text-primary);
+  font-size: 0.95rem;
+}
+
+.trending-count {
+  font-size: 0.8rem;
+  color: var(--v-text-muted);
+}
+
+/* ── Empty State ───────────────────────────────────────– */
+.feed-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: var(--v-space-xl);
+  border: 2px dashed var(--v-border);
+  border-radius: var(--v-radius-lg);
+  text-align: center;
+  background: rgba(28, 43, 42, 0.1);
+}
+
+.feed-empty p {
+  color: var(--v-text-muted);
+  font-size: 1.1rem;
+}
+
+/* ── Responsive ────────────────────────────────────────– */
+@media (max-width: 1024px) {
+  .feed-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-sidebar {
+    grid-column: 1;
+    grid-row: auto;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .feed-layout {
+    gap: var(--v-space-md);
+  }
+
+  .feed-main {
+    padding: var(--v-space-md) 0;
+  }
+
+  .feed-sidebar {
+    max-width: 100%;
+    padding: var(--v-space-md) 0;
+  }
+
+  .trending-card {
+    position: static;
+  }
+}

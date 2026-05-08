@@ -1,12 +1,13 @@
 import express from 'express';
 import passport from 'passport';
 import authController from '../controller/auth.controller.js';
-import { registerUserValidationRules } from '../middlewares/validation.middleware.js';
+import { loginUserValidationRules, registerUserValidationRules } from '../middlewares/validation.middleware.js';
 
 const router = express.Router();
 
 // Existing
 router.post('/register', registerUserValidationRules, authController.register);
+router.post('/login', loginUserValidationRules, authController.login);
 
 // Step 1: Send user to Google
 router.get(

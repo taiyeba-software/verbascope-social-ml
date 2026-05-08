@@ -196,6 +196,6 @@ Published payload shape:
 
 ## Important Implementation Notes
 
-- The service does not currently expose a login endpoint for email/password.
+- The service exposes `POST /api/auth/login` for email/password login.
 - RabbitMQ publish depends on a valid channel created at startup.
 - Cookies are not marked `secure`; this is suitable for local HTTP development but should be reviewed for production HTTPS.

@@ -1,0 +1,733 @@
+/* ============================================================
+   VERBASCOPE — Loid Forger Theme
+   Inspired by: Spy x Family official invitation card aesthetic
+   Character: Agent Loid Forger's sophisticated spy sophistication
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@400;700&family=Playfair+Display:wght@400;700&family=Crimson+Text:wght@400;600&family=Lora:wght@400;600&family=Inter:wght@300;400;500;600&display=swap');
+
+/* ── CSS Variables ─────────────────────────────────────────── */
+:root {
+
+  /* Backgrounds — Loid Forger Invitation Card Palette */
+  --v-bg-primary:      #6BA59E;   /* Soft sage teal from the card */
+  --v-bg-secondary:    #5A9590;   /* Slightly darker teal */
+  --v-bg-card:         #7BB5AE;   /* Light card surface */
+  --v-bg-dark:         #1A2A28;   /* Deep navy for contrast */
+  --v-bg-light:        #E8E3DB;   /* Warm cream/paper white */
+  --v-bg-overlay:      rgba(26, 42, 40, 0.65);
+
+  /* Accent — Spy Agency Aesthetic */
+  --v-accent:          #1A2A28;   /* Deep navy — mission critical */
+  --v-accent-soft:     #2A3A38;   /* Hover state */
+  --v-accent-border:   rgba(26, 42, 40, 0.3);
+  --v-dot-size:        2px;
+  --v-gap:             12px;
+
+  /* Text — Elegant Loid Forger Style */
+  --v-text-primary:    #F5F0E8;   /* Warm paper cream (primary) */
+  --v-text-secondary:  #D0D9D6;   /* Soft gray on teal */
+  --v-text-muted:      #9AADA8;   /* Muted sage for hints */
+  --v-text-dark:       #1A2A28;   /* For light backgrounds */
+
+  /* ML Brain signal colors */
+  --v-signal-green:    #6FBDB3;   /* Softer sage-green */
+  --v-signal-yellow:   #D4A574;   /* Warm beige-gold */
+  --v-signal-red:      #C17B6D;   /* Warm terracotta */
+  --v-signal-green-bg: rgba(111, 189, 179, 0.15);
+  --v-signal-yellow-bg:rgba(212, 165, 116, 0.15);
+  --v-signal-red-bg:   rgba(193, 123, 109, 0.15);
+
+  /* Borders */
+  --v-border:          rgba(26, 42, 40, 0.2);
+  --v-border-strong:   rgba(26, 42, 40, 0.4);
+  --v-border-line:     rgba(26, 42, 40, 0.6);   /* Vertical line accent */
+
+  /* Typography — Elegant & Sophisticated */
+  --v-font-serif-display: 'Bodoni Moda', 'Playfair Display', Georgia, serif;
+  --v-font-serif:      'Crimson Text', 'Lora', Georgia, serif;
+  --v-font-sans:       'Inter', system-ui, -apple-system, sans-serif;
+  --v-font-mono:       'Courier New', monospace;
+
+  /* Spacing */
+  --v-space-xs:  4px;
+  --v-space-sm:  8px;
+  --v-space-md:  16px;
+  --v-space-lg:  24px;
+  --v-space-xl:  40px;
+
+  /* Border radius */
+  --v-radius-sm:   6px;
+  --v-radius-md:   12px;
+  --v-radius-lg:   20px;
+  --v-radius-full: 9999px;
+
+  /* Shadows */
+  --v-shadow-sm: 0 2px 8px rgba(28, 43, 42, 0.2);
+  --v-shadow-md: 0 4px 20px rgba(28, 43, 42, 0.3);
+  --v-shadow-lg: 0 8px 40px rgba(28, 43, 42, 0.4);
+
+  /* Transitions */
+  --v-transition: 0.2s ease;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background-color: var(--v-bg-primary);
+  background-image: 
+    radial-gradient(
+      ellipse 80% 80% at 20% 50%,
+      rgba(111, 189, 179, 0.15) 0%,
+      rgba(111, 189, 179, 0) 50%
+    ),
+    radial-gradient(
+      ellipse 60% 60% at 80% 80%,
+      rgba(212, 165, 116, 0.08) 0%,
+      rgba(212, 165, 116, 0) 45%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.01) 2px,
+      rgba(255, 255, 255, 0.01) 4px
+    );
+  background-attachment: fixed;
+  color: var(--v-text-primary);
+  font-family: var(--v-font-sans);
+  font-weight: 400;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Typography — Elegant Loid Forger Aesthetic ────────────── */
+h1, h2, h3 {
+  font-family: var(--v-font-serif-display);
+  font-weight: 700;
+  color: var(--v-text-primary);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+h1 { font-size: 2.5rem; font-weight: 700; }
+h2 { font-size: 1.875rem; font-weight: 700; }
+h3 { font-size: 1.25rem; font-weight: 600; }
+
+h4, h5, h6 {
+  font-family: var(--v-font-serif);
+  font-weight: 600;
+  color: var(--v-text-primary);
+  letter-spacing: -0.01em;
+}
+h4 { font-size: 1.125rem; }
+h5 { font-size: 1rem; }
+h6 { font-size: 0.875rem; }
+
+p { 
+  color: var(--v-text-secondary); 
+  line-height: 1.75;
+  font-size: 0.95rem;
+}
+
+strong, b {
+  font-weight: 600;
+  color: var(--v-text-primary);
+}
+
+/* Mission Brief Label — Loid Forger style */
+.label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--v-text-muted);
+  font-family: var(--v-font-sans);
+  word-spacing: 0.1em;
+}
+
+.label-serif {
+  font-family: var(--v-font-serif-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+a {
+  color: var(--v-signal-green);
+  text-decoration: none;
+  transition: all var(--v-transition);
+  border-bottom: 1px solid rgba(111, 189, 179, 0.4);
+}
+a:hover { 
+  color: var(--v-text-primary);
+  border-bottom-color: var(--v-signal-green);
+}
+
+/* ── V Logo ────────────────────────────────────────────────── */
+/*
+  Usage in JSX:
+  <div className="v-logo">
+    <svg className="v-mark" viewBox="0 0 42 42">
+      <polygon points="4,6 21,36 38,6 32,6 21,26 10,6" fill="currentColor"/>
+    </svg>
+    <div>
+      <span className="v-logo-name">Verbascope</span>
+      <span className="v-logo-sub">Social · Intelligence</span>
+    </div>
+  </div>
+*/
+.v-logo        { display: flex; align-items: center; gap: var(--v-space-sm); }
+.v-mark        { width: 36px; height: 36px; color: var(--v-accent); }
+.v-logo-name   {
+  display: block;
+  font-family: var(--v-font-serif-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v-text-primary);
+}
+.v-logo-sub    {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--v-text-muted);
+}
+
+/* ── V Triangle Decoration (Verbascope Dotted Mark) ────────── */
+/*
+  Elegant dotted V-triangle like the reference image
+  Place randomly on pages with different sizes and positions
+*/
+.dot-triangle {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.8;
+  background-image: radial-gradient(
+    circle,
+    var(--v-accent) var(--v-dot-size),
+    transparent var(--v-dot-size)
+  );
+  background-size: var(--v-gap) var(--v-gap);
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+  --triangle-base-transform: none;
+  transform: var(--triangle-base-transform);
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  animation: triangle-pulse 8s ease-in-out infinite;
+}
+
+/* Size variations */
+.dot-triangle.small {
+  width: 60px;
+  height: 60px;
+}
+
+.dot-triangle.medium {
+  width: 100px;
+  height: 100px;
+}
+
+.dot-triangle.large {
+  width: 160px;
+  height: 160px;
+}
+
+/* Position variations for random placement */
+.dot-triangle.top-right {
+  top: 30px;
+  right: 30px;
+}
+
+.dot-triangle.top-left {
+  top: 30px;
+  left: 30px;
+  --triangle-base-transform: scaleX(-1);
+}
+
+.dot-triangle.bottom-right {
+  bottom: 30px;
+  right: 30px;
+  --triangle-base-transform: scaleY(-1);
+}
+
+.dot-triangle.bottom-left {
+  bottom: 30px;
+  left: 30px;
+  --triangle-base-transform: scaleX(-1) scaleY(-1);
+}
+
+.dot-triangle.middle-right {
+  top: 50%;
+  right: 30px;
+  --triangle-base-transform: translateY(-50%);
+}
+
+.dot-triangle.middle-left {
+  top: 50%;
+  left: 30px;
+  --triangle-base-transform: translateY(-50%) scaleX(-1);
+}
+
+@keyframes triangle-pulse {
+  0% {
+    opacity: 0.4;
+    transform: var(--triangle-base-transform) translate(0, 0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: var(--triangle-base-transform) translate(-5px, 5px);
+  }
+  100% {
+    opacity: 0.4;
+    transform: var(--triangle-base-transform) translate(0, 0);
+  }
+}
+
+/* ── Cards — Sophisticated Spy Agency Design ───────────────── */
+.card {
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border-strong);
+  border-radius: var(--v-radius-md);
+  padding: var(--v-space-lg);
+  box-shadow: 0 2px 12px rgba(26, 42, 40, 0.15);
+  transition: all var(--v-transition);
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.card:hover {
+  box-shadow: 0 4px 20px rgba(26, 42, 40, 0.25);
+}
+
+.card-dark {
+  background: var(--v-bg-dark);
+  border: 1px solid var(--v-accent-border);
+  border-radius: var(--v-radius-md);
+  padding: var(--v-space-lg);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.card-light {
+  background: var(--v-bg-light);
+  border: 1px solid rgba(26, 42, 40, 0.15);
+  border-radius: var(--v-radius-md);
+  padding: var(--v-space-lg);
+  color: var(--v-text-dark);
+}
+
+/* ── Post Card — Mission Brief Style ───────────────────────── */
+.post-card {
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border-strong);
+  border-left: 3px solid var(--v-accent);
+  border-radius: var(--v-radius-md);
+  padding: var(--v-space-md);
+  box-shadow: 0 2px 8px rgba(26, 42, 40, 0.1);
+  transition: all var(--v-transition);
+}
+
+.post-card:hover { 
+  box-shadow: 0 4px 16px rgba(26, 42, 40, 0.2);
+  border-left-color: var(--v-signal-green);
+}
+
+.post-card.highlight {
+  border-left-color: var(--v-signal-yellow);
+}
+
+/* ── Avatar ────────────────────────────────────────────────── */
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--v-radius-full);
+  background: var(--v-accent);
+  color: var(--v-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── ML Signal Badges — Sentiment Analysis ────────────────── */
+/*
+  <span className="badge badge-green">✓ Positive</span>
+  <span className="badge badge-yellow">⚡ Sarcasm</span>
+  <span className="badge badge-red">● Negative</span>
+*/
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: var(--v-radius-full);
+  font-family: var(--v-font-sans);
+  transition: all var(--v-transition);
+}
+
+.badge-green  {
+  background: var(--v-signal-green-bg);
+  color: var(--v-signal-green);
+  border: 1px solid var(--v-signal-green);
+}
+
+.badge-green:hover {
+  background: rgba(111, 189, 179, 0.25);
+}
+
+.badge-yellow {
+  background: var(--v-signal-yellow-bg);
+  color: var(--v-signal-yellow);
+  border: 1px solid var(--v-signal-yellow);
+}
+
+.badge-yellow:hover {
+  background: rgba(212, 165, 116, 0.25);
+}
+
+.badge-red    {
+  background: var(--v-signal-red-bg);
+  color: var(--v-signal-red);
+  border: 1px solid var(--v-signal-red);
+}
+
+.badge-red:hover {
+  background: rgba(193, 123, 109, 0.25);
+}
+
+/* ── Elegant Symbol System ─────────────────────────────────── */
+/* Replaces generic emoji with refined unicode symbols */
+.symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  opacity: 0.8;
+  transition: opacity var(--v-transition);
+}
+
+.symbol:hover {
+  opacity: 1;
+}
+
+.symbol-sarcasm   { content: '✦'; }  /* Sarcasm Signal */
+.symbol-emotion   { content: '◉'; }  /* Emotional Pulse */
+.symbol-tone      { content: '⌁'; }  /* Tone Mapping */
+.symbol-social    { content: '⟡'; }  /* Social Echoes */
+.symbol-behavior  { content: '◎'; }  /* Behavioral Drift */
+.symbol-insight   { content: '◌'; }  /* Neural Insight */
+.symbol-signal    { content: '⊹'; }  /* Signal Burst */
+.symbol-wave      { content: '⟢'; }  /* Wave Pattern */
+.symbol-orbit     { content: '◈'; }  /* Orbital Scan */
+
+/* ── Pulse Live Dot — Breathing Glow ───────────────────────── */
+/* <span className="pulse-dot" /> */
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--v-signal-green);
+  display: inline-block;
+  animation: breathing-pulse 3s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(111, 189, 179, 0.7);
+}
+
+@keyframes breathing-pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(111, 189, 179, 0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(111, 189, 179, 0);
+  }
+}
+
+/* ── Buttons — Spy Agency Command Style ────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--v-space-sm);
+  font-family: var(--v-font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 11px 28px;
+  border-radius: var(--v-radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--v-transition);
+}
+
+.btn-primary {
+  background: var(--v-accent);
+  color: var(--v-text-secondary);
+  box-shadow: 0 2px 8px rgba(26, 42, 40, 0.2);
+}
+
+.btn-primary:hover {
+  background: var(--v-accent-soft);
+  color: var(--v-text-primary);
+  box-shadow: 0 4px 12px rgba(26, 42, 40, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--v-text-muted);
+  border: 1.5px solid var(--v-border-strong);
+}
+
+.btn-ghost:hover {
+  color: var(--v-text-primary);
+  border-color: var(--v-accent);
+  background: rgba(26, 42, 40, 0.05);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--v-accent);
+  border: 1.5px solid var(--v-accent);
+}
+
+.btn-outline:hover {
+  background: var(--v-accent);
+  color: var(--v-text-secondary);
+}
+
+/* ── Inputs — Mission Data Entry ───────────────────────────── */
+.input {
+  width: 100%;
+  background: rgba(26, 42, 40, 0.25);
+  border: 1.5px solid var(--v-border);
+  border-radius: var(--v-radius-sm);
+  padding: 11px 14px;
+  color: var(--v-text-primary);
+  font-family: var(--v-font-sans);
+  font-size: 0.95rem;
+  outline: none;
+  transition: all var(--v-transition);
+}
+
+.input::placeholder { 
+  color: var(--v-text-muted);
+  font-style: italic;
+}
+
+.input:focus {
+  border-color: var(--v-accent);
+  background: rgba(26, 42, 40, 0.35);
+  box-shadow: 0 0 0 3px rgba(111, 189, 179, 0.1);
+}
+
+textarea.input { 
+  resize: vertical; 
+  min-height: 100px;
+  font-family: var(--v-font-sans);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-dark {
+  background: rgba(26, 42, 40, 0.4);
+  color: var(--v-text-dark);
+}
+
+.input-dark::placeholder {
+  color: var(--v-text-muted);
+}
+
+/* ── Divider — Loid Forger Style ──────────────────────────── */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--v-border-line), transparent);
+  margin: var(--v-space-md) 0;
+}
+
+.divider-vertical {
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, var(--v-border-line), transparent);
+}
+
+.divider-bold {
+  height: 2px;
+  background: var(--v-border-line);
+  margin: var(--v-space-lg) 0;
+}
+
+/* ── Navbar — Command Center ───────────────────────────────── */
+.navbar {
+  background: var(--v-bg-dark);
+  border-bottom: 1px solid var(--v-accent-border);
+  padding: var(--v-space-md) var(--v-space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.navbar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, var(--v-border-line), transparent);
+}
+
+.navbar-title {
+  font-family: var(--v-font-serif-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--v-text-primary);
+  text-transform: uppercase;
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 var(--v-space-md);
+}
+
+.flex          { display: flex; }
+.flex-center   { display: flex; align-items: center; justify-content: center; }
+.flex-between  { display: flex; align-items: center; justify-content: space-between; }
+.gap-sm        { gap: var(--v-space-sm); }
+.gap-md        { gap: var(--v-space-md); }
+.mt-sm         { margin-top: var(--v-space-sm); }
+.mt-md         { margin-top: var(--v-space-md); }
+.mt-lg         { margin-top: var(--v-space-lg); }
+
+/* ── Shimmer Loading Animation ────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.shimmer {
+  animation: shimmer 2.5s infinite;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* ── Floating Gradient Animation ───────────────────────────── */
+@keyframes floating-glow {
+  0%, 100% {
+    transform: translate(0, 0);
+    opacity: 0.5;
+  }
+  25% {
+    transform: translate(10px, -10px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(0, 20px);
+    opacity: 0.5;
+  }
+  75% {
+    transform: translate(-10px, -10px);
+    opacity: 0.6;
+  }
+}
+
+.floating-gradient {
+  animation: floating-glow 8s ease-in-out infinite;
+}
+
+/* ── Subtle Scan Line Animation ────────────────────────────── */
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.3;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.scan-effect {
+  animation: scan-line 6s ease-in-out infinite;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(111, 189, 179, 0.2),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ── Glow Pulse for Cards ──────────────────────────────────── */
+@keyframes glow-pulse {
+  0%, 100% {
+    border-color: rgba(26, 42, 40, 0.4);
+    box-shadow: 0 0 0 0 rgba(111, 189, 179, 0.1);
+  }
+  50% {
+    border-color: rgba(111, 189, 179, 0.6);
+    box-shadow: 0 0 12px rgba(111, 189, 179, 0.15);
+  }
+}
+
+.glow-hover:hover {
+  animation: glow-pulse 2s ease-in-out;
+}

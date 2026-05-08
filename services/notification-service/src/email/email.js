@@ -3,17 +3,12 @@ import config from '../config/config.js';
 
 // ─── Transporter ────────────────────────────────────────────────
 // createTransport connects our app (web server) to Gmail's
-// SMTP server using OAuth2 instead of a plain password.
-// OAuth2 is required by Google for production sending.
+// SMTP server using basic authentication.
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        type:         'OAuth2',
-        user:         config.EMAIL_USER,
-        clientId:     config.CLIENT_ID,
-        clientSecret: config.CLIENT_SECRET,
-        refreshToken: config.REFRESH_TOKEN,
-        accessToken:  config.ACCESS_TOKEN,
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
     },
 });
 

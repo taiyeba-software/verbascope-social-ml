@@ -1,0 +1,135 @@
+/* ──────────────────────────────────────────────────────────
+   Create Post Box Component
+   ────────────────────────────────────────────────────────── */
+
+.create-post-box {
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border);
+  border-radius: var(--v-radius-md);
+  padding: var(--v-space-md);
+  margin-bottom: var(--v-space-lg);
+  box-shadow: var(--v-shadow-sm);
+}
+
+/* ── Header (Collapsed) ────────────────────────────────── */
+.create-post-header {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-md);
+}
+
+.create-post-input {
+  flex: 1;
+  background: rgba(28, 43, 42, 0.2);
+  border: 1px solid var(--v-accent-border);
+  border-radius: var(--v-radius-full);
+  padding: 10px 16px;
+  color: var(--v-text-primary);
+  font-family: var(--v-font-sans);
+  font-size: 0.95rem;
+  outline: none;
+  transition: all var(--v-transition);
+  cursor: text;
+}
+
+.create-post-input::placeholder {
+  color: var(--v-text-muted);
+}
+
+.create-post-input:focus {
+  border-color: var(--v-text-muted);
+  background: rgba(28, 43, 42, 0.35);
+}
+
+/* ── Expanded ──────────────────────────────────────────– */
+.create-post-expanded {
+  margin-top: var(--v-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-md);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.create-post-expanded textarea {
+  resize: none;
+}
+
+/* ── Actions ───────────────────────────────────────────– */
+.create-post-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--v-space-md);
+  border-top: 1px solid var(--v-border);
+}
+
+/* ── Tools ─────────────────────────────────────────────– */
+.create-post-tools {
+  display: flex;
+  gap: var(--v-space-md);
+}
+
+.tool-btn {
+  background: transparent;
+  border: none;
+  color: var(--v-text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--v-radius-sm);
+  transition: all var(--v-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn:hover {
+  color: var(--v-text-primary);
+  background: rgba(28, 43, 42, 0.2);
+}
+
+/* ── Buttons ───────────────────────────────────────────– */
+.create-post-buttons {
+  display: flex;
+  gap: var(--v-space-md);
+}
+
+.create-post-buttons .btn {
+  padding: 8px 20px;
+  font-size: 0.75rem;
+}
+
+.create-post-buttons .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ────────────────────────────────────────– */
+@media (max-width: 640px) {
+  .create-post-box {
+    padding: var(--v-space-sm);
+  }
+
+  .create-post-tools {
+    gap: var(--v-space-sm);
+  }
+
+  .create-post-buttons {
+    gap: var(--v-space-sm);
+    flex-direction: column;
+  }
+
+  .create-post-buttons .btn {
+    width: 100%;
+  }
+}

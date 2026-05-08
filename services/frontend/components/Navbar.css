@@ -1,0 +1,115 @@
+/* ──────────────────────────────────────────────────────────
+   Navbar Component Styles
+   ────────────────────────────────────────────────────────── */
+
+.navbar {
+  background: var(--v-bg-dark);
+  border-bottom: 1px solid var(--v-accent-border);
+  padding: var(--v-space-md) var(--v-space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* ── Logo ───────────────────────────────────────────────── */
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-sm);
+  text-decoration: none;
+  transition: opacity var(--v-transition);
+}
+
+.navbar-logo:hover {
+  opacity: 0.8;
+}
+
+.navbar-logo .v-mark {
+  width: 32px;
+  height: 32px;
+  color: var(--v-accent);
+}
+
+.navbar-logo .v-logo-name {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--v-text-primary);
+}
+
+.navbar-logo .v-logo-sub {
+  display: none;
+}
+
+/* ── Center ──────────────────────────────────────────────── */
+.navbar-center {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-md);
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-sm);
+  padding: 6px 14px;
+  border-radius: var(--v-radius-full);
+  background: rgba(126, 206, 196, 0.1);
+  border: 1px solid rgba(126, 206, 196, 0.3);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--v-signal-green);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── End ────────────────────────────────────────────────── */
+.navbar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-md);
+}
+
+.navbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--v-radius-sm);
+  color: var(--v-text-muted);
+  transition: all var(--v-transition);
+}
+
+.navbar-icon-btn:hover {
+  color: var(--v-signal-green);
+  background: rgba(111, 189, 179, 0.1);
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .navbar {
+    padding: var(--v-space-md);
+  }
+
+  .navbar-logo {
+    gap: var(--v-space-xs);
+  }
+
+  .navbar-logo .v-mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .navbar-logo .v-logo-name {
+    font-size: 0.9rem;
+  }
+
+  .live-indicator {
+    display: none;
+  }
+}

@@ -99,6 +99,54 @@ import bcrypt from 'bcryptjs';
 import config from '../config/config.js';
 import { publishToQueue } from '../broker/rabbit.js';  // ← add this
 
+const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password',
+            });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password',
+            });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            config.JWT_SECRET,
+            { expiresIn: '2d' }
+        );
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            sameSite: 'lax',
+            maxAge: 2 * 24 * 60 * 60 * 1000,
+        });
+
+        const userData = user.toObject();
+        delete userData.password;
+
+        return res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            user: userData,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 const register = async (req, res) => {
     try {
         const { email, password, fullname } = req.body;
@@ -200,5 +248,5 @@ const googleCallback = async (req, res) => {
     }
 };
 
-const authController = { register, googleCallback };
+const authController = { register, login, googleCallback };
 export default authController;

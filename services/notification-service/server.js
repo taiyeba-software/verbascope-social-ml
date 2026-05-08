@@ -1,6 +1,7 @@
 
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config();
 import app from './src/app.js';
 import { connect } from './src/broker/rabbit.js';      // ← add
 import startListener from './src/broker/listener.js';  // ← add

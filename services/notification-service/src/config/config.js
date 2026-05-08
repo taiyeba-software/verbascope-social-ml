@@ -5,12 +5,6 @@ dotenvConfig();
 const _config = {
     MONGO_URI:     process.env.MONGO_URI,
     JWT_SECRET:    process.env.JWT_SECRET,
-
-    // Google OAuth2 / Nodemailer credentials
-    CLIENT_ID:     process.env.CLIENT_ID,
-    CLIENT_SECRET: process.env.CLIENT_SECRET,
-    REFRESH_TOKEN: process.env.REFRESH_TOKEN,
-    ACCESS_TOKEN:  process.env.ACCESS_TOKEN,
     EMAIL_USER:    process.env.EMAIL_USER,
     // RabbitMQ URI for message broker
     RABBITMQ_URI:  process.env.RABBITMQ_URI,

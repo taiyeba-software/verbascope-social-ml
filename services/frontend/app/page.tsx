@@ -8,9 +8,9 @@ export default function Home() {
       {/* Hero Section */}
       <section className="hero">
         {/* Decorative V-triangles for playful atmosphere */}
-        <div className="dot-triangle small top-right"></div>
-        <div className="dot-triangle medium bottom-left"></div>
-        <div className="dot-triangle small top-left"></div>
+        <div className="dot-triangle large top-right landing-hero"></div>
+        <div className="dot-triangle medium top-left landing-hero"></div>
+        <div className="dot-triangle small bottom-left landing-hero"></div>
         
         <div className="hero-content">
           <div className="hero-text">
@@ -77,8 +77,12 @@ export default function Home() {
               </div>
 
               <div className="card-signals">
-                <span className="badge badge-yellow">😏 Sarcasm</span>
-                <span className="badge badge-red">😤 Negative</span>
+                <span className="badge badge-yellow">
+                  <span className="symbol-sarcasm"></span> SARCASM CUE
+                </span>
+                <span className="badge badge-red">
+                  <span className="symbol-emotion"></span> TONE ALERT
+                </span>
               </div>
             </div>
 

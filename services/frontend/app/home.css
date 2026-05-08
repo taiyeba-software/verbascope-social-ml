@@ -200,44 +200,50 @@
   flex-wrap: wrap;
 }
 
-/* Enhanced Badges for better visibility */
+/* Enhanced Badges — Tactical Intel Style */
 .card-signals .badge {
-  padding: 6px 14px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  border-width: 1.5px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 8px 14px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-family: 'Monaco', 'Courier New', monospace;
+  border-width: 1px;
+  border-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: all var(--v-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-signals .badge:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .card-signals .badge-yellow {
-  background: linear-gradient(135deg, rgba(212, 165, 116, 0.3), rgba(212, 165, 116, 0.1));
+  background: rgba(212, 165, 116, 0.12);
   color: #D4A574;
-  border: 1.5px solid #D4A574;
-  font-weight: 700;
+  border: 1px solid #D4A574;
 }
 
 .card-signals .badge-yellow:hover {
-  background: rgba(212, 165, 116, 0.4);
+  background: rgba(212, 165, 116, 0.2);
   color: #E8C547;
+  border-color: #E8C547;
 }
 
 .card-signals .badge-red {
-  background: linear-gradient(135deg, rgba(224, 112, 96, 0.3), rgba(224, 112, 96, 0.1));
-  color: #E07060;
-  border: 1.5px solid #E07060;
-  font-weight: 700;
+  background: rgba(193, 123, 109, 0.12);
+  color: #C17B6D;
+  border: 1px solid #C17B6D;
 }
 
 .card-signals .badge-red:hover {
-  background: rgba(224, 112, 96, 0.4);
-  color: #FF6B5B;
+  background: rgba(193, 123, 109, 0.2);
+  color: #E07060;
+  border-color: #E07060;
 }
 
 /* ── Floating Orbs — Ambient Emotional Processing ────────── */

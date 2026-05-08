@@ -68,7 +68,7 @@
   --v-shadow-lg: 0 8px 40px rgba(28, 43, 42, 0.4);
 
   /* Transitions */
-  --v-transition: 0.2s ease;
+  --v-transition: 0.2s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -215,6 +215,8 @@ a:hover {
   position: absolute;
   pointer-events: none;
   opacity: 0.8;
+  width: var(--triangle-size, 0px);
+  height: var(--triangle-size, 0px);
   background-image: radial-gradient(
     circle,
     var(--v-accent) var(--v-dot-size),
@@ -223,6 +225,7 @@ a:hover {
   background-size: var(--v-gap) var(--v-gap);
   clip-path: polygon(100% 0, 0 0, 100% 100%);
   --triangle-base-transform: none;
+  --triangle-size: 0px;
   transform: var(--triangle-base-transform);
   transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
   animation: triangle-pulse 8s ease-in-out infinite;
@@ -230,18 +233,15 @@ a:hover {
 
 /* Size variations */
 .dot-triangle.small {
-  width: 60px;
-  height: 60px;
+  --triangle-size: 60px;
 }
 
 .dot-triangle.medium {
-  width: 100px;
-  height: 100px;
+  --triangle-size: 100px;
 }
 
 .dot-triangle.large {
-  width: 160px;
-  height: 160px;
+  --triangle-size: 160px;
 }
 
 /* Position variations for random placement */
@@ -280,6 +280,25 @@ a:hover {
   --triangle-base-transform: translateY(-50%) scaleX(-1);
 }
 
+.triangle-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Option 1: Radar sweep for minimalist landing hero */
+.dot-triangle.landing-hero {
+  animation: radar-sweep 4s cubic-bezier(0.19, 1, 0.22, 1) infinite;
+  will-change: clip-path, opacity, transform;
+}
+
+.dot-triangle.landing-hero:hover {
+  filter: drop-shadow(0 0 8px var(--v-accent));
+  opacity: 1;
+}
+
 @keyframes triangle-pulse {
   0% {
     opacity: 0.4;
@@ -292,6 +311,31 @@ a:hover {
   100% {
     opacity: 0.4;
     transform: var(--triangle-base-transform) translate(0, 0);
+  }
+}
+
+@keyframes radar-sweep {
+  0% {
+    clip-path: polygon(100% 0, 100% 0, 100% 0);
+    opacity: 0;
+    transform: var(--triangle-base-transform);
+  }
+  20% {
+    opacity: 1;
+    transform: var(--triangle-base-transform);
+  }
+  50% {
+    clip-path: polygon(100% 0, 0 0, 100% 100%);
+    transform: var(--triangle-base-transform);
+  }
+  80% {
+    opacity: 1;
+    transform: var(--triangle-base-transform);
+  }
+  100% {
+    clip-path: polygon(100% 100%, 100% 100%, 100% 100%);
+    opacity: 0;
+    transform: var(--triangle-base-transform);
   }
 }
 
@@ -421,30 +465,45 @@ a:hover {
   background: rgba(193, 123, 109, 0.25);
 }
 
-/* ── Elegant Symbol System ─────────────────────────────────── */
-/* Replaces generic emoji with refined unicode symbols */
+/* ── Tactical Symbol System ───────────────────────────────────── */
+/* Geometric symbols for ML signal analysis — inspired by Loid Forger */
 .symbol {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
-  opacity: 0.8;
-  transition: opacity var(--v-transition);
+  font-size: 1.35em;
+  font-weight: 700;
+  opacity: 1;
+  transition: all var(--v-transition);
+  font-family: 'Monaco', 'Courier New', monospace;
+  line-height: 1;
 }
 
 .symbol:hover {
-  opacity: 1;
+  filter: drop-shadow(0 0 4px currentColor);
+  transform: scale(1.15);
 }
 
-.symbol-sarcasm   { content: '✦'; }  /* Sarcasm Signal */
-.symbol-emotion   { content: '◉'; }  /* Emotional Pulse */
-.symbol-tone      { content: '⌁'; }  /* Tone Mapping */
-.symbol-social    { content: '⟡'; }  /* Social Echoes */
-.symbol-behavior  { content: '◎'; }  /* Behavioral Drift */
-.symbol-insight   { content: '◌'; }  /* Neural Insight */
-.symbol-signal    { content: '⊹'; }  /* Signal Burst */
-.symbol-wave      { content: '⟢'; }  /* Wave Pattern */
-.symbol-orbit     { content: '◈'; }  /* Orbital Scan */
+/* Vibrant symbol definitions for badge use */
+.symbol-sarcasm::before {
+  content: '✦';
+  color: #D4A574;
+  text-shadow: 0 0 2px rgba(212, 165, 116, 0.4);
+}
+
+.symbol-emotion::before {
+  content: '◉';
+  color: #C17B6D;
+  text-shadow: 0 0 2px rgba(193, 123, 109, 0.4);
+}
+
+.symbol-tone::before      { content: '⌁'; color: #D4A574; }
+.symbol-social::before    { content: '⟡'; color: #6FBDB3; }
+.symbol-behavior::before  { content: '◎'; color: #C17B6D; }
+.symbol-insight::before   { content: '◌'; color: #6FBDB3; }
+.symbol-signal::before    { content: '⊹'; color: #D4A574; }
+.symbol-wave::before      { content: '⟢'; color: #C17B6D; }
+.symbol-orbit::before     { content: '◈'; color: #6FBDB3; }
 
 /* ── Pulse Live Dot — Breathing Glow ───────────────────────── */
 /* <span className="pulse-dot" /> */

@@ -73,11 +73,11 @@ const googleCallback = async (req, res) => {
         const userData = user.toObject();
         delete userData.password;
 
-        return res.status(200).json({
-            success: true,
-            message: 'Google login successful',
-            user: userData,
-        });
+        // After successful Google OAuth, redirect back to frontend
+        // Use CLIENT_URL environment variable with a sensible fallback
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3002';
+        // set a short-lived redirect to the feed (frontend will read cookie)
+        return res.redirect(`${clientUrl}/feed`);
     } catch (error) {
         return res.status(500).json({
             success: false,

@@ -166,6 +166,24 @@ Returns:
 - `401 Unauthorized`
 - JSON: `{ success: false, message: 'Google authentication failed. Try again.' }`
 
+### 5. Get Current Authenticated User
+
+`GET /api/auth/me`
+
+Protected route. Requires the `token` httpOnly cookie.
+
+Behavior:
+
+- Reads and verifies the JWT from the cookie in middleware
+- Attaches the decoded payload to `req.user`
+- Re-fetches the user from MongoDB with password excluded
+- Returns the current user as JSON
+
+Possible responses:
+
+- `200 OK` with `{ success: true, user }`
+- `401 Unauthorized` if the cookie is missing, invalid, expired, or the user no longer exists
+
 ## User Model Notes
 
 The user schema includes:

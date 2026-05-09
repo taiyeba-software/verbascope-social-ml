@@ -29,11 +29,15 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        console.error('[API Error]', {
+        const errorDetails = {
           url: error.config?.url,
           status: error.response?.status,
+          statusText: error.response?.statusText,
           message: error.response?.data?.message || error.message,
-        });
+          code: error.code, // Can be 'CORS' for CORS errors
+          data: error.response?.data,
+        };
+        console.error('[API Error]', errorDetails);
         return Promise.reject(error);
       }
     );
@@ -91,6 +95,9 @@ export const authService = {
   // Login user
   login: (email: string, password: string) =>
     authApi.post('/api/auth/login', { email, password }),
+
+  // Get the currently authenticated user
+  getCurrentUser: () => authApi.get('/api/auth/me'),
 
   // Start Google OAuth flow
   googleAuthStart: () => {

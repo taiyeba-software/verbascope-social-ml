@@ -2,6 +2,7 @@ import express from 'express';
 import passport from 'passport';
 import authController from '../controller/auth.controller.js';
 import { loginUserValidationRules, registerUserValidationRules } from '../middlewares/validation.middleware.js';
+import authenticateToken from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -35,5 +36,7 @@ router.get('/google/failure', (req, res) => {
 		message: 'Google authentication failed. Try again.',
 	});
 });
+
+router.get('/me', authenticateToken, authController.getMe);
 
 export default router;

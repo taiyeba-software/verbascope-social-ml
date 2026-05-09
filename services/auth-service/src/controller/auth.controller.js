@@ -34,7 +34,10 @@ const register = async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            sameSite: 'lax',
+            // In production (HTTPS) we want secure + SameSite=None for cross-site OAuth
+            // In development over HTTP, enable insecure but usable cookie behaviour
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 2 * 24 * 60 * 60 * 1000,
         });
 
@@ -66,7 +69,8 @@ const googleCallback = async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 2 * 24 * 60 * 60 * 1000,
         });
 
@@ -127,7 +131,8 @@ const login = async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 2 * 24 * 60 * 60 * 1000,
         });
 
@@ -138,6 +143,29 @@ const login = async (req, res) => {
             success: true,
             message: 'Login successful',
             user: userData,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+const getMe = async (req, res) => {
+    try {
+        const user = await userModel.findById(req.user.id).select('-password');
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'User no longer exists.',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            user,
         });
     } catch (error) {
         return res.status(500).json({
@@ -187,7 +215,8 @@ const register = async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 2 * 24 * 60 * 60 * 1000,
         });
 
@@ -232,14 +261,8 @@ const googleCallback = async (req, res) => {
             maxAge: 2 * 24 * 60 * 60 * 1000,
         });
 
-        const userData = user.toObject();
-        delete userData.password;
-
-        return res.status(200).json({
-            success: true,
-            message: 'Google login successful',
-            user: userData,
-        });
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3002';
+        return res.redirect(`${clientUrl}/feed`);
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -248,5 +271,5 @@ const googleCallback = async (req, res) => {
     }
 };
 
-const authController = { register, login, googleCallback };
+const authController = { register, login, googleCallback, getMe };
 export default authController;

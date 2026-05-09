@@ -29,16 +29,22 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        const errorDetails = {
-          url: error.config?.url,
+        // Create a clean, readable error object instead of throwing raw axios error
+        const cleanError = {
           status: error.response?.status,
           statusText: error.response?.statusText,
           message: error.response?.data?.message || error.message,
-          code: error.code, // Can be 'CORS' for CORS errors
+          code: error.code, // CORS, ECONNABORTED, etc.
           data: error.response?.data,
         };
-        console.error('[API Error]', errorDetails);
-        return Promise.reject(error);
+        
+        // Only log actual server errors (not 401, not network errors)
+        if (error.response?.status && error.response.status !== 401) {
+          console.error('[API Error]', cleanError);
+        }
+        
+        // Throw the clean object, not the raw axios error
+        return Promise.reject(cleanError);
       }
     );
   }

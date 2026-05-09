@@ -36,23 +36,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = response.data as AuthResponse;
 
       if (result.success && result.user) {
-        console.log('✅ Session hydrated. User:', result.user);
+        console.log('✅ Session hydrated:', result.user.email);
         setUser(result.user);
       } else {
         console.log('ℹ️ No active session (expected on first visit)');
         setUser(null);
       }
     } catch (err: unknown) {
-      const status = (err as any)?.response?.status;
-      const message =
-        (err as any)?.response?.data?.message ||
-        (err as Error)?.message ||
-        'Unknown error';
+      // Error is now a clean object from api.ts interceptor
+      const status = (err as any)?.status;
+      const message = (err as any)?.message || 'Unknown error';
 
-      console.warn('⚠️ Session hydration warning:', { status, message });
-
-      if (status !== 401) {
-        setError(message);
+      // 401 = no cookie = normal on first visit or after logout
+      // do NOT log this as an error
+      if (status === 401) {
+        console.log('ℹ️ No active session');
+      } else {
+        // only log real unexpected errors
+        console.error('[API Error]', message);
       }
 
       setUser(null);
@@ -90,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err: unknown) {
         const errorMessage =
-          (err as any)?.response?.data?.message ||
+          (err as any)?.message ||
           (err as Error)?.message ||
           'Registration failed. Please try again.';
         setError(errorMessage);
@@ -118,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err: unknown) {
         const errorMessage =
-          (err as any)?.response?.data?.message ||
+          (err as any)?.message ||
           (err as Error)?.message ||
           'Login failed. Please check your credentials.';
         setError(errorMessage);

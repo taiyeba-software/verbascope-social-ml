@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import postsRoutes from './routes/posts.routes.js';
 
 //initialize express app
 const app = express();
@@ -37,6 +38,9 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+
+// Mount post routes
+app.use('/api/posts', postsRoutes);
 
 //export app
 export default app;

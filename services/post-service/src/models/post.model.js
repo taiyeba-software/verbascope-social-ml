@@ -1,0 +1,36 @@
+import mongoose from 'mongoose';
+
+const postSchema = new mongoose.Schema(
+	{
+		author: {
+			type: mongoose.Schema.Types.ObjectId,
+			required: true,
+		},
+		content: {
+			type: String,
+			trim: true,
+			maxlength: 1000,
+		},
+		image: {
+			type: String,
+			default: '',
+		},
+		likesCount: {
+			type: Number,
+			default: 0,
+		},
+		commentsCount: {
+			type: Number,
+			default: 0,
+		},
+	},
+	{
+		timestamps: true,
+	}
+);
+
+// Indexes for feed performance (sort by newest) and user profile queries
+postSchema.index({ createdAt: -1 });
+postSchema.index({ author: 1, createdAt: -1 });
+
+export default mongoose.model('Post', postSchema);

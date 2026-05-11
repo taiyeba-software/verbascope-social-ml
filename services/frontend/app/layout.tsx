@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Verbascope – Decode Emotions Behind Every Post',
   description: 'AI-powered social media analysis. Understand tone, sarcasm, and sentiment.',
   icons: {
-    icon: { url: '/favicon.svg', type: 'image/svg+xml' },
+    icon: { url: '/favicon.jpg', type: 'image/svg+xml' },
   },
 };
 

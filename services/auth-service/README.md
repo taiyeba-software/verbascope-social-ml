@@ -1,5 +1,130 @@
 # Auth Service
 
+Auth service for Verbascope Social ML. Responsible for user registration, email/password login, Google OAuth, JWT cookie issuance and publishing `user_created` events to RabbitMQ.
+
+This README documents local setup, environment variables, important CORS/cookie dev notes, and available endpoints.
+
+## Quick start
+
+1. From `services/auth-service` install deps:
+
+```bash
+npm install
+```
+
+2. Create a `.env` (see `Environment` below).
+
+3. Run in development:
+
+```bash
+npm run dev   # uses nodemon
+```
+
+Or production-style:
+
+```bash
+npm start
+```
+
+The service listens on port `3000` (see `server.js`). Routes are mounted under `/api/auth`.
+
+## Environment
+
+Configure `services/auth-service/.env` with the following values (example values shown):
+
+```env
+MONGO_URI=mongodb://localhost:27017/verbascope
+RABBITMQ_URI=amqp://localhost:5672
+JWT_SECRET=super_secret_key
+CLIENT_ID=<google_client_id>
+CLIENT_SECRET=<google_client_secret>
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+CLIENT_URL=http://localhost:3002   # frontend URL used for redirects
+```
+
+`src/config/config.js` reads these variables. The code includes sensible defaults for local development.
+
+## Important development notes (CORS & Cookies)
+
+These are critical for Google OAuth to work reliably in local Chrome:
+
+- CORS: the server uses an explicit allowlist for local origins. Confirm your frontend origin is allowed (e.g. `http://localhost:3002`, `http://127.0.0.1:3002`). CORS must be configured with `credentials: true` so cookies are permitted cross-origin.
+- Cookies: for local HTTP development the service must set cookies with `secure: false` and `sameSite: 'lax'` (or `lax` by default in the code). In production (HTTPS) cookies should be `secure: true` and `sameSite: 'none'` to support cross-site redirects.
+
+Current implementation sets cookie options to be environment-aware. If you hit Chrome issues, verify cookies in DevTools → Application → Cookies for `localhost:3000` and ensure the cookie `token` is present after the OAuth callback.
+
+## Endpoints
+
+Base path: `/api/auth`
+
+- `POST /api/auth/register` — register with `{ email, password, fullname: { firstName, lastName } }`.
+  - On success: creates user, publishes `user_created`, sets `token` cookie (httpOnly) and returns user data (password stripped).
+
+- `POST /api/auth/login` — login with `{ email, password }`.
+  - On success: sets `token` cookie and returns user data.
+
+- `GET /api/auth/google` — start Google OAuth (Passport).
+
+- `GET /api/auth/google/callback` — OAuth callback. On success sets `token` cookie and redirects to `CLIENT_URL/feed` (defaults to `http://localhost:3002/feed`). On failure, redirects to `/api/auth/google/failure`.
+
+- `GET /api/auth/google/failure` — returns 401 + JSON error.
+
+- `GET /api/auth/me` — protected endpoint. Reads JWT from `token` cookie, verifies it, fetches fresh user from MongoDB and returns `{ success: true, user }`.
+
+## OAuth flow (high level)
+
+1. Frontend navigates the browser to `GET http://localhost:3000/api/auth/google`.
+2. Server (Passport) redirects to Google consent page.
+3. User signs in with Google and Google redirects back to `GOOGLE_CALLBACK_URL` (server route `/api/auth/google/callback`).
+4. Server finds/creates the user, signs a JWT, sets the `token` httpOnly cookie and redirects the browser to the frontend (e.g. `http://localhost:3002/feed`).
+5. Frontend calls `GET /api/auth/me` with `credentials: 'include'` (or axios with `withCredentials`) to hydrate session.
+
+## Testing checklist (local Chrome)
+
+1. Start auth-service (`npm run dev`) and frontend (`next dev -p 3002`).
+2. Open Chrome DevTools → Network & Application.
+3. Load frontend login page; the app will call `GET /api/auth/me` (expected `401` on first visit).
+4. Click "Continue with Google" — you should see the Google consent screen.
+5. After signing in, the browser should redirect to `/feed` on the frontend.
+6. Confirm `token` cookie appears under Application → Cookies → `localhost:3000` and `GET /api/auth/me` returns `200` with user data.
+
+If you see `Not secure` browser warnings or Chrome blocking cookies, ensure cookie options for local dev are `secure: false` and `sameSite: 'lax'`, and that frontend requests use `credentials: 'include'`.
+
+## RabbitMQ contract
+
+Queue: `user_created` — payload:
+
+```json
+{
+  "id": "<mongodb_user_id>",
+  "email": "user@example.com",
+  "fullname": { "firstName": "A", "lastName": "B" },
+  "role": "user"
+}
+```
+
+## Troubleshooting
+
+- If Google consent doesn't appear in Chrome but works in VS Code embedded browser:
+  - Confirm auth-service CORS allowlist includes the exact origin shown in the browser address bar (`localhost` vs `127.0.0.1` vs network IP).
+  - Ensure frontend requests include credentials (`fetch` uses `credentials: 'include'`, axios uses `withCredentials: true`).
+  - Check cookie `secure`/`sameSite` settings for local dev (see notes above).
+
+- If `/api/auth/me` returns empty or `{}` in frontend logs, open Network tab and inspect the failing request and its response body.
+
+## Files of interest
+
+- `server.js` — mounts routes and starts server on port `3000`.
+- `src/app.js` — Express app, CORS, cookie-parser, passport initialization.
+- `src/config/passport.js` — GoogleStrategy and user linking/creation logic.
+- `src/controller/auth.controller.js` — register, login, googleCallback and `GET /me` logic (places where the `token` cookie is set).
+- `src/routes/auth.routes.js` — route definitions.
+
+---
+
+If you want, I can also add a short `curl` or `fetch` snippet to test `GET /api/auth/me` (including credentials) from the frontend context.
+# Auth Service
+
 This service handles user authentication for Verbascope Social ML.
 
 It currently supports:

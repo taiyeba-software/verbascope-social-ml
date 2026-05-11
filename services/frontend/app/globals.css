@@ -27,7 +27,7 @@
   /* Text — Elegant Loid Forger Style */
   --v-text-primary:    #F5F0E8;   /* Warm paper cream (primary) */
   --v-text-secondary:  #D0D9D6;   /* Soft gray on teal */
-  --v-text-muted:      #9AADA8;   /* Muted sage for hints */
+  --v-text-muted:      #a9d8cf;   /* Muted sage for hints */
   --v-text-dark:       #1A2A28;   /* For light backgrounds */
 
   /* ML Brain signal colors */
@@ -187,7 +187,7 @@ a:hover {
   </div>
 */
 .v-logo        { display: flex; align-items: center; gap: var(--v-space-sm); }
-.v-mark        { width: 36px; height: 36px; color: var(--v-accent); }
+.v-mark        { width: 90px; height: 90px; color: var(--v-accent); }
 .v-logo-name   {
   display: block;
   font-family: var(--v-font-serif-display);

@@ -1,12 +1,9 @@
 import app from './src/app.js';
 import connectDB from './src/db/db.js';
-import authRoutes from './src/routes/auth.routes.js';
-import { connect } from './src/broker/rabbit.js';  // ← add this
+import { connect } from './src/broker/rabbit.js';
 
 const isDbConnected = await connectDB();
-await connect();  // ← connect to RabbitMQ on startup
-
-app.use('/api/auth', authRoutes);
+await connect();
 
 app.listen(3003, () => {
     if (!isDbConnected) {

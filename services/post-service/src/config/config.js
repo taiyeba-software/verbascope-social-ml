@@ -6,6 +6,7 @@ const config = {
     rabbitUri:   process.env.RABBITMQ_URI  || 'amqp://localhost:5672',
     jwtSecret:   process.env.JWT_SECRET,                         // must match auth-service!
     port:        parseInt(process.env.PORT) || 3003,
+    clientUrl:   process.env.CLIENT_URL || 'http://localhost:3002',
 };
 
 export default config;

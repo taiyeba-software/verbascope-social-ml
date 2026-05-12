@@ -3,7 +3,11 @@ import connectDB from './src/db/db.js';
 import { connect } from './src/broker/rabbit.js';
 
 const isDbConnected = await connectDB();
-await connect();
+try {
+    await connect();
+} catch (err) {
+    console.warn('⚠️  RabbitMQ unavailable, continuing without it.');
+}
 
 app.listen(3003, () => {
     if (!isDbConnected) {

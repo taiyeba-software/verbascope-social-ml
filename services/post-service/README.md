@@ -113,6 +113,24 @@ All post routes are mounted under:
 - `GET /api/posts/:id/comments` - list comments for a post
 - `DELETE /api/posts/:postId/comments/:commentId` - delete your comment
 
+## API Test Status
+
+All APIs are fully tested and working! ✅
+
+| Endpoint | Status |
+|---|---|
+| `POST /api/posts` | ✅ |
+| `GET /api/posts/feed` | ✅ + populate working |
+| `GET /api/posts/:id` | ✅ |
+| `GET /api/posts/abc123` | ✅ 400 Invalid ID |
+| `POST /api/posts/:id/like` | ✅ |
+| `POST /api/posts/:id/like` again | ✅ 409 duplicate blocked |
+| `DELETE /api/posts/:id/unlike` | ✅ |
+| `POST /api/posts/:id/comment` | ✅ |
+| `GET /api/posts/:id/comments` | ✅ + populate working |
+| `DELETE /api/posts/:postId/comments/:commentId` | ✅ |
+| `DELETE /api/posts/:id` | ✅ |
+
 ## Authentication Contract
 
 All endpoints are protected by `protect` middleware and expect a valid JWT in the `token` httpOnly cookie.

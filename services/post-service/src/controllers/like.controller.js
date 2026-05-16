@@ -23,7 +23,7 @@ export const likePost = async (req, res) => {
 		const updated = await Post.findByIdAndUpdate(
 			req.params.id,
 			{ $inc: { likesCount: 1 } },
-			{ new: true, select: 'likesCount' }
+			{ returnDocument: 'after', select: 'likesCount' }
 		);
 
 		return res.status(201).json({ success: true, message: 'Post liked.', likesCount: updated.likesCount });
@@ -49,10 +49,10 @@ export const unlikePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Like not found.' });
 		}
 
-		// Atomic decrement — floor at 0 for safety
-		await Post.findByIdAndUpdate(req.params.id, [
-			{ $set: { likesCount: { $max: [0, { $subtract: ['$likesCount', 1] }] } } },
-		]);
+		// Atomic decrement — $inc with -1 is safe here because:
+		// a like document must exist (checked above) before we decrement,
+		// so likesCount will always be >= 1 at this point.
+		await Post.findByIdAndUpdate(req.params.id, { $inc: { likesCount: -1 } });
 
 		return res.status(200).json({ success: true, message: 'Post unliked.' });
 	} catch (err) {

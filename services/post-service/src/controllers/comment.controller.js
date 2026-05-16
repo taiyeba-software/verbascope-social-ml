@@ -72,10 +72,10 @@ export const deleteComment = async (req, res) => {
 
 		await comment.deleteOne();
 
-		// Atomic decrement — floor at 0 for safety
-		await Post.findByIdAndUpdate(postId, [
-			{ $set: { commentsCount: { $max: [0, { $subtract: ['$commentsCount', 1] }] } } },
-		]);
+		// Atomic decrement — $inc with -1 is safe here because:
+		// a comment document must exist (checked above) before we decrement,
+		// so commentsCount will always be >= 1 at this point.
+		await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: -1 } });
 
 		return res.status(200).json({ success: true, message: 'Comment deleted.' });
 	} catch (err) {

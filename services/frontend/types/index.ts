@@ -51,13 +51,14 @@ export interface MLSignal {
 }
 
 export interface Post {
-  id: string;
-  author: User;
+  _id: string;
+  author: User | string;
   content: string;
-  signal?: MLSignal;
+  image?: string;
+  likesCount: number;
+  commentsCount: number;
   createdAt: string;
-  likes: number;
-  comments: number;
+  updatedAt: string;
 }
 
 /* ─────────────────────────────────────────────────────────

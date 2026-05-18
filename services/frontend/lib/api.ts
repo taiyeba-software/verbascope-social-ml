@@ -120,3 +120,33 @@ export const notificationService = {
   testEmail: (email: string) =>
     notificationApi.post('/api/notification/test-email', { email }),
 };
+
+/* ──────────────────────────────────────────────────────────
+   Post Service
+   ────────────────────────────────────────────────────────── */
+
+// Post Service - runs on port 3003
+export const postApi = new ApiClient({
+  baseURL: process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
+  withCredentials: true,
+});
+
+export const postService = {
+  getFeed: (page = 1, limit = 10) =>
+    postApi.get(`/api/posts/feed?page=${page}&limit=${limit}`),
+
+  createPost: (content: string) =>
+    postApi.post('/api/posts', { content }),
+
+  likePost: (id: string) =>
+    postApi.post(`/api/posts/${id}/like`),
+
+  unlikePost: (id: string) =>
+    postApi.delete(`/api/posts/${id}/unlike`),
+
+  getComments: (id: string) =>
+    postApi.get(`/api/posts/${id}/comments`),
+
+  addComment: (id: string, content: string) =>
+    postApi.post(`/api/posts/${id}/comment`, { content }),
+};

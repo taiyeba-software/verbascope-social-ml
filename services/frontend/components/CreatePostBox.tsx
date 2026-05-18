@@ -2,16 +2,36 @@
 
 import { useState } from 'react';
 import './CreatePostBox.css';
+import { postService } from '@/lib/api';
+import type { Post } from '@/types';
 
-export default function CreatePostBox() {
+interface CreatePostBoxProps {
+  onPost?: (post: Post) => void;
+}
+
+export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
   const [content, setContent] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Submit post to backend
-    setContent('');
-    setIsExpanded(false);
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!content.trim()) return;
+    setIsSubmitting(true);
+
+    try {
+      const response = await postService.createPost(content);
+      const data = response.data as { success: boolean; post: Post };
+      if (data.success) {
+        setContent('');
+        setIsExpanded(false);
+        onPost?.(data.post);
+      }
+    } catch (err) {
+      console.error('Failed to create post', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -72,9 +92,9 @@ export default function CreatePostBox() {
                 type="button"
                 className="btn btn-primary"
                 onClick={handleSubmit}
-                disabled={!content.trim()}
+                disabled={!content.trim() || isSubmitting}
               >
-                Post
+                {isSubmitting ? 'Posting...' : 'Post'}
               </button>
             </div>
           </div>

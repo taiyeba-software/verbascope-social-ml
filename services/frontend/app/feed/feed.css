@@ -1,13 +1,14 @@
 /* ──────────────────────────────────────────────────────────
-   Feed Layout — Social Media Style
+   Feed Layout — Clean Social Media Style with Light Theme
    ────────────────────────────────────────────────────────── */
 
 .feed-layout {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr 380px;
   grid-template-rows: auto 1fr;
   min-height: 100vh;
   gap: var(--v-space-lg);
+  background-color: #f8f9fa;
 }
 
 .feed-layout > nav {
@@ -18,6 +19,7 @@
   grid-column: 1;
   padding: var(--v-space-lg) 0;
   overflow-y: auto;
+  background-color: #f8f9fa;
 }
 
 .feed-sidebar {
@@ -28,12 +30,13 @@
 
 /* ── Trending Card ─────────────────────────────────────── */
 .trending-card {
-  background: var(--v-bg-card);
-  border: 1px solid var(--v-border);
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
   border-radius: var(--v-radius-md);
   padding: var(--v-space-lg);
   position: sticky;
   top: 80px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .trending-card h3 {
@@ -55,25 +58,27 @@
   gap: var(--v-space-md);
   padding: var(--v-space-md);
   border-radius: var(--v-radius-sm);
-  background: rgba(28, 43, 42, 0.2);
+  background: transparent;
   transition: all var(--v-transition);
   text-decoration: none;
+  border-left: 3px solid transparent;
 }
 
 .trending-item:hover {
-  background: rgba(28, 43, 42, 0.35);
+  background: #f5f5f5;
+  border-left-color: var(--v-signal-green);
   transform: translateX(4px);
 }
 
 .trending-tag {
   font-weight: 600;
-  color: var(--v-text-primary);
+  color: #333;
   font-size: 0.95rem;
 }
 
 .trending-count {
   font-size: 0.8rem;
-  color: var(--v-text-muted);
+  color: #666;
 }
 
 /* ── Empty State ───────────────────────────────────────– */
@@ -83,14 +88,15 @@
   justify-content: center;
   min-height: 400px;
   padding: var(--v-space-xl);
-  border: 2px dashed var(--v-border);
+  border: 2px dashed #d5d5d5;
   border-radius: var(--v-radius-lg);
   text-align: center;
-  background: rgba(28, 43, 42, 0.1);
+  background: #ffffff;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .feed-empty p {
-  color: var(--v-text-muted);
+  color: #666;
   font-size: 1.1rem;
 }
 

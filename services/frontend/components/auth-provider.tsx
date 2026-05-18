@@ -22,8 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   // Keep action-loading separate from initial button interactivity.
-  // Start `isLoading` as `false` so UI actions (like Google redirect) aren't disabled while hydrate runs.
-  const [isLoading, setIsLoading] = useState(false);
+  // Start `isLoading` as `true` so UI waits for hydrateSession to complete.
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = useCallback(() => {

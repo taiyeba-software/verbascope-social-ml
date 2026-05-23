@@ -4,12 +4,14 @@ import { useState } from 'react';
 import './CreatePostBox.css';
 import { postService } from '@/lib/api';
 import type { Post } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CreatePostBoxProps {
   onPost?: (post: Post) => void;
 }
 
 export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
+  const { user } = useAuth();
   const [content, setContent] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,24 +36,37 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
     }
   };
 
+  const initials = user
+    ? `${user?.fullname?.firstName?.[0] ?? ''}${user?.fullname?.lastName?.[0] ?? ''}`.toUpperCase() || 'U'
+    : 'U';
+
+  const firstName = user?.fullname?.firstName ?? 'there';
+
   return (
-    <div className="create-post-box">
+    <form className="create-post-box" onSubmit={handleSubmit}>
       <div className="create-post-header">
-        <div className="avatar">U</div>
+        <div className="create-post-avatar">{initials}</div>
         <input
           type="text"
           className="create-post-input"
-          placeholder="What's on your mind?"
+          placeholder={`What's on your mind, ${firstName}?`}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onFocus={() => setIsExpanded(true)}
         />
+        <button type="button" className="create-post-media-btn" title="Add image">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+        </button>
       </div>
 
       {isExpanded && (
         <div className="create-post-expanded">
           <textarea
-            className="input"
+            className="create-post-textarea"
             placeholder="Share your thoughts... Verbascope will analyze the emotional tone and sentiment."
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -100,6 +115,6 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
           </div>
         </div>
       )}
-    </div>
+    </form>
   );
 }

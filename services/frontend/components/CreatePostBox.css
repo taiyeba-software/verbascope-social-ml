@@ -3,51 +3,86 @@
    ────────────────────────────────────────────────────────── */
 
 .create-post-box {
-  background: #ffffff;
-  border: 1px solid #e8e8e8;
-  border-radius: var(--v-radius-md);
-  padding: var(--v-space-md);
-  margin-bottom: var(--v-space-lg);
-  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--vs-surface);
+  border: 1px solid var(--vs-border-card);
+  border-radius: var(--vs-radius-lg);
+  padding: var(--vs-space-md);
+  box-shadow: var(--vs-shadow-card);
+  margin-bottom: 0;
 }
 
-/* ── Header (Collapsed) ────────────────────────────────── */
 .create-post-header {
   display: flex;
   align-items: center;
-  gap: var(--v-space-md);
+  gap: var(--vs-space-md);
+}
+
+.create-post-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--vs-teal), var(--vs-teal-mid));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.95rem;
+  flex-shrink: 0;
 }
 
 .create-post-input {
   flex: 1;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: var(--v-radius-full);
-  padding: 10px 16px;
-  color: #333;
-  font-family: var(--v-font-sans);
+  background: var(--vs-surface-hover);
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-full);
+  padding: 12px 16px;
+  color: var(--vs-text-primary);
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.95rem;
   outline: none;
-  transition: all var(--v-transition);
+  transition: all var(--vs-transition);
   cursor: text;
 }
 
-.create-post-input::placeholder {
-  color: #999;
+.create-post-input::placeholder,
+.create-post-textarea::placeholder {
+  color: var(--vs-text-muted);
 }
 
-.create-post-input:focus {
-  border-color: var(--v-signal-green);
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(126, 206, 196, 0.1);
+.create-post-input:focus,
+.create-post-textarea:focus {
+  border-color: var(--vs-teal);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(14, 159, 171, 0.1);
 }
 
-/* ── Expanded ──────────────────────────────────────────– */
+.create-post-media-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--vs-border);
+  border-radius: 50%;
+  background: var(--vs-surface-hover);
+  color: var(--vs-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--vs-transition);
+  flex-shrink: 0;
+}
+
+.create-post-media-btn:hover {
+  color: var(--vs-teal);
+  border-color: rgba(14, 159, 171, 0.3);
+  background: var(--vs-teal-light);
+}
+
 .create-post-expanded {
-  margin-top: var(--v-space-md);
+  margin-top: var(--vs-space-md);
   display: flex;
   flex-direction: column;
-  gap: var(--v-space-md);
+  gap: var(--vs-space-md);
   animation: slideDown 0.2s ease;
 }
 
@@ -56,58 +91,88 @@
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.create-post-expanded textarea {
+.create-post-textarea {
   resize: none;
+  width: 100%;
+  min-height: 120px;
+  background: var(--vs-surface-hover);
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-md);
+  padding: 14px 16px;
+  color: var(--vs-text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  outline: none;
+  transition: all var(--vs-transition);
 }
 
-/* ── Actions ───────────────────────────────────────────– */
 .create-post-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: var(--v-space-md);
-  border-top: 1px solid #e8e8e8;
+  padding-top: var(--vs-space-md);
+  border-top: 1px solid var(--vs-border);
+  gap: var(--vs-space-md);
 }
 
-/* ── Tools ─────────────────────────────────────────────– */
 .create-post-tools {
   display: flex;
-  gap: var(--v-space-md);
+  gap: var(--vs-space-sm);
+  flex-wrap: wrap;
 }
 
 .tool-btn {
   background: transparent;
   border: none;
-  color: #999;
+  color: var(--vs-text-secondary);
   cursor: pointer;
-  padding: 6px;
-  border-radius: var(--v-radius-sm);
-  transition: all var(--v-transition);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition: all var(--vs-transition);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .tool-btn:hover {
-  color: var(--v-signal-green);
-  background: rgba(126, 206, 196, 0.1);
+  color: var(--vs-teal);
+  background: var(--vs-teal-light);
 }
 
-/* ── Buttons ───────────────────────────────────────────– */
 .create-post-buttons {
   display: flex;
-  gap: var(--v-space-md);
+  gap: var(--vs-space-sm);
+  margin-left: auto;
 }
 
 .create-post-buttons .btn {
-  padding: 8px 20px;
-  font-size: 0.75rem;
+  padding: 9px 18px;
+  font-size: 0.82rem;
+  border-radius: var(--vs-radius-full);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+}
+
+.create-post-buttons .btn-primary {
+  background: var(--vs-teal);
+  border: 1px solid var(--vs-teal);
+  color: #ffffff;
+  transition: all var(--vs-transition);
+}
+
+.create-post-buttons .btn-primary:hover:not(:disabled) {
+  background: var(--vs-teal-mid);
+  border-color: var(--vs-teal-mid);
+  box-shadow: var(--vs-shadow-sm);
 }
 
 .create-post-buttons .btn-primary:disabled {
@@ -115,22 +180,46 @@
   cursor: not-allowed;
 }
 
-/* ── Responsive ────────────────────────────────────────– */
+.create-post-buttons .btn-ghost {
+  background: transparent;
+  border: 1px solid var(--vs-border);
+  color: var(--vs-text-secondary);
+}
+
+.create-post-buttons .btn-ghost:hover:not(:disabled) {
+  background: var(--vs-surface-hover);
+  color: var(--vs-text-primary);
+}
+
 @media (max-width: 640px) {
   .create-post-box {
-    padding: var(--v-space-sm);
+    padding: var(--vs-space-sm);
   }
 
-  .create-post-tools {
-    gap: var(--v-space-sm);
+  .create-post-header {
+    gap: var(--vs-space-sm);
+  }
+
+  .create-post-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .create-post-input {
+    padding: 10px 14px;
+  }
+
+  .create-post-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .create-post-buttons {
-    gap: var(--v-space-sm);
-    flex-direction: column;
+    width: 100%;
+    margin-left: 0;
   }
 
   .create-post-buttons .btn {
-    width: 100%;
+    flex: 1;
   }
 }

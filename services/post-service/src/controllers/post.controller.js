@@ -22,7 +22,9 @@ export const createPost = async (req, res) => {
 			image: image || '',
 		});
 
-		return res.status(201).json({ success: true, post });
+		const populatedPost = await Post.findById(post._id).populate('author', 'fullname').lean();
+
+		return res.status(201).json({ success: true, post: populatedPost ?? post });
 	} catch (err) {
 		console.error('createPost error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });

@@ -2,10 +2,10 @@ import { Router } from 'express';
 import protect from '../middlewares/auth.middleware.js';
 import { validatePost, validateComment } from '../middlewares/validation.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controller/post.controller.js';
-import { likePost, unlikePost } from '../controller/like.controller.js';
-import { sharePost, unsharePost } from '../controller/share.controller.js';
-import { addComment, getComments, deleteComment } from '../controller/comment.controller.js';
+import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controllers/post.controller.js';
+import { likePost, unlikePost } from '../controllers/like.controller.js';
+import { sharePost, unsharePost } from '../controllers/share.controller.js';
+import { addComment, getComments, deleteComment } from '../controllers/comment.controller.js';
 
 const router = Router();
 

@@ -135,6 +135,9 @@ export const postService = {
   getFeed: (page = 1, limit = 10) =>
     postApi.get(`/api/posts/feed?page=${page}&limit=${limit}`),
 
+  getPost: (id: string) =>
+    postApi.get(`/api/posts/${id}`),
+
   createPost: (content: string) =>
     postApi.post('/api/posts', { content }),
 
@@ -149,4 +152,16 @@ export const postService = {
 
   addComment: (id: string, content: string) =>
     postApi.post(`/api/posts/${id}/comment`, { content }),
+
+  deleteComment: (postId: string, commentId: string) =>
+    postApi.delete(`/api/posts/${postId}/comments/${commentId}`),
+
+  deletePost: (id: string) =>
+    postApi.delete(`/api/posts/${id}`),
+
+  sharePost: (id: string) =>
+    postApi.post(`/api/posts/${id}/share`),
+
+  unsharePost: (id: string) =>
+    postApi.delete(`/api/posts/${id}/unshare`),
 };

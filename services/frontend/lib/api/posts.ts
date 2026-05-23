@@ -1,0 +1,1 @@
+export { postApi, postService } from '../api';

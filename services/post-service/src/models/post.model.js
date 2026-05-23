@@ -4,7 +4,6 @@ const postSchema = new mongoose.Schema(
 	{
 		author: {
 			type: mongoose.Schema.Types.ObjectId,
-			ref: 'User',
 			required: true,
 		},
 		content: {
@@ -24,13 +23,23 @@ const postSchema = new mongoose.Schema(
 			type: Number,
 			default: 0,
 		},
+		sharesCount: {
+			type: Number,
+			default: 0,
+		},
+		sharedBy: [
+			{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: 'User',
+			},
+		],
 	},
 	{
 		timestamps: true,
 	}
 );
 
-// Indexes for feed performance (sort by newest) and user profile queries
+// Indexes for feed performance and user profile queries
 postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
 

@@ -6,15 +6,19 @@ import Navbar from '@/components/Navbar';
 import FeedSkeleton from '@/components/FeedSkeleton';
 import CreatePostBox from '@/components/CreatePostBox';
 import { useAuth } from '@/hooks/useAuth';
-import { postService } from '@/lib/api';
+import { postService } from '@/lib/api/posts';
 import type { Post } from '@/types';
 import './feed.css';
+
+type FeedPost = Post & {
+  likedByMe?: boolean;
+};
 
 export default function FeedPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -31,13 +35,49 @@ export default function FeedPage() {
     if (!user) return;
     setFeedLoading(true);
     postService.getFeed(page)
-      .then(({ data }: any) => {
-        setPosts(data.posts);
-        setTotalPages(data.totalPages);
+      .then(({ data }) => {
+        const result = data as { posts: FeedPost[]; totalPages: number };
+        setPosts(result.posts ?? []);
+        setTotalPages(result.totalPages ?? 1);
       })
       .catch(() => {})
       .finally(() => setFeedLoading(false));
   }, [user, page]);
+
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    setPosts((currentPosts) =>
+      currentPosts.map((post) =>
+        post._id === postId
+          ? {
+              ...post,
+              likedByMe: !isLiked,
+              likesCount: isLiked ? post.likesCount - 1 : post.likesCount + 1,
+            }
+          : post
+      )
+    );
+
+    try {
+      if (isLiked) {
+        await postService.unlikePost(postId);
+      } else {
+        await postService.likePost(postId);
+      }
+    } catch (error) {
+      console.error('Like action failed:', error);
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post._id === postId
+            ? {
+                ...post,
+                likedByMe: isLiked,
+                likesCount: isLiked ? post.likesCount + 1 : post.likesCount - 1,
+              }
+            : post
+        )
+      );
+    }
+  };
 
   // ── Render guards ──────────────────────────────────────────────────
   if (isLoading) {
@@ -59,7 +99,7 @@ export default function FeedPage() {
 
       <main className="feed-main">
         <div className="container">
-          <CreatePostBox onPost={(post: Post) => setPosts((prev) => [post, ...prev])} />
+          <CreatePostBox onPost={(post: Post) => setPosts((prev) => [{ ...post }, ...prev])} />
 
           {feedLoading ? (
             <FeedSkeleton />
@@ -78,8 +118,26 @@ export default function FeedPage() {
                   </p>
                   <p className="post-content">{post.content}</p>
                   <div className="post-footer">
-                    <span>♡ {post.likesCount}</span>
-                    <span>💬 {post.commentsCount}</span>
+                    <button
+                      type="button"
+                      className={`post-action-btn like-btn ${post.likedByMe ? 'liked' : ''}`}
+                      onClick={() => handleLike(post._id, post.likedByMe ?? false)}
+                      aria-label={post.likedByMe ? 'Unlike post' : 'Like post'}
+                      aria-pressed={post.likedByMe}
+                    >
+                      <span className="action-icon">{post.likedByMe ? '♥' : '♡'}</span>
+                      <span className="action-count">{post.likesCount}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="post-action-btn comment-btn"
+                      onClick={() => {}}
+                      aria-label="Comment on post"
+                    >
+                      <span className="action-icon">💬</span>
+                      <span className="action-count">{post.commentsCount}</span>
+                    </button>
                   </div>
                 </div>
               ))}

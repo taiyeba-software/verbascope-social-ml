@@ -4,6 +4,15 @@ import Post from '../models/post.model.js';
 // ── Helper: validate MongoDB ObjectId early to avoid CastError ───────
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+// ── Helper: add per-user state flags to posts ────────────────────────
+const addStateFlags = (posts, userId) =>
+	posts.map((post) => ({
+		...post,
+		likedByMe: post.likedBy?.some((id) => id.toString() === userId) || false,
+		sharedByMe: post.sharedBy?.some((id) => id.toString() === userId) || false,
+		isOwner: post.author?._id?.toString() === userId || post.author?.toString() === userId,
+	}));
+
 // ── POST /api/posts ──────────────────────────────────────────────────
 export const createPost = async (req, res) => {
 	try {
@@ -38,6 +47,7 @@ export const getFeed = async (req, res) => {
 		const page  = Math.max(1, parseInt(req.query.page)  || 1);
 		const limit = Math.min(50, parseInt(req.query.limit) || 10);
 		const skip  = (page - 1) * limit;
+		const userId = req.user.id;
 
 		const posts = await Post.find()
 			.sort({ createdAt: -1 })          // uses the index defined in post.model.js
@@ -45,6 +55,7 @@ export const getFeed = async (req, res) => {
 			.limit(limit)
 			.populate('author', 'fullname')   // pulls firstName/lastName from auth-service users
 			.lean();
+		const postsWithState = addStateFlags(posts, userId);
 
 		const total = await Post.countDocuments();
 
@@ -53,7 +64,7 @@ export const getFeed = async (req, res) => {
 			page,
 			totalPages: Math.ceil(total / limit),
 			total,
-			posts,
+			posts: postsWithState,
 		});
 	} catch (err) {
 		console.error('getFeed error:', err);
@@ -68,6 +79,8 @@ export const getPost = async (req, res) => {
 			return res.status(400).json({ success: false, message: 'Invalid post ID.' });
 		}
 
+		const userId = req.user.id;
+
 		const post = await Post.findById(req.params.id)
 			.populate('author', 'fullname')
 			.lean();
@@ -76,7 +89,9 @@ export const getPost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Post not found.' });
 		}
 
-		return res.status(200).json({ success: true, post });
+		const [postWithState] = addStateFlags([post], userId);
+
+		return res.status(200).json({ success: true, post: postWithState });
 	} catch (err) {
 		console.error('getPost error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });

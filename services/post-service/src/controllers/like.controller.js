@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import Like from '../models/like.model.js';
 import Post from '../models/post.model.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -16,21 +15,23 @@ export const likePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Post not found.' });
 		}
 
-		// The unique index on Like rejects duplicates — caught below
-		await Like.create({ user: req.user.id, post: req.params.id });
+		const post = await Post.findById(req.params.id);
+		const alreadyLiked = post.likedBy.some((userId) => userId.toString() === req.user.id);
+		if (alreadyLiked) {
+			return res.status(409).json({ success: false, message: 'You already liked this post.' });
+		}
 
-		// Atomic increment — race-condition safe
 		const updated = await Post.findByIdAndUpdate(
 			req.params.id,
-			{ $inc: { likesCount: 1 } },
+			{
+				$push: { likedBy: req.user.id },
+				$inc: { likesCount: 1 },
+			},
 			{ returnDocument: 'after', select: 'likesCount' }
 		);
 
 		return res.status(201).json({ success: true, message: 'Post liked.', likesCount: updated.likesCount });
 	} catch (err) {
-		if (err.code === 11000) {
-			return res.status(409).json({ success: false, message: 'You already liked this post.' });
-		}
 		console.error('likePost error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });
 	}
@@ -43,16 +44,20 @@ export const unlikePost = async (req, res) => {
 			return res.status(400).json({ success: false, message: 'Invalid post ID.' });
 		}
 
-		const like = await Like.findOneAndDelete({ user: req.user.id, post: req.params.id });
-
-		if (!like) {
-			return res.status(404).json({ success: false, message: 'Like not found.' });
+		const post = await Post.findById(req.params.id);
+		if (!post) {
+			return res.status(404).json({ success: false, message: 'Post not found.' });
 		}
 
-		// Atomic decrement — $inc with -1 is safe here because:
-		// a like document must exist (checked above) before we decrement,
-		// so likesCount will always be >= 1 at this point.
-		await Post.findByIdAndUpdate(req.params.id, { $inc: { likesCount: -1 } });
+		const hasLiked = post.likedBy.some((userId) => userId.toString() === req.user.id);
+		if (!hasLiked) {
+			return res.status(404).json({ success: false, message: 'You have not liked this post.' });
+		}
+
+		await Post.findByIdAndUpdate(req.params.id, {
+			$pull: { likedBy: new mongoose.Types.ObjectId(req.user.id) },
+			$inc: { likesCount: -1 },
+		});
 
 		return res.status(200).json({ success: true, message: 'Post unliked.' });
 	} catch (err) {

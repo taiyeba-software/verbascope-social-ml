@@ -11,8 +11,6 @@ import type { Post } from '@/types';
 import './feed.css';
 
 type FeedPost = Post & {
-  likedByMe?: boolean;
-  sharedByMe?: boolean;
   bookmarkedByMe?: boolean;
   commentsCount: number;
   sharesCount?: number;
@@ -125,7 +123,7 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
-function PostMoreMenu({ postId, onDelete }: { postId: string; onDelete: (id: string) => void }) {
+function PostMoreMenu({ postId, isOwner, onDelete }: { postId: string; isOwner: boolean; onDelete: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -156,9 +154,11 @@ function PostMoreMenu({ postId, onDelete }: { postId: string; onDelete: (id: str
           <button type="button" className="post-more-item" onClick={() => setOpen(false)}>
             ✏️ Edit post
           </button>
-          <button type="button" className="post-more-item danger" onClick={() => { setOpen(false); onDelete(postId); }}>
-            🗑️ Delete post
-          </button>
+          {isOwner && (
+            <button type="button" className="post-more-item danger" onClick={() => { setOpen(false); onDelete(postId); }}>
+              🗑️ Delete post
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -416,7 +416,7 @@ export default function FeedPage() {
                         </div>
                       </div>
                     </div>
-                    <PostMoreMenu postId={post._id} onDelete={handleDeletePost} />
+                    <PostMoreMenu postId={post._id} isOwner={post.isOwner} onDelete={handleDeletePost} />
                   </div>
 
                   <p className="post-content">{post.content}</p>

@@ -57,6 +57,9 @@ export interface Post {
   image?: string;
   likesCount: number;
   commentsCount: number;
+  likedByMe: boolean;
+  sharedByMe: boolean;
+  isOwner: boolean;
   createdAt: string;
   updatedAt: string;
 }

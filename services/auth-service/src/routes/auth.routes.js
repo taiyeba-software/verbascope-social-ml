@@ -38,5 +38,6 @@ router.get('/google/failure', (req, res) => {
 });
 
 router.get('/me', authenticateToken, authController.getMe);
+router.post('/logout', authenticateToken, authController.logout);
 
 export default router;

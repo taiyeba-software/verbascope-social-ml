@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { googleAuthUrl } from '@/lib/api';
 import type { RegisterFormData } from '@/types';
 import '../auth.css';
 
@@ -183,7 +184,7 @@ export default function RegisterPage() {
             type="button"
             className="btn btn-google"
             onClick={() => {
-              window.location.href = 'http://localhost:3000/api/auth/google';
+              window.location.href = googleAuthUrl;
             }}
             disabled={isLoading}
           >

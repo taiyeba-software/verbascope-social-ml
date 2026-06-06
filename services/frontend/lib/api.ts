@@ -107,9 +107,11 @@ export const authService = {
 
   // Start Google OAuth flow
   googleAuthStart: () => {
-    window.location.href = `${authApi['client'].defaults.baseURL}/api/auth/google`;
+    window.location.href = googleAuthUrl;
   },
 };
+
+export const googleAuthUrl = `${process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3000'}/api/auth/google`;
 
 /* ──────────────────────────────────────────────────────────
    Notification Service Methods

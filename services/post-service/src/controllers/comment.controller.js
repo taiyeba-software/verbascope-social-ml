@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import Comment from '../models/comment.model.js';
 import Post from '../models/post.model.js';
+import { publish } from '../broker/rabbit.js';
+import { pulse } from '../pulse/pulse.js';  // <- added for pulse signaling on comment add
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -24,6 +26,9 @@ export const addComment = async (req, res) => {
 
 		// Atomic increment — race-condition safe
 		await Post.findByIdAndUpdate(req.params.id, { $inc: { commentsCount: 1 } });
+
+		publish('comment.added', { postId: req.params.id });
+		pulse.onCommentAdded(req.params.id); // notify pulse signal that a comment was added
 
 		return res.status(201).json({ success: true, comment });
 	} catch (err) {

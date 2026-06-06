@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { io as socketIO } from 'socket.io-client';
 import Navbar from '@/components/Navbar';
 import FeedSkeleton from '@/components/FeedSkeleton';
 import CreatePostBox from '@/components/CreatePostBox';
 import { useAuth } from '@/hooks/useAuth';
-import { postService } from '@/lib/api/posts';
+import { postApi, postService } from '@/lib/api/posts';
 import type { Post } from '@/types';
 import './feed.css';
 
@@ -172,6 +173,13 @@ const TRENDING = [
   { tag: '#ToxicitySignals', count: '1.6K posts' },
 ];
 
+const hardcodedFallback = TRENDING;
+
+type TrendingTag = {
+  tag: string;
+  count?: string;
+};
+
 const WHO_TO_FOLLOW = [
   { name: 'AI Explorer', handle: '@aiexplorer', initials: 'AE' },
   { name: 'CodeWithShuvo', handle: '@shuvo.dev', initials: 'CS' },
@@ -188,6 +196,8 @@ export default function FeedPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [openComments, setOpenComments] = useState<OpenComments>({});
   const [following, setFollowing] = useState<Set<string>>(new Set());
+  const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
+  const [pulseSignal, setPulseSignal] = useState('');
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/auth/login');
@@ -206,6 +216,51 @@ export default function FeedPage() {
       .catch(() => {})
       .finally(() => setFeedLoading(false));
   }, [user, page]);
+
+  useEffect(() => {
+    const socket = socketIO('http://localhost:3003', {
+      withCredentials: true,
+    });
+
+    socket.on('pulse:update', (signal: { message?: string }) => {
+      setPulseSignal(signal.message ?? '');
+    });
+
+    socket.on('pulse:trending', (tags: TrendingTag[]) => {
+      setTrendingTags(tags);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const res = await postApi.get<{ trending: Array<string | { tag: string; count?: number }> }>('/api/posts/pulse/trending');
+        const next = res.data.trending
+          .map((item) => {
+            if (typeof item === 'string') return { tag: item };
+            if (!item?.tag) return null;
+            return {
+              tag: item.tag,
+              count: item.count != null ? `${item.count} posts` : undefined,
+            };
+          })
+          .filter((item): item is TrendingTag => Boolean(item));
+
+        if (next.length > 0) setTrendingTags(next);
+      } catch (err) {
+        if ((err as any)?.response?.status !== 404) {
+          console.error('fetchTrending error:', err);
+        }
+        // 404 just means no trending data yet — safe to ignore
+      }
+    };
+
+    fetchTrending();
+  }, []);
 
   const handleLike = async (postId: string, isLiked: boolean) => {
     setPosts((cur) =>
@@ -554,16 +609,27 @@ export default function FeedPage() {
             <div className="sidebar-card-icon">🔥</div>
             <h3 className="sidebar-card-title">Trending Now</h3>
           </div>
+          {pulseSignal && <div className="trending-count">{pulseSignal}</div>}
           <div className="trending-list">
-            {TRENDING.map((item) => (
-              <div key={item.tag} className="trending-item">
-                <span className="trending-dot" />
-                <div>
-                  <div className="trending-tag">{item.tag}</div>
-                  <div className="trending-count">{item.count}</div>
-                </div>
-              </div>
-            ))}
+            {trendingTags.length > 0
+              ? trendingTags.map(({ tag, count }) => (
+                  <div key={tag} className="trending-item">
+                    <span className="trending-dot" />
+                    <div>
+                      <div className="trending-tag">{tag}</div>
+                      <div className="trending-count">{count} posts</div>
+                    </div>
+                  </div>
+                ))
+              : hardcodedFallback.map((item) => (
+                  <div key={item.tag} className="trending-item">
+                    <span className="trending-dot" />
+                    <div>
+                      <div className="trending-tag">{item.tag}</div>
+                      <div className="trending-count">{item.count}</div>
+                    </div>
+                  </div>
+                ))}
           </div>
         </div>
 

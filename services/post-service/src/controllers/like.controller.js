@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
+import { publish } from '../broker/rabbit.js';
+import { pulse } from '../pulse/pulse.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -29,6 +31,10 @@ export const likePost = async (req, res) => {
 			},
 			{ returnDocument: 'after', select: 'likesCount' }
 		);
+
+		publish('post.liked', { postId: req.params.id });
+
+		pulse.onPostLiked(req.params.id);
 
 		return res.status(201).json({ success: true, message: 'Post liked.', likesCount: updated.likesCount });
 	} catch (err) {

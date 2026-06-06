@@ -1,17 +1,35 @@
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import app from './src/app.js';
 import connectDB from './src/db/db.js';
-import { connect } from './src/broker/rabbit.js';
+import { connect as connectRabbit, consumePulseEvents } from './src/broker/rabbit.js';
+import { pulse } from './src/pulse/pulse.js';
 
-const isDbConnected = await connectDB();
+const PORT = parseInt(process.env.PORT) || 3003;
+const httpServer = createServer(app);
+export const io = new Server(httpServer, {
+    cors: { origin: 'http://localhost:3002', credentials: true }
+});
+
+await connectDB();
 try {
-    await connect();
+    await connectRabbit();
+    await consumePulseEvents((event) => {
+        if (event.type === 'post.created') {
+            pulse.onPostCreated(event.post);
+            io.emit('pulse:trending', pulse.getTrending());
+        }
+        if (event.type === 'post.liked') {
+            pulse.onPostLiked(event.postId);
+            io.emit('pulse:update', pulse.getSignal());
+        }
+        if (event.type === 'comment.added') {
+            pulse.onCommentAdded(event.postId);
+            io.emit('pulse:update', pulse.getSignal());
+        }
+    });
 } catch (err) {
     console.warn('⚠️  RabbitMQ unavailable, continuing without it.');
 }
 
-app.listen(3003, () => {
-    if (!isDbConnected) {
-        console.warn('⚠️  Post service started without MongoDB.');
-    }
-    console.log('Post service running on port 3003');
-});
+httpServer.listen(PORT, () => console.log(`Post service on ${PORT}`));

@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
+import { publish } from '../broker/rabbit.js';
+import { pulse } from '../pulse/pulse.js';
 
 // ── Helper: validate MongoDB ObjectId early to avoid CastError ───────
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -25,15 +27,18 @@ export const createPost = async (req, res) => {
 			});
 		}
 
-		const post = await Post.create({
+		const newPost = await Post.create({
 			author: req.user.id,
 			content: content || '',
 			image: image || '',
 		});
 
-		const populatedPost = await Post.findById(post._id).populate('author', 'fullname').lean();
+		pulse.onPostCreated(newPost);
+		publish('post.created', { post: newPost });
 
-		return res.status(201).json({ success: true, post: populatedPost ?? post });
+		const populatedPost = await Post.findById(newPost._id).populate('author', 'fullname').lean();
+
+		return res.status(201).json({ success: true, post: populatedPost ?? newPost });
 	} catch (err) {
 		console.error('createPost error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });

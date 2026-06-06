@@ -4,6 +4,7 @@ import User from '../models/user.model.js';
 
 let connection = null;
 let channel = null;
+const pulseQueue = 'pulse_events';
 
 const upsertUser = async (payload) => {
 	if (!payload?.id) return;
@@ -36,10 +37,31 @@ const consumeQueue = async (queueName, handler) => {
 	});
 };
 
+export const publish = (eventType, data) => {
+	if (!channel) return;
+
+	const payload = JSON.stringify({ type: eventType, ...data });
+	channel.sendToQueue(pulseQueue, Buffer.from(payload));
+};
+
+export const consumePulseEvents = async (onEvent) => {
+	if (!channel) return;
+
+	await channel.assertQueue(pulseQueue, { durable: false });
+	await channel.consume(pulseQueue, (message) => {
+		if (!message) return;
+
+		const event = JSON.parse(message.content.toString());
+		onEvent(event);
+		channel.ack(message);
+	});
+};
+
 export const connect = async () => {
 	try {
 		connection = await amqplib.connect(config.rabbitUri);
 		channel = await connection.createChannel();
+		await channel.assertQueue(pulseQueue, { durable: false });
 
 		await consumeQueue('user_created', upsertUser);
 

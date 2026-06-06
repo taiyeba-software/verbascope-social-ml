@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import protect from '../middlewares/auth.middleware.js';
 import { validatePost, validateComment } from '../middlewares/validation.middleware.js';
+import { pulse } from '../pulse/pulse.js';
 
 import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
@@ -8,6 +9,14 @@ import { sharePost, unsharePost } from '../controllers/share.controller.js';
 import { addComment, getComments, deleteComment } from '../controllers/comment.controller.js';
 
 const router = Router();
+
+router.get('/pulse/trending', (req, res) => {
+	res.json({ trending: pulse.getTrending() });
+});
+
+router.get('/pulse/signal', (req, res) => {
+	res.json(pulse.getSignal());
+});
 
 // ── Post routes ──────────────────────────────────────────────────────
 router.post('/',                              protect, validatePost,    createPost);

@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
+import { publish } from '../broker/rabbit.js';
+import { pulse } from '../pulse/pulse.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -30,6 +32,9 @@ export const sharePost = async (req, res) => {
 			},
 			{ returnDocument: 'after', select: 'sharesCount' }
 		);
+
+		publish('post.shared', { postId: req.params.id });
+		pulse.onPostShared(req.params.id);
 
 		return res.status(201).json({
 			success: true,

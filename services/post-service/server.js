@@ -11,6 +11,11 @@ export const io = new Server(httpServer, {
     cors: { origin: 'http://localhost:3002', credentials: true }
 });
 
+io.on('connection', (socket) => {
+    console.log('Socket connected:', socket.id);
+    socket.on('disconnect', () => console.log('Socket disconnected:', socket.id));
+});
+
 await connectDB();
 try {
     await connectRabbit();
@@ -25,6 +30,10 @@ try {
         }
         if (event.type === 'comment.added') {
             pulse.onCommentAdded(event.postId);
+            io.emit('pulse:update', pulse.getSignal());
+        }
+        if (event.type === 'post.shared') {
+            pulse.onPostShared(event.postId, event.reason);
             io.emit('pulse:update', pulse.getSignal());
         }
     });

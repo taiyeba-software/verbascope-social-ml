@@ -34,6 +34,32 @@ const postSchema = new mongoose.Schema(
 				ref: 'User',
 			},
 		],
+		shareReasons: {
+			agree: {
+				type: Number,
+				default: 0,
+			},
+			funny: {
+				type: Number,
+				default: 0,
+			},
+			needs_attention: {
+				type: Number,
+				default: 0,
+			},
+			insightful: {
+				type: Number,
+				default: 0,
+			},
+			concerning: {
+				type: Number,
+				default: 0,
+			},
+			educational: {
+				type: Number,
+				default: 0,
+			},
+		},
 		likedBy: [
 			{
 				type: mongoose.Schema.Types.ObjectId,

@@ -732,3 +732,76 @@ body {
     display: none;
   }
 }
+
+/* ── Share Reason Sheet ─────────────────────────────────── */
+.share-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 999;
+}
+
+.share-sheet {
+  background: var(--vs-surface);
+  border-radius: var(--vs-radius-lg) var(--vs-radius-lg) 0 0;
+  padding: var(--vs-space-lg);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vs-space-sm);
+  box-shadow: var(--vs-shadow-md);
+}
+
+.share-sheet-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: center;
+  color: var(--vs-text-primary);
+  margin-bottom: var(--vs-space-xs);
+}
+
+.share-sheet-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--vs-space-sm);
+}
+
+.share-reason-btn {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--vs-radius-md);
+  border: 1px solid var(--vs-border-card);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--vs-text-primary);
+  text-align: left;
+  transition: all var(--vs-transition);
+}
+
+.share-reason-btn:hover {
+  background: var(--vs-teal-light);
+  border-color: var(--vs-teal);
+  color: var(--vs-teal);
+}
+
+.share-sheet-cancel {
+  margin-top: var(--vs-space-xs);
+  padding: 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--vs-text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: 'DM Sans', sans-serif;
+  text-align: center;
+  transition: color var(--vs-transition);
+}
+
+.share-sheet-cancel:hover {
+  color: var(--vs-accent-red);
+}

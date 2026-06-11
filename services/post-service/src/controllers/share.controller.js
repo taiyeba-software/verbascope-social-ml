@@ -4,6 +4,7 @@ import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+const VALID_REASONS = ['agree', 'funny', 'needs_attention', 'insightful', 'concerning', 'educational'];
 
 // ── POST /api/posts/:id/share ─────────────────────────────────────────
 export const sharePost = async (req, res) => {
@@ -24,22 +25,27 @@ export const sharePost = async (req, res) => {
 			return res.status(409).json({ success: false, message: 'You already shared this post.' });
 		}
 
+		const reason = VALID_REASONS.includes(req.body.reason) ? req.body.reason : null;
+
+		const update = {
+			$push: { sharedBy: req.user.id },
+			$inc: { sharesCount: 1, ...(reason && { [`shareReasons.${reason}`]: 1 }) },
+		};
+
 		const updated = await Post.findByIdAndUpdate(
 			req.params.id,
-			{
-				$push: { sharedBy: req.user.id },
-				$inc: { sharesCount: 1 },
-			},
-			{ returnDocument: 'after', select: 'sharesCount' }
+			update,
+			{ returnDocument: 'after', select: 'sharesCount shareReasons' }
 		);
 
-		publish('post.shared', { postId: req.params.id });
-		pulse.onPostShared(req.params.id);
+		publish('post.shared', { postId: req.params.id, reason });
+		pulse.onPostShared(req.params.id, reason);
 
 		return res.status(201).json({
 			success: true,
 			message: 'Post shared.',
 			sharesCount: updated.sharesCount,
+			shareReasons: updated.shareReasons,
 		});
 	} catch (err) {
 		console.error('sharePost error:', err);

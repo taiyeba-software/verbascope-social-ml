@@ -198,6 +198,7 @@ export default function FeedPage() {
   const [following, setFollowing] = useState<Set<string>>(new Set());
   const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
   const [pulseSignal, setPulseSignal] = useState('');
+  const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/auth/login');
@@ -287,33 +288,47 @@ export default function FeedPage() {
     }
   };
 
-  const handleShare = async (postId: string, isShared: boolean) => {
+  const handleShare = (postId: string, isShared: boolean) => {
+    if (isShared) {
+      // unshare immediately, no reason needed
+      setPosts((cur) =>
+        cur.map((post) =>
+          post._id === postId
+            ? { ...post, sharedByMe: false, sharesCount: Math.max(0, (post.sharesCount ?? 1) - 1) }
+            : post
+        )
+      );
+      postService.unsharePost(postId).catch(() => {
+        setPosts((cur) =>
+          cur.map((post) =>
+            post._id === postId
+              ? { ...post, sharedByMe: true, sharesCount: (post.sharesCount ?? 0) + 1 }
+              : post
+          )
+        );
+      });
+    } else {
+      // open reason picker
+      setShareSheet({ postId });
+    }
+  };
+
+  const handleShareWithReason = async (postId: string, reason: string) => {
+    setShareSheet(null);
     setPosts((cur) =>
       cur.map((post) =>
         post._id === postId
-          ? {
-              ...post,
-              sharedByMe: !isShared,
-              sharesCount: isShared ? Math.max(0, (post.sharesCount ?? 1) - 1) : (post.sharesCount ?? 0) + 1,
-            }
+          ? { ...post, sharedByMe: true, sharesCount: (post.sharesCount ?? 0) + 1 }
           : post
       )
     );
     try {
-      if (isShared) {
-        await postService.unsharePost(postId);
-      } else {
-        await postService.sharePost(postId);
-      }
+      await postService.sharePost(postId, reason);
     } catch {
       setPosts((cur) =>
         cur.map((post) =>
           post._id === postId
-            ? {
-                ...post,
-                sharedByMe: isShared,
-                sharesCount: isShared ? (post.sharesCount ?? 0) + 1 : Math.max(0, (post.sharesCount ?? 1) - 1),
-              }
+            ? { ...post, sharedByMe: false, sharesCount: Math.max(0, (post.sharesCount ?? 1) - 1) }
             : post
         )
       );
@@ -678,6 +693,36 @@ export default function FeedPage() {
           </div>
         </div>
       </aside>
+
+      {shareSheet && (
+        <div className="share-sheet-overlay" onClick={() => setShareSheet(null)}>
+          <div className="share-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="share-sheet-title">Why are you passing this forward?</div>
+            <div className="share-sheet-options">
+              {[
+                { reason: 'needs_attention', label: '🚨 Needs attention' },
+                { reason: 'agree', label: '✅ I agree' },
+                { reason: 'funny', label: '😄 Funny' },
+                { reason: 'insightful', label: '💡 Insightful' },
+                { reason: 'concerning', label: '⚠️ Concerning' },
+                { reason: 'educational', label: '📚 Educational' },
+              ].map(({ reason, label }) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className="share-reason-btn"
+                  onClick={() => handleShareWithReason(shareSheet.postId, reason)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="share-sheet-cancel" onClick={() => setShareSheet(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

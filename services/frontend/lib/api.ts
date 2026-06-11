@@ -161,8 +161,8 @@ export const postService = {
   deletePost: (id: string) =>
     postApi.delete(`/api/posts/${id}`),
 
-  sharePost: (id: string) =>
-    postApi.post(`/api/posts/${id}/share`),
+  sharePost: (id: string, reason?: string) =>
+    postApi.post(`/api/posts/${id}/share`, { reason }),
 
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),

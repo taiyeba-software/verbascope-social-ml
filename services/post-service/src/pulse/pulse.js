@@ -1,4 +1,5 @@
 const tagFrequency = new Map();
+const shareReasonCounts = new Map();
 const recentActivity = {
   likes: [],
   posts: [],
@@ -37,11 +38,16 @@ export const pulse = {
     this._pruneOldActivity();
   },
 
-  onPostShared(postId) {
+  onPostShared(postId, reason) {
     // treat shares as high-weight activity
     recentActivity.likes.push(Date.now());
     recentActivity.likes.push(Date.now());
     this._pruneOldActivity();
+
+    // track reason if provided
+    if (reason) {
+      shareReasonCounts.set(reason, (shareReasonCounts.get(reason) || 0) + 1);
+    }
   },
 
   // remove activity older than 2 minutes
@@ -58,10 +64,22 @@ export const pulse = {
                 + recentActivity.posts.length
                 + recentActivity.comments.length;
 
-    if (total >= 15) return { type: 'surge',   message: '⚡ Engagement surge detected' };
-    if (total >= 8)  return { type: 'rising',  message: '📈 Community activity rising' };
-    if (total >= 3)  return { type: 'active',  message: '🟡 Community is active' };
-    return                  { type: 'normal',  message: '🟢 Community is calm' };
+    const signal = total >= 15 ? { type: 'surge', message: '⚡ Engagement surge detected' }
+      : total >= 8 ? { type: 'rising', message: '📈 Community activity rising' }
+      : total >= 3 ? { type: 'active', message: '🟡 Community is active' }
+      : { type: 'normal', message: '🟢 Community is calm' };
+
+    // attach reason breakdown if any shares have happened
+    if (shareReasonCounts.size > 0) {
+      const totalShares = [...shareReasonCounts.values()].reduce((sum, count) => sum + count, 0);
+      signal.topReason = [...shareReasonCounts.entries()]
+        .sort((a, b) => b[1] - a[1])[0];
+      signal.reasonBreakdown = Object.fromEntries(
+        [...shareReasonCounts.entries()].map(([reason, count]) => [reason, Math.round((count / totalShares) * 100)])
+      );
+    }
+
+    return signal;
   },
 
   getTrending(limit = 5) {

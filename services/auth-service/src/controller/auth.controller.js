@@ -239,6 +239,7 @@ const register = async (req, res) => {
 const googleCallback = async (req, res) => {
     try {
         const user = req.user;
+        const isNewUser = req.authInfo?.isNewUser === true;
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
@@ -246,14 +247,15 @@ const googleCallback = async (req, res) => {
             { expiresIn: '2d' }
         );
 
-        // ── publish to queue for Google OAuth registrations too ──
-        await publishToQueue('user_created', {
-            id:       user._id,
-            email:    user.email,
-            fullname: user.fullname,
-            role:     user.role,
-        });
-        // ─────────────────────────────────────────────────────────
+        // Only publish when Google OAuth created a brand-new user.
+        if (isNewUser) {
+            await publishToQueue('user_created', {
+                id:       user._id,
+                email:    user.email,
+                fullname: user.fullname,
+                role:     user.role,
+            });
+        }
 
         res.cookie('token', token, {
             httpOnly: true,

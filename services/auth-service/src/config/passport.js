@@ -29,7 +29,7 @@ passport.use(
                         user.googleID = googleID;
                         await user.save();
                     }
-                    return done(null, user);
+                    return done(null, user, { isNewUser: false });
                 }
 
                 // Create new user
@@ -39,7 +39,7 @@ passport.use(
                     fullname: { firstName, lastName },
                 });
 
-                return done(null, user);
+                return done(null, user, { isNewUser: true });
             } catch (error) {
                 return done(error, null);
             }

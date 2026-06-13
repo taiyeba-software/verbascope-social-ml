@@ -30,7 +30,11 @@ export const addComment = async (req, res) => {
 		publish('comment.added', { postId: req.params.id });
 		pulse.onCommentAdded(req.params.id); // notify pulse signal that a comment was added
 
-		return res.status(201).json({ success: true, comment });
+		const populated = await comment.populate('user', 'fullname');
+		return res.status(201).json({
+			success: true,
+			comment: { ...populated.toObject(), author: populated.user },
+		});
 	} catch (err) {
 		console.error('addComment error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });
@@ -49,7 +53,11 @@ export const getComments = async (req, res) => {
 			.populate('user', 'fullname')   // pulls firstName/lastName for comment author
 			.lean();
 
-		return res.status(200).json({ success: true, comments });
+		const mapped = comments.map((c) => ({
+			...c,
+			author: c.user,
+		}));
+		return res.status(200).json({ success: true, comments: mapped });
 	} catch (err) {
 		console.error('getComments error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });

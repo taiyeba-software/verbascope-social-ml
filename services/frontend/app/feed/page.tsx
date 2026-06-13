@@ -60,6 +60,37 @@ function safeAuthorInitials(author: Post['author'] | Comment['author']): string 
   return (f + l).toUpperCase() || 'A';
 }
 
+const AVATAR_COLORS = [
+  'linear-gradient(135deg, #0e9fab, #17b0bc)',
+  'linear-gradient(135deg, #8b5cf6, #a78bfa)',
+  'linear-gradient(135deg, #f97316, #fb923c)',
+  'linear-gradient(135deg, #ef4444, #f87171)',
+  'linear-gradient(135deg, #22c55e, #4ade80)',
+  'linear-gradient(135deg, #3b82f6, #60a5fa)',
+  'linear-gradient(135deg, #ec4899, #f472b6)',
+  'linear-gradient(135deg, #eab308, #facc15)',
+];
+
+function getAvatarColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+}
+
+function getAvatarSeed(author: Post['author'] | Comment['author']): string {
+  if (!author) return 'anonymous';
+  if (typeof author === 'string') return author;
+  return (
+    (author as { id?: string }).id ||
+    `${author.fullname?.firstName ?? ''} ${author.fullname?.lastName ?? ''}`.trim() ||
+    'anonymous'
+  );
+}
+
 function timeAgo(dateStr?: string) {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -125,6 +156,8 @@ const ChevronRightIcon = () => (
 );
 
 function PostMoreMenu({ postId, isOwner, onDelete }: { postId: string; isOwner: boolean; onDelete: (id: string) => void }) {
+  if (!isOwner) return null;
+
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -152,9 +185,6 @@ function PostMoreMenu({ postId, isOwner, onDelete }: { postId: string; isOwner: 
       </button>
       {open && (
         <div className="post-more-dropdown">
-          <button type="button" className="post-more-item" onClick={() => setOpen(false)}>
-            ✏️ Edit post
-          </button>
           {isOwner && (
             <button type="button" className="post-more-item danger" onClick={() => { setOpen(false); onDelete(postId); }}>
               🗑️ Delete post
@@ -345,7 +375,12 @@ export default function FeedPage() {
     try {
       await postService.deletePost(postId);
     } catch {
-      // silently fail
+      // rollback
+      postService.getFeed(page).then(({ data }) => {
+        const result = data as { posts: FeedPost[]; totalPages: number };
+        setPosts(result.posts ?? []);
+      });
+      alert('Failed to delete post. Please try again.');
     }
   };
 
@@ -477,7 +512,12 @@ export default function FeedPage() {
                 <article key={post._id} className="post-card">
                   <div className="post-header">
                     <div className="post-author-info">
-                      <div className="post-avatar">{safeAuthorInitials(post.author)}</div>
+                      <div
+                        className="post-avatar"
+                        style={{ background: getAvatarColor(getAvatarSeed(post.author)) }}
+                      >
+                        {safeAuthorInitials(post.author)}
+                      </div>
                       <div>
                         <span className="post-author-name">{safeAuthorName(post.author)}</span>
                         <div className="post-meta">
@@ -577,7 +617,10 @@ export default function FeedPage() {
                       ) : (
                         commentState.comments.map((comment) => (
                           <div key={comment._id} className="comment-item">
-                            <div className="comment-avatar">
+                            <div
+                            className="comment-avatar"
+                            style={{ background: getAvatarColor(getAvatarSeed(comment.author)) }}
+                          >
                               {safeAuthorInitials(comment.author)}
                             </div>
                             <div className="comment-body">
@@ -632,7 +675,7 @@ export default function FeedPage() {
                     <span className="trending-dot" />
                     <div>
                       <div className="trending-tag">{tag}</div>
-                      <div className="trending-count">{count} posts</div>
+                      <div className="trending-count">{count}</div>
                     </div>
                   </div>
                 ))

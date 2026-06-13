@@ -20,12 +20,7 @@ export const pulse = {
       });
     }
 
-    // also count explicit tags array if present
-    if (post.tags && Array.isArray(post.tags)) {
-      post.tags.forEach(tag => {
-        tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
-      });
-    }
+    // removed post.tags block — was double-counting
   },
 
   onPostLiked(postId) {

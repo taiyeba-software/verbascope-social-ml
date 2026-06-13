@@ -4,6 +4,17 @@ import app from './src/app.js';
 import connectDB from './src/db/db.js';
 import { connect as connectRabbit, consumePulseEvents } from './src/broker/rabbit.js';
 import { pulse } from './src/pulse/pulse.js';
+import Post from './src/models/post.model.js';
+
+const seedPulseFromDB = async () => {
+    try {
+        const posts = await Post.find({}, 'content').lean();
+        posts.forEach(post => pulse.onPostCreated(post));
+        console.log(`Pulse seeded from ${posts.length} existing posts.`);
+    } catch (err) {
+        console.warn('Pulse seed failed:', err.message);
+    }
+};
 
 const PORT = parseInt(process.env.PORT) || 3003;
 const httpServer = createServer(app);
@@ -17,6 +28,7 @@ io.on('connection', (socket) => {
 });
 
 await connectDB();
+await seedPulseFromDB();
 try {
     await connectRabbit();
     await consumePulseEvents((event) => {

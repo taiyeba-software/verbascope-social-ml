@@ -558,7 +558,7 @@ export default function FeedPage() {
                     <PostMoreMenu postId={post._id} isOwner={post.isOwner} onDelete={handleDeletePost} />
                   </div>
 
-                  <p className="post-content">{post.content}</p>
+                  <p className="post-content" style={{ whiteSpace: 'pre-wrap' }}>{post.content}</p>
 
                   {tags.length > 0 && (
                     <div className="post-tags">

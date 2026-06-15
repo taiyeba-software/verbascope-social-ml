@@ -282,18 +282,11 @@ export default function FeedPage() {
           .filter((item): item is TrendingTag => Boolean(item));
 
         if (next.length > 0) setTrendingTags(next);
-      } catch (err) {
-        if ((err as any)?.response?.status !== 404) {
-          console.error('fetchTrending error:', err);
-        }
-        // 404 just means no trending data yet — safe to ignore
+      } catch {
+        // trending is non-critical — socket will update it live
       }
     };
 
-    fetchTrending();
-  }, []);
-
-  useEffect(() => {
     const fetchSignal = async () => {
       try {
         const res = await postApi.get<{ message?: string }>('/api/posts/pulse/signal');
@@ -303,6 +296,7 @@ export default function FeedPage() {
       }
     };
 
+    fetchTrending();
     fetchSignal();
   }, []);
 

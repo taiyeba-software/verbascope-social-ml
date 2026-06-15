@@ -29,7 +29,15 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
         setIsExpanded(false);
         onPost?.(data.post);
       }
-    } catch (err) {
+    } catch (err: any) {
+      const serverMsg = err?.data?.errors?.[0]?.msg;
+      if (serverMsg) {
+        alert(serverMsg);
+      } else if (err?.status === 422 || err?.status === 400) {
+        alert('Post is too long. Please shorten it and try again.');
+      } else {
+        alert('Failed to create post. Please try again.');
+      }
       console.error('Failed to create post', err);
     } finally {
       setIsSubmitting(false);

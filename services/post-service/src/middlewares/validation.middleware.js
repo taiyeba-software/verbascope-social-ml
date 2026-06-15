@@ -15,8 +15,8 @@ export const validatePost = [
 		.optional()
 		.isString()
 		.withMessage('Content must be a string.')
-		.isLength({ max: 1000 })
-		.withMessage('Content cannot exceed 1000 characters.'),
+		.isLength({ max: 3000 })
+		.withMessage('Content cannot exceed 3000 characters.'),
 	// At least one of content or image must be present — checked in controller
 	handleValidationErrors,
 ];

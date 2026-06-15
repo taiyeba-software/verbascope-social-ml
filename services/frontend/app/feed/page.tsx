@@ -253,8 +253,8 @@ export default function FeedPage() {
       withCredentials: true,
     });
 
-    socket.on('pulse:update', (signal: { message?: string }) => {
-      setPulseSignal(signal.message ?? '');
+    socket.on('pulse:update', (signal: { message?: string } | string) => {
+      setPulseSignal(typeof signal === 'string' ? signal : signal.message ?? '');
     });
 
     socket.on('pulse:trending', (tags: TrendingTag[]) => {
@@ -291,6 +291,19 @@ export default function FeedPage() {
     };
 
     fetchTrending();
+  }, []);
+
+  useEffect(() => {
+    const fetchSignal = async () => {
+      try {
+        const res = await postApi.get<{ message?: string }>('/api/posts/pulse/signal');
+        if (res.data?.message) setPulseSignal(res.data.message);
+      } catch {
+        // silent — socket will update it once connected
+      }
+    };
+
+    fetchSignal();
   }, []);
 
   const handleLike = async (postId: string, isLiked: boolean) => {

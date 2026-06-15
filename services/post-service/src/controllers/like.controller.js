@@ -34,7 +34,7 @@ export const likePost = async (req, res) => {
 
 		publish('post.liked', { postId: req.params.id });
 
-		pulse.onPostLiked(req.params.id);
+		pulse.onPostLiked(req.params.id, req.user.id);
 
 		return res.status(201).json({ success: true, message: 'Post liked.', likesCount: updated.likesCount });
 	} catch (err) {

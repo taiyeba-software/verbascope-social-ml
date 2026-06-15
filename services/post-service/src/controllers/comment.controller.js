@@ -28,7 +28,7 @@ export const addComment = async (req, res) => {
 		await Post.findByIdAndUpdate(req.params.id, { $inc: { commentsCount: 1 } });
 
 		publish('comment.added', { postId: req.params.id });
-		pulse.onCommentAdded(req.params.id); // notify pulse signal that a comment was added
+		pulse.onCommentAdded(req.params.id, req.user.id); // notify pulse signal that a comment was added
 
 		const populated = await comment.populate('user', 'fullname');
 		return res.status(201).json({

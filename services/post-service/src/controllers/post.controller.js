@@ -33,7 +33,7 @@ export const createPost = async (req, res) => {
 			image: image || '',
 		});
 
-		pulse.onPostCreated(newPost);
+		pulse.onPostCreated(newPost, req.user.id);
 		publish('post.created', { post: newPost });
 
 		const populatedPost = await Post.findById(newPost._id).populate('author', 'fullname').lean();

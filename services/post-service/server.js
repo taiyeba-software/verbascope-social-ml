@@ -8,6 +8,7 @@ import Post from './src/models/post.model.js';
 
 const seedPulseFromDB = async () => {
     try {
+        pulse.resetForSeed();
         const posts = await Post.find({}, 'content').lean();
         posts.forEach(post => pulse.onPostCreated(post));
         console.log(`Pulse seeded from ${posts.length} existing posts.`);

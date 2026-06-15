@@ -39,7 +39,7 @@ export const sharePost = async (req, res) => {
 		);
 
 		publish('post.shared', { postId: req.params.id, reason });
-		pulse.onPostShared(req.params.id, reason);
+		pulse.onPostShared(req.params.id, reason, req.user.id);
 
 		return res.status(201).json({
 			success: true,

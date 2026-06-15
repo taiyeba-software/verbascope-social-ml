@@ -253,8 +253,21 @@ export default function FeedPage() {
       withCredentials: true,
     });
 
-    socket.on('pulse:update', (signal: { message?: string } | string) => {
-      setPulseSignal(typeof signal === 'string' ? signal : signal.message ?? '');
+    socket.on('pulse:update', (signal: { message?: string; type?: string } | string) => {
+      const messages: Record<string, string> = {
+        surge: '⚡ Engagement surge detected',
+        rising: '📈 Community activity rising',
+        active: '🟡 Community is active',
+        normal: '🟢 Community is calm',
+      };
+
+      setPulseSignal(
+        typeof signal === 'string'
+          ? signal
+          : signal.type
+          ? messages[signal.type] ?? signal.message ?? ''
+          : signal.message ?? ''
+      );
     });
 
     socket.on('pulse:trending', (tags: TrendingTag[]) => {
@@ -289,8 +302,17 @@ export default function FeedPage() {
 
     const fetchSignal = async () => {
       try {
-        const res = await postApi.get<{ message?: string }>('/api/posts/pulse/signal');
-        if (res.data?.message) setPulseSignal(res.data.message);
+        const res = await postApi.get<{ message?: string; type?: string }>('/api/posts/pulse/signal');
+        const messages: Record<string, string> = {
+          surge: '⚡ Engagement surge detected',
+          rising: '📈 Community activity rising',
+          active: '🟡 Community is active',
+          normal: '🟢 Community is calm',
+        };
+        const type = res.data?.type;
+        setPulseSignal(
+          type ? messages[type] ?? res.data?.message ?? '' : res.data?.message ?? ''
+        );
       } catch {
         // silent — socket will update it once connected
       }

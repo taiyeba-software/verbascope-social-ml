@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
+import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 
@@ -35,6 +36,20 @@ export const likePost = async (req, res) => {
 		publish('post.liked', { postId: req.params.id });
 
 		pulse.onPostLiked(req.params.id, req.user.id);
+
+		// notify post owner — fire and forget, don't await
+		User.findById(req.user.id, 'fullname').lean().then((actor) => {
+			if (actor) {
+				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
+				publish('notification_created', {
+					recipientId: post.author.toString(),
+					actorId:     req.user.id,
+					actorName,
+					type:        'like',
+					postId:      req.params.id,
+				});
+			}
+		}).catch(() => {}); // non-critical — never fail the like request
 
 		return res.status(201).json({ success: true, message: 'Post liked.', likesCount: updated.likesCount });
 	} catch (err) {

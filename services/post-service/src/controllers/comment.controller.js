@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Comment from '../models/comment.model.js';
 import Post from '../models/post.model.js';
+import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';  // <- added for pulse signaling on comment add
 
@@ -29,6 +30,21 @@ export const addComment = async (req, res) => {
 
 		publish('comment.added', { postId: req.params.id });
 		pulse.onCommentAdded(req.params.id, req.user.id); // notify pulse signal that a comment was added
+
+		// notify post owner — fire and forget
+		const post = await Post.findById(req.params.id, 'author').lean();
+		User.findById(req.user.id, 'fullname').lean().then((actor) => {
+			if (actor && post) {
+				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
+				publish('notification_created', {
+					recipientId: post.author.toString(),
+					actorId:     req.user.id,
+					actorName,
+					type:        'comment',
+					postId:      req.params.id,
+				});
+			}
+		}).catch(() => {});
 
 		const populated = await comment.populate('user', 'fullname');
 		return res.status(201).json({

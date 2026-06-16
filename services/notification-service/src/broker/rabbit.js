@@ -26,3 +26,13 @@ export const subscribeToQueue = async (queueName, callback) => {
         channel.ack(msg);  // ← acknowledge = delete from queue
     });
 };
+
+// ── publish ───────────────────────────────────────────────────────
+export const publish = (queueName, data) => {
+    if (!channel) return;
+    channel.sendToQueue(
+        queueName,
+        Buffer.from(JSON.stringify(data)),
+        { persistent: true }
+    );
+};

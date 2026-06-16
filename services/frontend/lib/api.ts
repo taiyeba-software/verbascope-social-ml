@@ -64,6 +64,11 @@ class ApiClient {
     return this.client.put<T>(url, data, config);
   }
 
+  // PATCH request
+  async patch(url: string, data?: unknown, config = {}) {
+    return this.client.patch(url, data, config);
+  }
+
   // DELETE request
   async delete<T>(url: string, config = {}) {
     return this.client.delete<T>(url, config);
@@ -121,6 +126,12 @@ export const notificationService = {
   // Test email endpoint
   testEmail: (email: string) =>
     notificationApi.post('/api/notification/test-email', { email }),
+
+  // Get all notifications for the current user
+  getNotifications: () => notificationApi.get('/api/notifications'),
+
+  // Mark all notifications as read
+  markAllRead: () => notificationApi.patch('/api/notifications/read'),
 };
 
 /* ──────────────────────────────────────────────────────────

@@ -84,21 +84,37 @@ export default function Navbar() {
 
   /* ── Socket.io connection ── */
   useEffect(() => {
+
+    console.log('🔵 [BELL SOCKET] Effect ran. user?.id is:', user?.id);  
+
     if (!user?.id) return;
+
+    console.log('🔵 [BELL SOCKET] Initializing connection for user:', user.id);
 
     const socket = io('http://localhost:3001', { withCredentials: true });
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      console.log('🟢 [BELL SOCKET] Connected:', socket.id, '| joining room:', user.id);
       socket.emit('join', user.id);
     });
 
+    socket.on('connect_error', (err) => {
+      console.error('🔴 [BELL SOCKET] Connection error:', err.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('🟡 [BELL SOCKET] Disconnected:', reason);
+    });
+
     socket.on('notification:new', (notification: Notification) => {
+      console.log('🔔 [BELL SOCKET] notification:new received:', notification);
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
     });
 
     return () => {
+      console.log('🔵 [BELL SOCKET] Cleaning up connection for user:', user.id);
       socket.disconnect();
       socketRef.current = null;
     };
@@ -136,6 +152,10 @@ export default function Navbar() {
   const displayName = user
     ? `${user?.fullname?.firstName ?? ''} ${user?.fullname?.lastName ?? ''}`.trim() || 'User'
     : 'User';
+
+    console.log('🎯 unreadCount right now:', unreadCount);
+
+   
 
   /* ── Render ── */
   return (

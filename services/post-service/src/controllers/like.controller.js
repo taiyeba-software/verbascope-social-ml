@@ -3,6 +3,7 @@ import Post from '../models/post.model.js';
 import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
+import { io } from '../../server.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -36,6 +37,14 @@ export const likePost = async (req, res) => {
 		publish('post.liked', { postId: req.params.id });
 
 		pulse.onPostLiked(req.params.id, req.user.id);
+
+		// ── live sync: tell everyone viewing the feed ──
+		console.log('📡 [SOCKET] About to emit post:update for', req.params.id);
+		io.emit('post:update', {
+			postId: req.params.id,
+			likesCount: updated.likesCount,
+		});
+		console.log('📡 [SOCKET] post:update emitted:', req.params.id, '| likesCount:', updated.likesCount, '| connected clients:', io.engine?.clientsCount ?? 'unknown');
 
 		// notify post owner — fire and forget, don't await
 		console.log('🔍 [LIKE] req.user.id:', req.user.id);
@@ -84,9 +93,19 @@ export const unlikePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'You have not liked this post.' });
 		}
 
-		await Post.findByIdAndUpdate(req.params.id, {
-			$pull: { likedBy: new mongoose.Types.ObjectId(req.user.id) },
-			$inc: { likesCount: -1 },
+		const updated = await Post.findByIdAndUpdate(
+			req.params.id,
+			{
+				$pull: { likedBy: new mongoose.Types.ObjectId(req.user.id) },
+				$inc: { likesCount: -1 },
+			},
+			{ returnDocument: 'after', select: 'likesCount' }
+		);
+
+		// ── live sync ──
+		io.emit('post:update', {
+			postId: req.params.id,
+			likesCount: updated.likesCount,
 		});
 
 		return res.status(200).json({ success: true, message: 'Post unliked.' });

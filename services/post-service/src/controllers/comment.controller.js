@@ -3,7 +3,8 @@ import Comment from '../models/comment.model.js';
 import Post from '../models/post.model.js';
 import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
-import { pulse } from '../pulse/pulse.js';  // <- added for pulse signaling on comment add
+import { pulse } from '../pulse/pulse.js';
+import { io } from '../../server.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -26,18 +27,27 @@ export const addComment = async (req, res) => {
 		});
 
 		// Atomic increment — race-condition safe
-		await Post.findByIdAndUpdate(req.params.id, { $inc: { commentsCount: 1 } });
+		const updatedPost = await Post.findByIdAndUpdate(
+			req.params.id,
+			{ $inc: { commentsCount: 1 } },
+			{ returnDocument: 'after', select: 'commentsCount author' }
+		);
 
 		publish('comment.added', { postId: req.params.id });
-		pulse.onCommentAdded(req.params.id, req.user.id); // notify pulse signal that a comment was added
+		pulse.onCommentAdded(req.params.id, req.user.id);
+
+		// ── live sync ──
+		io.emit('post:update', {
+			postId: req.params.id,
+			commentsCount: updatedPost.commentsCount,
+		});
 
 		// notify post owner — fire and forget
-		const post = await Post.findById(req.params.id, 'author').lean();
 		User.findById(req.user.id, 'fullname').lean().then((actor) => {
-			if (actor && post) {
+			if (actor && updatedPost) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
 				publish('notification_created', {
-					recipientId: post.author.toString(),
+					recipientId: updatedPost.author.toString(),
 					actorId:     req.user.id,
 					actorName,
 					type:        'comment',
@@ -66,7 +76,7 @@ export const getComments = async (req, res) => {
 
 		const comments = await Comment.find({ post: req.params.id })
 			.sort({ createdAt: -1 })
-			.populate('user', 'fullname')   // pulls firstName/lastName for comment author
+			.populate('user', 'fullname')
 			.lean();
 
 		const mapped = comments.map((c) => ({
@@ -101,10 +111,17 @@ export const deleteComment = async (req, res) => {
 
 		await comment.deleteOne();
 
-		// Atomic decrement — $inc with -1 is safe here because:
-		// a comment document must exist (checked above) before we decrement,
-		// so commentsCount will always be >= 1 at this point.
-		await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: -1 } });
+		const updatedPost = await Post.findByIdAndUpdate(
+			postId,
+			{ $inc: { commentsCount: -1 } },
+			{ returnDocument: 'after', select: 'commentsCount' }
+		);
+
+		// ── live sync ──
+		io.emit('post:update', {
+			postId,
+			commentsCount: updatedPost.commentsCount,
+		});
 
 		return res.status(200).json({ success: true, message: 'Comment deleted.' });
 	} catch (err) {

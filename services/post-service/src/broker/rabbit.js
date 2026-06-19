@@ -65,9 +65,23 @@ export const consumePulseEvents = async (onEvent) => {
 export const connect = async () => {
 	try {
 		connection = await amqplib.connect(config.rabbitUri);
+
+		// prevent ECONNRESET / dropped connections from crashing the process
+		connection.on('error', (err) => {
+			console.error('⚠️  RabbitMQ connection error:', err.message);
+		});
+		connection.on('close', () => {
+			console.warn('⚠️  RabbitMQ connection closed. Attempting reconnect in 5s...');
+			setTimeout(connect, 5000);
+		});
+
 		channel = await connection.createChannel();
+		channel.on('error', (err) => {
+			console.error('⚠️  RabbitMQ channel error:', err.message);
+		});
+
 		await channel.assertQueue(pulseQueue, { durable: false });
-		await channel.assertQueue('notification_created', { durable: true }); // ADD THIS
+		await channel.assertQueue('notification_created', { durable: true });
 
 		await consumeQueue('user_created', upsertUser);
 
@@ -75,6 +89,7 @@ export const connect = async () => {
 		return true;
 	} catch (error) {
 		console.error('RabbitMQ connection failed:', error.message);
+		setTimeout(connect, 5000); // retry on initial connect failure too
 		return false;
 	}
 };

@@ -38,6 +38,18 @@ export function useFeedSocket(setPosts: React.Dispatch<React.SetStateAction<Feed
       withCredentials: true,
     });
 
+    socket.on('connect', () => {
+      console.log('🟢 [SOCKET] Connected to post-service:', socket.id);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('🔴 [SOCKET] Connection error:', err.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('🟡 [SOCKET] Disconnected:', reason);
+    });
+
     socket.on('pulse:update', (signal: { message?: string; type?: string } | string) => {
       setPulseSignal(
         typeof signal === 'string'
@@ -55,6 +67,7 @@ export function useFeedSocket(setPosts: React.Dispatch<React.SetStateAction<Feed
     // ── Live post sync: when ANY user likes/comments/shares, everyone's
     // feed updates without a refresh ──
     socket.on('post:update', (payload: PostUpdatePayload) => {
+      console.log('🔔 [SOCKET] post:update received:', payload);
       setPosts((cur) =>
         cur.map((post) =>
           post._id === payload.postId

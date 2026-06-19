@@ -8,10 +8,25 @@ let channel    = null;
 export const connect = async () => {
     try {
         connection = await amqplib.connect(config.RABBITMQ_URI);
-        channel    = await connection.createChannel();
+
+        // prevent ECONNRESET / dropped connections from crashing the process
+        connection.on('error', (err) => {
+            console.error('⚠️  RabbitMQ connection error:', err.message);
+        });
+        connection.on('close', () => {
+            console.warn('⚠️  RabbitMQ connection closed. Attempting reconnect in 5s...');
+            setTimeout(connect, 5000);
+        });
+
+        channel = await connection.createChannel();
+        channel.on('error', (err) => {
+            console.error('⚠️  RabbitMQ channel error:', err.message);
+        });
+
         console.log('✅ RabbitMQ connected (notification-service)');
     } catch (err) {
         console.error('❌ RabbitMQ connection failed:', err.message);
+        setTimeout(connect, 5000); // retry on initial connect failure too
     }
 };
 

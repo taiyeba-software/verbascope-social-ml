@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Search, Bell, ChevronDown } from 'lucide-react';
+import { Search, Bell, ChevronDown, Heart, MessageCircle, Repeat2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService } from '@/lib/api';
@@ -24,6 +24,25 @@ function notificationLabel(n: Notification): string {
   if (n.type === 'comment') return `${n.actorName} commented on your post`;
   if (n.type === 'share')   return `${n.actorName} shared your post`;
   return 'New notification';
+}
+
+function notificationIcon(type: Notification['type']) {
+  if (type === 'like')    return <Heart size={15} className="notif-icon notif-icon-like" fill="currentColor" />;
+  if (type === 'comment') return <MessageCircle size={15} className="notif-icon notif-icon-comment" />;
+  if (type === 'share')   return <Repeat2 size={15} className="notif-icon notif-icon-share" />;
+  return <Bell size={15} className="notif-icon" />;
+}
+
+function timeAgo(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
 }
 
 /* ── Component ───────────────────────────────────────────── */
@@ -155,13 +174,14 @@ export default function Navbar() {
                 <ul className="notification-list">
                   {notifications.map((n) => (
                     <li key={n._id} className={`notification-item${n.read ? '' : ' unread'}`}>
-                      <span className="notification-text">{notificationLabel(n)}</span>
-                      <span className="notification-time">
-                        {new Date(n.createdAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <span className={`notif-icon-wrap notif-icon-wrap-${n.type}`}>
+                        {notificationIcon(n.type)}
                       </span>
+                      <div className="notification-body">
+                        <span className="notification-text">{notificationLabel(n)}</span>
+                        <span className="notification-time">{timeAgo(n.createdAt)}</span>
+                      </div>
+                      {!n.read && <span className="notification-dot" />}
                     </li>
                   ))}
                 </ul>

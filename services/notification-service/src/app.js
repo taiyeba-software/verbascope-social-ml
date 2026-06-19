@@ -1,12 +1,18 @@
 import express from 'express';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import sendEmail from './email/email.js';
 import Notification from './models/notification.model.js';
 import config from './config/config.js';
 
 const app = express();
+
+app.use(cors({
+    origin: 'http://localhost:3002',
+    credentials: true,
+}));
 
 app.use(morgan('dev'));
 app.use(express.json());

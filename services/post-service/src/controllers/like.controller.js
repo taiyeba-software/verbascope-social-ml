@@ -38,9 +38,13 @@ export const likePost = async (req, res) => {
 		pulse.onPostLiked(req.params.id, req.user.id);
 
 		// notify post owner — fire and forget, don't await
+		console.log('🔍 [LIKE] req.user.id:', req.user.id);
+
 		User.findById(req.user.id, 'fullname').lean().then((actor) => {
+			console.log('🔍 [LIKE] Actor found:', actor);
 			if (actor) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
+				console.log('🔍 [LIKE] actorName:', actorName, '| recipientId:', post.author.toString());
 				publish('notification_created', {
 					recipientId: post.author.toString(),
 					actorId:     req.user.id,
@@ -48,8 +52,13 @@ export const likePost = async (req, res) => {
 					type:        'like',
 					postId:      req.params.id,
 				});
+				console.log('🔍 [LIKE] notification_created published ✅');
+			} else {
+				console.log('🔍 [LIKE] No actor found — User.findById returned null');
 			}
-		}).catch(() => {}); // non-critical — never fail the like request
+		}).catch((err) => {
+			console.error('🔍 [LIKE] Notification publish failed:', err.message);
+		});
 
 		return res.status(201).json({ success: true, message: 'Post liked.', likesCount: updated.likesCount });
 	} catch (err) {

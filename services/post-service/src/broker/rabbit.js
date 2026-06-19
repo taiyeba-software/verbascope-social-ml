@@ -39,9 +39,14 @@ const consumeQueue = async (queueName, handler) => {
 
 export const publish = (eventType, data) => {
 	if (!channel) return;
-
 	const payload = JSON.stringify({ type: eventType, ...data });
-	channel.sendToQueue(pulseQueue, Buffer.from(payload));
+
+	if (eventType === 'notification_created') {
+		channel.sendToQueue('notification_created', Buffer.from(payload));
+	} else {
+		// pulse events (post.liked, post.commented, etc.) keep going to pulseQueue
+		channel.sendToQueue(pulseQueue, Buffer.from(payload));
+	}
 };
 
 export const consumePulseEvents = async (onEvent) => {
@@ -62,6 +67,7 @@ export const connect = async () => {
 		connection = await amqplib.connect(config.rabbitUri);
 		channel = await connection.createChannel();
 		await channel.assertQueue(pulseQueue, { durable: false });
+		await channel.assertQueue('notification_created', { durable: true }); // ADD THIS
 
 		await consumeQueue('user_created', upsertUser);
 

@@ -3,6 +3,7 @@ import Post from '../models/post.model.js';
 import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
+import { io } from '../../server.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 const VALID_REASONS = ['agree', 'funny', 'needs_attention', 'insightful', 'concerning', 'educational'];
@@ -42,6 +43,12 @@ export const sharePost = async (req, res) => {
 		publish('post.shared', { postId: req.params.id, reason });
 		pulse.onPostShared(req.params.id, reason, req.user.id);
 
+		// ── live sync ──
+		io.emit('post:update', {
+			postId: req.params.id,
+			sharesCount: updated.sharesCount,
+		});
+
 		// notify post owner — fire and forget
 		User.findById(req.user.id, 'fullname').lean().then((actor) => {
 			if (actor) {
@@ -50,7 +57,7 @@ export const sharePost = async (req, res) => {
 					recipientId: post.author.toString(),
 					actorId:     req.user.id,
 					actorName,
-					type:        'pass_forward',
+					type:        'share',
 					postId:      req.params.id,
 					reason:      reason || null,
 				});
@@ -88,9 +95,19 @@ export const unsharePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'You have not shared this post.' });
 		}
 
-		await Post.findByIdAndUpdate(req.params.id, {
-			$pull: { sharedBy: new mongoose.Types.ObjectId(req.user.id) },
-			$inc: { sharesCount: -1 },
+		const updated = await Post.findByIdAndUpdate(
+			req.params.id,
+			{
+				$pull: { sharedBy: new mongoose.Types.ObjectId(req.user.id) },
+				$inc: { sharesCount: -1 },
+			},
+			{ returnDocument: 'after', select: 'sharesCount' }
+		);
+
+		// ── live sync ──
+		io.emit('post:update', {
+			postId: req.params.id,
+			sharesCount: updated.sharesCount,
 		});
 
 		return res.status(200).json({ success: true, message: 'Post unshared.' });

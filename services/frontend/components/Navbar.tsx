@@ -16,13 +16,26 @@ interface Notification {
   postId: string;
   read: boolean;
   createdAt: string;
+  reason?: 'agree' | 'funny' | 'needs_attention' | 'insightful' | 'concerning' | 'educational' | null;
 }
 
 /* ── Helpers ─────────────────────────────────────────────── */
+const REASON_LABELS: Record<string, string> = {
+  agree: 'because they agree ✅',
+  funny: 'because it\u2019s funny 😄',
+  needs_attention: 'because it needs attention 🚨',
+  insightful: 'because it\u2019s insightful 💡',
+  concerning: 'because it\u2019s concerning ⚠️',
+  educational: 'because it\u2019s educational 📚',
+};
+
 function notificationLabel(n: Notification): string {
   if (n.type === 'like')    return `${n.actorName} liked your post`;
   if (n.type === 'comment') return `${n.actorName} commented on your post`;
-  if (n.type === 'share')   return `${n.actorName} shared your post`;
+  if (n.type === 'share') {
+    const reasonText = n.reason ? ` ${REASON_LABELS[n.reason as string] ?? ''}` : '';
+    return `${n.actorName} passed your post forward${reasonText}`;
+  }
   return 'New notification';
 }
 

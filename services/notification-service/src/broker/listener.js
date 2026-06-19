@@ -36,26 +36,30 @@ const startListener = () => {
 
     // ── new: in-app notifications ─────────────────────────────────
     subscribeToQueue('notification_created', async (msg) => {
-        const { recipientId, actorId, actorName, type, postId, reason } = msg;
+        try {
+            const { recipientId, actorId, actorName, type, postId, reason } = msg;
 
-        // don't notify yourself
-        if (recipientId?.toString() === actorId?.toString()) return;
+            // don't notify yourself
+            if (recipientId?.toString() === actorId?.toString()) return;
 
-        const message = buildMessage(type, actorName, reason);
+            const message = buildMessage(type, actorName, reason);
 
-        // save to MongoDB
-        const notification = await Notification.create({
-            recipientId,
-            actorId,
-            actorName,
-            type,
-            postId,
-            reason: reason || null,
-            message,
-        });
+            // save to MongoDB
+            const notification = await Notification.create({
+                recipientId,
+                actorId,
+                actorName,
+                type,
+                postId,
+                reason: reason || null,
+                message,
+            });
 
-        // emit only to the recipient's socket room
-        io.to(recipientId.toString()).emit('notification:new', notification);
+            // emit only to the recipient's socket room
+            io.to(recipientId.toString()).emit('notification:new', notification);
+        } catch (err) {
+            console.error('❌ Failed to process notification_created message:', err.message);
+        }
     });
 
     console.log('👂 Listening on queues: user_created, notification_created');

@@ -8,6 +8,8 @@ import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../con
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost } from '../controllers/share.controller.js';
 import { addComment, getComments, deleteComment } from '../controllers/comment.controller.js';
+import { recordDwell } from '../controllers/dwell.controller.js';
+import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
 
 const router = Router();
 
@@ -38,6 +40,12 @@ router.delete('/:id/unshare',                 protect,                  unshareP
 router.post('/:id/comment',                   protect, validateComment, addComment);
 router.get('/:id/comments',                   protect,                  getComments);
 router.delete('/:postId/comments/:commentId', protect,                  deleteComment);
+
+// ── Dwell routes ─────────────────────────────────────────────────────
+router.post('/dwell',                         protect,                  recordDwell);
+
+// ── Recommendation routes ─────────────────────────────────────────────
+router.get('/recommendations/users',          protect,                  getRecommendedUsers);
 
 // Multer error handler — must be after all routes
 router.use(handleMulterError);

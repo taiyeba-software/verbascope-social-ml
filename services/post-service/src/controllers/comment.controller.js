@@ -4,6 +4,7 @@ import Post from '../models/post.model.js';
 import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
+import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -35,6 +36,7 @@ export const addComment = async (req, res) => {
 
 		publish('comment.added', { postId: req.params.id });
 		pulse.onCommentAdded(req.params.id, req.user.id);
+		updateUserPulse(req.user.id, req.params.id, 'comment'); // fire and forget
 
 		// ── live sync ──
 		io.emit('post:update', {

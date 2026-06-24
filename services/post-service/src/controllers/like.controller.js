@@ -3,6 +3,7 @@ import Post from '../models/post.model.js';
 import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
+import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -37,6 +38,7 @@ export const likePost = async (req, res) => {
 		publish('post.liked', { postId: req.params.id });
 
 		pulse.onPostLiked(req.params.id, req.user.id);
+		updateUserPulse(req.user.id, req.params.id, 'like'); // fire and forget
 
 		// ── live sync: tell everyone viewing the feed ──
 		console.log('📡 [SOCKET] About to emit post:update for', req.params.id);

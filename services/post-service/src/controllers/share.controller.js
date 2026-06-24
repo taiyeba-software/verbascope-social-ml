@@ -3,6 +3,7 @@ import Post from '../models/post.model.js';
 import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
+import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -42,6 +43,7 @@ export const sharePost = async (req, res) => {
 
 		publish('post.shared', { postId: req.params.id, reason });
 		pulse.onPostShared(req.params.id, reason, req.user.id);
+		updateUserPulse(req.user.id, req.params.id, 'share');
 
 		// ── live sync ──
 		io.emit('post:update', {

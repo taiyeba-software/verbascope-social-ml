@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type Ref } from 'react';
 import type { Post } from '@/types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon, GlobeIcon } from './icons';
 import { PostMoreMenu } from './PostMoreMenu';
 import { CommentSection, type CommentState } from './CommentSection';
+import { useDwellTracker } from '@/hooks/useDwellTracker';
 import {
   safeAuthorName,
   safeAuthorInitials,
@@ -146,9 +147,10 @@ export function PostCard({
 }) {
   const tags = post.tags ?? extractTags(post.content);
   const images = post.images ?? [];
+  const dwellRef = useDwellTracker(post._id);
 
   return (
-    <article className="post-card">
+    <article className="post-card" ref={dwellRef as Ref<HTMLElement>}>
       <div className="post-header">
         <div className="post-author-info">
           <div className="post-avatar" style={{ background: getAvatarColor(getAvatarSeed(post.author)) }}>

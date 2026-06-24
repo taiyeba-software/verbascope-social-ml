@@ -180,4 +180,7 @@ export const postService = {
 
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),
+
+  recordDwell: (postId: string, duration: number) =>
+    postApi.post('/api/posts/dwell', { postId, duration }),
 };

@@ -12,9 +12,13 @@ const postSchema = new mongoose.Schema(
 			trim: true,
 			maxlength: 3000,
 		},
-		image: {
-			type: String,
-			default: '',
+		images: {
+			type: [String],
+			default: [],
+			validate: {
+				validator: (arr) => arr.length <= 4,
+				message: 'A post can have at most 4 images.',
+			},
 		},
 		likesCount: {
 			type: Number,

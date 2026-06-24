@@ -2,6 +2,7 @@ import { Router } from 'express';
 import protect from '../middlewares/auth.middleware.js';
 import { validatePost, validateComment } from '../middlewares/validation.middleware.js';
 import { pulse } from '../pulse/pulse.js';
+import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
 import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
@@ -19,7 +20,7 @@ router.get('/pulse/signal', (req, res) => {
 });
 
 // ── Post routes ──────────────────────────────────────────────────────
-router.post('/',                              protect, validatePost,    createPost);
+router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);
 router.get('/feed',                           protect,                  getFeed);
 router.get('/user/:userId',                   protect,                  getPostsByUser);
 router.get('/:id',                            protect,                  getPost);
@@ -37,5 +38,8 @@ router.delete('/:id/unshare',                 protect,                  unshareP
 router.post('/:id/comment',                   protect, validateComment, addComment);
 router.get('/:id/comments',                   protect,                  getComments);
 router.delete('/:postId/comments/:commentId', protect,                  deleteComment);
+
+// Multer error handler — must be after all routes
+router.use(handleMulterError);
 
 export default router;

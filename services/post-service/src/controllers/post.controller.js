@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
+import { uploadToImageKit } from '../utils/imagekit.js';
+import { generateImageKitFileName } from '../middlewares/upload.middleware.js';
 
 // ── Helper: validate MongoDB ObjectId early to avoid CastError ───────
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -17,34 +19,46 @@ const addStateFlags = (posts, userId) =>
 
 // ── POST /api/posts ──────────────────────────────────────────────────
 export const createPost = async (req, res) => {
-	try {
-		const { content, image } = req.body;
+  try {
+    const { content } = req.body;
+    const files = req.files ?? []; // multer puts files here after upload.array()
 
-		if (!content && !image) {
-			return res.status(400).json({
-				success: false,
-				message: 'A post must have content or an image.',
-			});
-		}
+    if (!content?.trim() && files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'A post must have content or at least one image.',
+      });
+    }
 
-		const newPost = await Post.create({
-			author: req.user.id,
-			content: content || '',
-			image: image || '',
-		});
+    // Upload each buffer to ImageKit in parallel
+    const imageUrls = await Promise.all(
+      files.map((file) =>
+        uploadToImageKit(
+          file.buffer,
+          generateImageKitFileName(file.originalname)
+        )
+      )
+    );
 
-		pulse.onPostCreated(newPost, req.user.id);
-		publish('post.created', { post: newPost });
+    const newPost = await Post.create({
+      author: req.user.id,
+      content: content?.trim() || '',
+      images: imageUrls,           // array of CDN URLs ([] if text-only post)
+    });
 
-		const populatedPost = await Post.findById(newPost._id).populate('author', 'fullname').lean();
+    pulse.onPostCreated(newPost, req.user.id);
+    publish('post.created', { post: newPost });
 
-		return res.status(201).json({ success: true, post: populatedPost ?? newPost });
-	} catch (err) {
-		console.error('createPost error:', err);
-		return res.status(500).json({ success: false, message: 'Server error.' });
-	}
+    const populatedPost = await Post.findById(newPost._id)
+      .populate('author', 'fullname')
+      .lean();
+
+    return res.status(201).json({ success: true, post: populatedPost ?? newPost });
+  } catch (err) {
+    console.error('createPost error:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
 };
-
 // ── GET /api/posts/feed ──────────────────────────────────────────────
 // Paginated via ?page & ?limit. Populates author name for frontend rendering.
 export const getFeed = async (req, res) => {

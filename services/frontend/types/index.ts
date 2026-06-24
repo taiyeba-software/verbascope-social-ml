@@ -8,7 +8,8 @@ export interface FullName {
 }
 
 export interface User {
-  id: string;
+  _id?: string;
+   id?: string;
   email: string;
   fullname: FullName;
   role?: string;
@@ -54,7 +55,7 @@ export interface Post {
   _id: string;
   author: User | string;
   content: string;
-  image?: string;
+  images?: string[];
   likesCount: number;
   commentsCount: number;
   likedByMe: boolean;

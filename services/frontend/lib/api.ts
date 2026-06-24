@@ -142,6 +142,7 @@ export const notificationService = {
 export const postApi = new ApiClient({
   baseURL: process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
   withCredentials: true,
+  timeout: 30000, // Increased from 10s to 30s for image uploads to ImageKit
 });
 
 export const postService = {
@@ -151,8 +152,10 @@ export const postService = {
   getPost: (id: string) =>
     postApi.get(`/api/posts/${id}`),
 
-  createPost: (content: string) =>
-    postApi.post('/api/posts', { content }),
+  createPost: (body: FormData | { content: string }) =>
+    postApi.post('/api/posts', body, {
+      headers: body instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {},
+    }),
 
   likePost: (id: string) =>
     postApi.post(`/api/posts/${id}/like`),

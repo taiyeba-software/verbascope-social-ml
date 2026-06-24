@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import type { Post } from '@/types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon, GlobeIcon } from './icons';
 import { PostMoreMenu } from './PostMoreMenu';
@@ -19,8 +20,107 @@ export type FeedPost = Post & {
   sharesCount?: number;
   tags?: string[];
   createdAt?: string;
+  images?: string[];
 };
 
+// ── Carousel ─────────────────────────────────────────────────────────
+const AUTO_ADVANCE_MS = 5500; // change interval — 2.5s
+
+function ImageCarousel({ images }: { images: string[] }) {
+  const [index, setIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
+  const next = () => setIndex((i) => (i + 1) % images.length);
+
+  // Auto-advance: runs only when there's more than one image and it's not paused
+  useEffect(() => {
+    if (images.length <= 1 || isPaused) return;
+
+    timerRef.current = setInterval(() => {
+      setIndex((i) => (i + 1) % images.length);
+    }, AUTO_ADVANCE_MS);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [images.length, isPaused]);
+
+  if (images.length === 0) return null;
+
+  // Single image — no controls needed
+  if (images.length === 1) {
+    return (
+      <div className="post-image-single">
+        <img
+          src={images[0]}
+          alt=""
+          aria-hidden="true"
+          className="post-image-backdrop"
+        />
+        <img src={images[0]} alt="Post image" loading="lazy" className="post-image-fg" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="post-carousel"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+      onTouchEnd={() => setIsPaused(false)}
+    >
+      <div className="post-carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+        {images.map((url, i) => (
+          <div key={url} className="post-carousel-slide">
+            <img src={url} alt="" aria-hidden="true" className="post-carousel-backdrop" />
+            <img
+              src={url}
+              alt={`Image ${i + 1} of ${images.length}`}
+              loading="lazy"
+              className="post-carousel-fg"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        className="post-carousel-btn post-carousel-btn--prev"
+        onClick={prev}
+        aria-label="Previous image"
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        className="post-carousel-btn post-carousel-btn--next"
+        onClick={next}
+        aria-label="Next image"
+      >
+        ›
+      </button>
+
+      <div className="post-carousel-dots">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            className={`post-carousel-dot${i === index ? ' active' : ''}`}
+            onClick={() => setIndex(i)}
+            aria-label={`Go to image ${i + 1}`}
+          />
+        ))}
+      </div>
+
+      <span className="post-carousel-counter">{index + 1} / {images.length}</span>
+    </div>
+  );
+}
+
+// ── PostCard ──────────────────────────────────────────────────────────
 export function PostCard({
   post,
   commentState,
@@ -45,6 +145,7 @@ export function PostCard({
   onDeleteComment: (postId: string, commentId: string) => void;
 }) {
   const tags = post.tags ?? extractTags(post.content);
+  const images = post.images ?? [];
 
   return (
     <article className="post-card">
@@ -66,9 +167,14 @@ export function PostCard({
         <PostMoreMenu postId={post._id} isOwner={post.isOwner} onDelete={onDelete} />
       </div>
 
-      <p className="post-content" style={{ whiteSpace: 'pre-wrap' }}>
-        {post.content}
-      </p>
+      {post.content && (
+        <p className="post-content" style={{ whiteSpace: 'pre-wrap' }}>
+          {post.content}
+        </p>
+      )}
+
+      {/* Carousel — only renders when the post has images */}
+      {images.length > 0 && <ImageCarousel images={images} />}
 
       {tags.length > 0 && (
         <div className="post-tags">

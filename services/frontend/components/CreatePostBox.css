@@ -223,3 +223,86 @@
     flex: 1;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   Image Preview Grid
+   ────────────────────────────────────────────────────────── */
+
+.image-preview-grid {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0;
+  border-radius: var(--vs-radius-md);
+  overflow: hidden;
+}
+
+.image-preview-grid[data-count="1"] { grid-template-columns: 1fr; }
+.image-preview-grid[data-count="2"] { grid-template-columns: 1fr 1fr; }
+.image-preview-grid[data-count="3"] { grid-template-columns: 1fr 1fr 1fr; }
+.image-preview-grid[data-count="4"] { grid-template-columns: 1fr 1fr; }
+
+.image-preview-item {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--vs-radius-sm);
+  background: var(--vs-surface-hover);
+}
+
+.image-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-preview-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--vs-transition);
+}
+
+.image-preview-remove:hover {
+  background: rgba(220, 38, 38, 0.85);
+}
+
+/* ── Image count badge on the tool button ── */
+
+.tool-btn {
+  position: relative; /* needed for badge positioning */
+}
+
+.image-count-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--vs-teal);
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ── Disabled tool button state ── */
+
+.tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-btn:disabled:hover {
+  color: var(--vs-text-secondary);
+  background: transparent;
+}

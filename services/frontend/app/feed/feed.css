@@ -518,6 +518,161 @@ body {
   animation: slideDown 0.2s ease;
 }
 
+/* ──────────────────────────────────────────────────────────
+   Post Images
+   ────────────────────────────────────────────────────────── */
+
+.post-image-single {
+  position: relative;
+  width: 100%;
+  border-radius: var(--vs-radius-md);
+  overflow: hidden;
+  margin: var(--vs-space-md) 0;
+  background: var(--vs-surface-hover);
+  max-height: 500px;
+}
+
+/* Blurred, scaled-up copy of the same image fills the frame */
+.post-image-single .post-image-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(35px) brightness(0.9) saturate(1.1);
+  transform: scale(1.2); /* avoid soft blurred edges peeking in */
+}
+
+/* Sharp foreground image, centered, never cropped */
+.post-image-single .post-image-fg {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  z-index: 1;
+}
+
+/* ── Carousel ── */
+
+.post-carousel {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--vs-radius-md);
+  margin: var(--vs-space-md) 0;
+  background: var(--vs-surface-hover);
+  height: 400px;        /* explicit height instead of max-height */
+}
+
+.post-carousel-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.post-carousel-slide {
+  position: relative;
+  min-width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Blurred, scaled-up copy of the slide's image fills the slide */
+.post-carousel-slide .post-carousel-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(35px) brightness(0.9) saturate(1.1);
+  transform: scale(1.2);
+}
+
+/* Sharp foreground image, contained so portrait photos aren't cropped */
+.post-carousel-slide .post-carousel-fg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  z-index: 1;
+}
+
+/* Prev / Next buttons */
+.post-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--vs-transition);
+  z-index: 2;
+}
+
+.post-carousel-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.post-carousel-btn--prev { left: 10px; }
+.post-carousel-btn--next { right: 10px; }
+
+/* Dot indicators */
+.post-carousel-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.post-carousel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--vs-transition), transform var(--vs-transition);
+}
+
+.post-carousel-dot.active {
+  background: #fff;
+  transform: scale(1.3);
+}
+
+/* Counter badge (top-right) */
+.post-carousel-counter {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--vs-radius-full);
+  z-index: 2;
+  font-family: 'DM Sans', sans-serif;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;

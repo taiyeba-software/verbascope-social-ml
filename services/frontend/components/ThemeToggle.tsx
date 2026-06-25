@@ -18,11 +18,11 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
     >
       <span className="theme-switch-track">
-        <Sun size={13} className="theme-switch-icon theme-switch-icon--sun" />
-        <Moon size={13} className="theme-switch-icon theme-switch-icon--moon" />
+        <Sun size={15} className="theme-switch-icon theme-switch-icon--sun" />
+        <Moon size={15} className="theme-switch-icon theme-switch-icon--moon" />
       </span>
       <span className="theme-switch-thumb">
-        {isDark ? <Moon size={14} strokeWidth={2} /> : <Sun size={14} strokeWidth={2} />}
+        {isDark ? <Moon size={15} strokeWidth={4} /> : <Sun size={15} strokeWidth={4} />}
       </span>
     </button>
   );

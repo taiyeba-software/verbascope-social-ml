@@ -152,92 +152,6 @@
   color: #0d2d3a;
 }
 
-/* ──────────────────────────────────────────────────────────
-   Theme Toggle — Sliding Pill Switch (Day/Night)
-   ────────────────────────────────────────────────────────── */
-
-.theme-switch {
-  position: relative;
-  width: 56px;
-  height: 30px;
-  border-radius: var(--vs-radius-full, 9999px);
-  border: 1.5px solid var(--vs-border-card, rgba(0, 140, 190, 0.15));
-  padding: 0;
-  cursor: pointer;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  transition: background 0.25s ease, border-color 0.25s ease;
-}
-
-.theme-switch-track {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 6px;
-}
-
-.theme-switch-icon {
-  z-index: 0;
-}
-
-.theme-switch-icon--sun {
-  color: #f5b400;
-}
-
-.theme-switch-icon--moon {
-  color: #cbd5e1;
-}
-
-.theme-switch-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease, color 0.25s ease;
-  z-index: 1;
-}
-
-/* Light mode (sun side, thumb left) */
-.theme-switch--light {
-  background: #eaf6fa;
-}
-
-.theme-switch--light .theme-switch-thumb {
-  transform: translateX(0);
-  color: #f5b400;
-}
-
-/* Dark mode (moon side, thumb right) */
-.theme-switch--dark {
-  background: #1e293b;
-  border-color: rgba(148, 197, 210, 0.2);
-}
-
-.theme-switch--dark .theme-switch-thumb {
-  transform: translateX(26px);
-  background: #0f172a;
-  color: #cbd5e1;
-}
-
-.theme-switch:hover {
-  filter: brightness(1.05);
-}
-
-.theme-switch:focus-visible {
-  outline: 2px solid var(--vs-teal, #0e9fab);
-  outline-offset: 2px;
-}
-
 .pulse-dot {
   width: 7px;
   height: 7px;
@@ -248,25 +162,17 @@
 }
 
 @keyframes pulse-live {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
-  }
-
-  50% {
-    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
 }
 
 @media (max-width: 640px) {
   .navbar {
     padding: 0 var(--vs-space-md);
   }
-
   .live-indicator {
     display: none;
   }
-
   .navbar-user-name {
     display: none;
   }
@@ -302,7 +208,6 @@
   font-family: 'DM Mono', monospace;
 }
 
-/* ── List ── */
 .notification-list {
   list-style: none;
   margin: 0;
@@ -311,7 +216,6 @@
   overflow-y: auto;
 }
 
-/* ── Notification item layout (icon + body + dot) ── */
 .notification-item {
   display: flex;
   align-items: flex-start;
@@ -341,7 +245,6 @@
   flex: 1;
 }
 
-/* ── Icon badge per type ── */
 .notif-icon-wrap {
   display: flex;
   align-items: center;
@@ -353,28 +256,13 @@
   margin-top: 1px;
 }
 
-.notif-icon-wrap-like {
-  background: rgba(239, 68, 68, 0.12);
-}
-.notif-icon-like {
-  color: #ef4444;
-}
+.notif-icon-wrap-like { background: rgba(239, 68, 68, 0.12); }
+.notif-icon-like { color: #ef4444; }
+.notif-icon-wrap-comment { background: rgba(59, 130, 246, 0.12); }
+.notif-icon-comment { color: #3b82f6; }
+.notif-icon-wrap-share { background: rgba(34, 197, 94, 0.12); }
+.notif-icon-share { color: #22c55e; }
 
-.notif-icon-wrap-comment {
-  background: rgba(59, 130, 246, 0.12);
-}
-.notif-icon-comment {
-  color: #3b82f6;
-}
-
-.notif-icon-wrap-share {
-  background: rgba(34, 197, 94, 0.12);
-}
-.notif-icon-share {
-  color: #22c55e;
-}
-
-/* ── Unread dot indicator ── */
 .notification-dot {
   width: 8px;
   height: 8px;
@@ -396,7 +284,6 @@
   font-family: 'DM Mono', monospace;
 }
 
-/* ── Empty state ── */
 .notification-empty {
   padding: 28px 16px;
   text-align: center;
@@ -405,8 +292,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   Navbar Component — Dark Theme Overrides (high specificity)
-   Paste this at the very bottom of Navbar.css
+   Navbar Component — Dark Theme Overrides
    ────────────────────────────────────────────────────────── */
 
 html[data-theme='dark'] .navbar {
@@ -415,77 +301,284 @@ html[data-theme='dark'] .navbar {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
-html[data-theme='dark'] .navbar-logo .v-logo-name {
-  color: #f8fafc !important;
-}
-
+html[data-theme='dark'] .navbar-logo .v-logo-name { color: #f8fafc !important; }
 html[data-theme='dark'] .live-indicator {
   background: rgba(20, 184, 166, 0.12) !important;
   border-color: rgba(20, 184, 166, 0.3) !important;
   color: #2dd4bf !important;
 }
-
-html[data-theme='dark'] .navbar-icon-btn {
-  color: rgba(248, 250, 252, 0.65) !important;
-}
-
+html[data-theme='dark'] .navbar-icon-btn { color: rgba(248, 250, 252, 0.65) !important; }
 html[data-theme='dark'] .navbar-icon-btn:hover {
   color: #2dd4bf !important;
   background: rgba(20, 184, 166, 0.12) !important;
 }
-
-html[data-theme='dark'] .navbar-user {
-  border-color: rgba(148, 197, 210, 0.18) !important;
-}
-
+html[data-theme='dark'] .navbar-user { border-color: rgba(148, 197, 210, 0.18) !important; }
 html[data-theme='dark'] .navbar-user:hover {
   background: rgba(30, 41, 59, 0.7) !important;
   border-color: rgba(20, 184, 166, 0.3) !important;
 }
-
-html[data-theme='dark'] .navbar-user-name {
-  color: #f8fafc !important;
-}
-
-html[data-theme='dark'] .navbar-chevron {
-  color: rgba(248, 250, 252, 0.45) !important;
-}
-
-html[data-theme='dark'] .navbar-badge {
-  border-color: rgba(15, 23, 42, 0.92) !important;
-}
-
+html[data-theme='dark'] .navbar-user-name { color: #f8fafc !important; }
+html[data-theme='dark'] .navbar-chevron { color: rgba(248, 250, 252, 0.45) !important; }
+html[data-theme='dark'] .navbar-badge { border-color: rgba(15, 23, 42, 0.92) !important; }
 html[data-theme='dark'] .notification-dropdown {
   background: rgba(30, 41, 59, 0.98) !important;
   border-color: rgba(148, 197, 210, 0.18) !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
 }
-
 html[data-theme='dark'] .notification-dropdown-header {
   color: rgba(248, 250, 252, 0.5) !important;
   border-bottom-color: rgba(148, 197, 210, 0.12) !important;
 }
+html[data-theme='dark'] .notification-item { border-bottom-color: rgba(148, 197, 210, 0.08) !important; }
+html[data-theme='dark'] .notification-item:hover { background: rgba(20, 184, 166, 0.06) !important; }
+html[data-theme='dark'] .notification-item.unread { background: rgba(20, 184, 166, 0.1) !important; }
+html[data-theme='dark'] .notification-text { color: #f8fafc !important; }
+html[data-theme='dark'] .notification-time { color: rgba(248, 250, 252, 0.4) !important; }
+html[data-theme='dark'] .notification-empty { color: rgba(248, 250, 252, 0.4) !important; }
 
-html[data-theme='dark'] .notification-item {
-  border-bottom-color: rgba(148, 197, 210, 0.08) !important;
+/* ──────────────────────────────────────────────────────────
+   MOBILE NAVIGATION — Split Strategy
+   Top bar: Logo | Theme | (nothing else, search/bell hidden)
+   Bottom nav: Home | Search | Bell | Profile
+   Active only ≤640px. Desktop untouched above this breakpoint.
+   ────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+
+  /* ── Top bar: simplify ── */
+  .navbar {
+    padding: 0 var(--vs-space-md);
+  }
+
+  .live-indicator {
+    display: none;
+  }
+
+  .navbar-user-name,
+  .navbar-chevron {
+    display: none;
+  }
+
+  /* Hide desktop-only icon buttons (search, bell) — they live in bottom nav now */
+  .navbar-desktop-only {
+    display: none !important;
+  }
+
+  /* Top bar user pill becomes just the avatar circle, no border/padding */
+  .navbar-user {
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .navbar-user:hover {
+    background: none;
+  }
+
+  /* Theme toggle shrinks to a compact icon-style switch */
+  .theme-switch {
+    width: 44px;
+    height: 28px;
+  }
+
+  .theme-switch-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  .theme-switch--dark .theme-switch-thumb {
+    transform: translateX(20px);
+  }
 }
 
-html[data-theme='dark'] .notification-item:hover {
-  background: rgba(20, 184, 166, 0.06) !important;
+/* ── Bottom nav: hidden on desktop, shown only on mobile ── */
+.navbar-mobile {
+  display: none;
 }
 
-html[data-theme='dark'] .notification-item.unread {
+@media (max-width: 640px) {
+  .navbar-mobile {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 64px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(14, 159, 171, 0.14);
+    box-shadow: 0 -2px 12px rgba(0, 80, 120, 0.08);
+    z-index: 1000;
+  }
+
+  .navbar-mobile-btn {
+    flex: 1;
+    height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: rgba(13, 45, 58, 0.55);
+    text-decoration: none;
+    border-radius: 14px;
+    position: relative;
+    transition: color 0.2s ease, background 0.2s ease;
+  }
+
+  .navbar-mobile-btn:active {
+    background: rgba(14, 159, 171, 0.08);
+  }
+
+  .navbar-mobile-btn.active {
+    color: #0e9fab;
+  }
+
+  .navbar-mobile-btn span {
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .navbar-mobile-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0e9fab, #17b0bc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 0.6rem;
+  }
+
+  .navbar-mobile-notification-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+  }
+
+  .navbar-mobile-notification-wrapper .navbar-mobile-btn {
+    width: 100%;
+  }
+
+  /* Bottom-nav badge: smaller offset since touch target is bigger */
+  .navbar-badge-mobile {
+    top: 2px;
+    right: 18px;
+  }
+
+  /* Push page content above the fixed bottom nav */
+  body {
+    padding-bottom: 64px;
+  }
+}
+
+/* ── Notification badge fix (applies to bell wherever it appears) ── */
+.navbar-badge {
+  top: -4px;
+  right: -4px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Mobile notification bottom sheet (replaces dropdown on mobile)
+   Hidden by default; only shown ≤640px, since the component
+   always mounts this markup regardless of screen size.
+   ────────────────────────────────────────────────────────── */
+.notification-sheet {
+  display: none;
+}
+
+.notification-sheet-backdrop {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .notification-sheet {
+    display: block;
+    position: fixed;
+    bottom: 64px;
+    left: 0;
+    width: 100%;
+    max-height: 70vh;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 80, 120, 0.18);
+    z-index: 1001;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 0 12px;
+    animation: sheet-rise 0.22s ease-out;
+  }
+
+  .notification-sheet-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.25);
+    z-index: 999;
+  }
+}
+
+@keyframes sheet-rise {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: rgba(13, 45, 58, 0.18);
+  border-radius: 999px;
+  margin: 0 auto 10px;
+}
+
+/* Sheet header/list reuse the existing .notification-dropdown-header,
+   .notification-list, .notification-item etc. styles already defined
+   above in this file — no duplication needed. */
+
+/* ──────────────────────────────────────────────────────────
+   Dark theme — mobile bottom nav + sheet
+   ────────────────────────────────────────────────────────── */
+html[data-theme='dark'] .navbar-mobile {
+  background: rgba(15, 23, 42, 0.96) !important;
+  border-top: 1px solid rgba(148, 197, 210, 0.14) !important;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+html[data-theme='dark'] .navbar-mobile-btn {
+  color: rgba(248, 250, 252, 0.55) !important;
+}
+
+html[data-theme='dark'] .navbar-mobile-btn.active {
+  color: #2dd4bf !important;
+}
+
+html[data-theme='dark'] .navbar-mobile-btn:active {
   background: rgba(20, 184, 166, 0.1) !important;
 }
 
-html[data-theme='dark'] .notification-text {
-  color: #f8fafc !important;
+html[data-theme='dark'] .notification-sheet {
+  background: rgba(30, 41, 59, 0.98) !important;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45) !important;
 }
 
-html[data-theme='dark'] .notification-time {
-  color: rgba(248, 250, 252, 0.4) !important;
+html[data-theme='dark'] .sheet-handle {
+  background: rgba(248, 250, 252, 0.2) !important;
 }
 
-html[data-theme='dark'] .notification-empty {
-  color: rgba(248, 250, 252, 0.4) !important;
+html[data-theme='dark'] .notification-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.5) !important;
 }

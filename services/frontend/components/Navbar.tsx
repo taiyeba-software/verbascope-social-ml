@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Search, Bell, ChevronDown, Heart, MessageCircle, Repeat2 } from 'lucide-react';
+import { Search, Bell, ChevronDown, Heart, MessageCircle, Repeat2, Home, User } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService } from '@/lib/api';
@@ -69,6 +69,7 @@ export default function Navbar() {
 
   const socketRef   = useRef<Socket | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
 
   /* ── Fetch notifications on mount ── */
   useEffect(() => {
@@ -105,10 +106,12 @@ export default function Navbar() {
     };
   }, [user?._id]);
 
-  /* ── Close dropdown when clicking outside ── */
+  /* ── Close dropdown when clicking outside (desktop + mobile) ── */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const clickedDesktop = dropdownRef.current && dropdownRef.current.contains(e.target as Node);
+      const clickedMobile  = mobileDropdownRef.current && mobileDropdownRef.current.contains(e.target as Node);
+      if (!clickedDesktop && !clickedMobile) {
         setDropdownOpen(false);
       }
     }
@@ -138,80 +141,139 @@ export default function Navbar() {
     ? `${user?.fullname?.firstName ?? ''} ${user?.fullname?.lastName ?? ''}`.trim() || 'User'
     : 'User';
 
-  /* ── Render ── */
-  return (
-    <nav className="navbar">
-      <Link href="/feed" className="navbar-logo">
-        <svg className="v-mark" viewBox="0 0 42 42" fill="none" stroke="currentColor" strokeWidth="2">
-          <polygon points="4,6 21,36 38,6 32,6 21,26 10,6" />
-        </svg>
-        <div>
-          <span className="v-logo-name">Verbascope</span>
-        </div>
-      </Link>
-
-      <div className="navbar-center">
-        <div className="live-indicator">
-          <span className="pulse-dot"></span>
-          <span>Live Feed</span>
-        </div>
+  /* ── Shared notification panel markup (used by both desktop dropdown and mobile dropdown) ── */
+  const notificationPanel = (
+    <>
+      <div className="notification-dropdown-header">
+        <span>Notifications</span>
       </div>
 
-      <div className="navbar-end">
-        <button type="button" className="navbar-icon-btn" aria-label="Search">
-          <Search size={18} strokeWidth={1.75} />
+      {notifications.length === 0 ? (
+        <div className="notification-empty">No notifications yet</div>
+      ) : (
+        <ul className="notification-list">
+          {notifications.map((n) => (
+            <li key={n._id} className={`notification-item${n.read ? '' : ' unread'}`}>
+              <span className={`notif-icon-wrap notif-icon-wrap-${n.type}`}>
+                {notificationIcon(n.type)}
+              </span>
+              <div className="notification-body">
+                <span className="notification-text">{notificationLabel(n)}</span>
+                <span className="notification-time">{timeAgo(n.createdAt)}</span>
+              </div>
+              {!n.read && <span className="notification-dot" />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+
+  /* ── Render ── */
+  return (
+    <>
+      {/* ════════════════ TOP BAR ════════════════ */}
+      <nav className="navbar">
+        <Link href="/feed" className="navbar-logo">
+          <svg className="v-mark" viewBox="0 0 42 42" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="4,6 21,36 38,6 32,6 21,26 10,6" />
+          </svg>
+          <div>
+            <span className="v-logo-name">Verbascope</span>
+          </div>
+        </Link>
+
+        <div className="navbar-center">
+          <div className="live-indicator">
+            <span className="pulse-dot"></span>
+            <span>Live Feed</span>
+          </div>
+        </div>
+
+        <div className="navbar-end">
+          {/* Search: desktop only, moves to bottom nav on mobile */}
+          <button type="button" className="navbar-icon-btn navbar-desktop-only" aria-label="Search">
+            <Search size={18} strokeWidth={1.75} />
+          </button>
+
+          <ThemeToggle />
+
+          {/* Bell + Dropdown: desktop only, moves to bottom nav on mobile */}
+          <div className="navbar-notification-wrapper navbar-desktop-only" ref={dropdownRef}>
+            <button
+              type="button"
+              className="navbar-icon-btn"
+              aria-label="Notifications"
+              onClick={handleBellClick}
+            >
+              <Bell size={18} strokeWidth={1.75} />
+              {unreadCount > 0 && (
+                <span className="navbar-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
+            </button>
+
+            {dropdownOpen && (
+              <div className="notification-dropdown">
+                {notificationPanel}
+              </div>
+            )}
+          </div>
+
+          <div className="navbar-user">
+            <div className="navbar-user-avatar">{initials}</div>
+            <span className="navbar-user-name">{displayName}</span>
+            <ChevronDown size={14} className="navbar-chevron" />
+          </div>
+        </div>
+      </nav>
+
+      {/* ════════════════ MOBILE BOTTOM NAV ════════════════ */}
+      <nav className="navbar-mobile" aria-label="Mobile navigation">
+        <Link href="/feed" className="navbar-mobile-btn" aria-label="Home">
+          <Home size={22} strokeWidth={1.75} />
+          <span>Home</span>
+        </Link>
+
+        <button type="button" className="navbar-mobile-btn" aria-label="Search">
+          <Search size={22} strokeWidth={1.75} />
+          <span>Search</span>
         </button>
 
-        <ThemeToggle />
-
-        {/* ── Bell + Dropdown ── */}
-        <div className="navbar-notification-wrapper" ref={dropdownRef}>
+        <div className="navbar-mobile-notification-wrapper" ref={mobileDropdownRef}>
           <button
             type="button"
-            className="navbar-icon-btn"
+            className="navbar-mobile-btn"
             aria-label="Notifications"
             onClick={handleBellClick}
           >
-            <Bell size={18} strokeWidth={1.75} />
+            <Bell size={22} strokeWidth={1.75} />
             {unreadCount > 0 && (
-              <span className="navbar-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              <span className="navbar-badge navbar-badge-mobile">{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
+            <span>Bell</span>
           </button>
 
           {dropdownOpen && (
-            <div className="notification-dropdown">
-              <div className="notification-dropdown-header">
-                <span>Notifications</span>
-              </div>
-
-              {notifications.length === 0 ? (
-                <div className="notification-empty">No notifications yet</div>
-              ) : (
-                <ul className="notification-list">
-                  {notifications.map((n) => (
-                    <li key={n._id} className={`notification-item${n.read ? '' : ' unread'}`}>
-                      <span className={`notif-icon-wrap notif-icon-wrap-${n.type}`}>
-                        {notificationIcon(n.type)}
-                      </span>
-                      <div className="notification-body">
-                        <span className="notification-text">{notificationLabel(n)}</span>
-                        <span className="notification-time">{timeAgo(n.createdAt)}</span>
-                      </div>
-                      {!n.read && <span className="notification-dot" />}
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="notification-sheet">
+              <div className="sheet-handle" />
+              {notificationPanel}
             </div>
           )}
         </div>
 
-        <div className="navbar-user">
-          <div className="navbar-user-avatar">{initials}</div>
-          <span className="navbar-user-name">{displayName}</span>
-          <ChevronDown size={14} className="navbar-chevron" />
-        </div>
-      </div>
-    </nav>
+        <Link href="/profile" className="navbar-mobile-btn" aria-label="Profile">
+          <div className="navbar-mobile-avatar">{initials}</div>
+          <span>Profile</span>
+        </Link>
+      </nav>
+
+      {/* Backdrop for mobile notification sheet */}
+      {dropdownOpen && (
+        <div
+          className="notification-sheet-backdrop"
+          onClick={() => setDropdownOpen(false)}
+        />
+      )}
+    </>
   );
 }

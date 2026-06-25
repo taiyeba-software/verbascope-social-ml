@@ -54,11 +54,12 @@ export const getRecommendedUsers = async (req, res) => {
         authorTags[authorId] = [...new Set([...(authorTags[authorId] ?? []), ...matched])];
       }
 
-      // 4. Sort by score, take top 5
-      recommendedUserIds = Object.entries(authorScores)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([id]) => id);
+      // 4. Sort by score, deduplicate author IDs, take top 5
+      recommendedUserIds = [...new Set(
+        Object.entries(authorScores)
+          .sort((a, b) => b[1] - a[1])
+          .map(([id]) => id)
+      )].slice(0, 5);
 
       sharedInterestsMap = authorTags;
     }

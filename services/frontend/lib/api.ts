@@ -116,6 +116,21 @@ export const authService = {
   },
 };
 
+// Auth Service — user social graph
+export const userService = {
+  getUsersBulk: (ids: string[]) =>
+    authApi.get(`/api/users/bulk?ids=${ids.join(',')}`),
+
+  follow: (userId: string) =>
+    authApi.post(`/api/users/follow/${userId}`),
+
+  unfollow: (userId: string) =>
+    authApi.post(`/api/users/unfollow/${userId}`),
+
+  getMyFollowing: () =>
+    authApi.get('/api/users/me/following'),
+};
+
 export const googleAuthUrl = `${process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3000'}/api/auth/google`;
 
 /* ──────────────────────────────────────────────────────────
@@ -183,4 +198,8 @@ export const postService = {
 
   recordDwell: (postId: string, duration: number) =>
     postApi.post('/api/posts/dwell', { postId, duration }),
+
+  // Post Service — recommendations
+  getRecommendedUsers: () =>
+    postApi.get('/api/posts/recommendations/users'),
 };

@@ -315,8 +315,6 @@ export default function FeedPage() {
       <Sidebar
         pulseSignal={pulseSignal}
         trendingTags={trendingTags}
-        following={following}
-        onToggleFollow={toggleFollow}
       />
 
       {shareSheet && (

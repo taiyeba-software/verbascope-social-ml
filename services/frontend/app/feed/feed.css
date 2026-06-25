@@ -493,6 +493,50 @@ body {
   color: white;
 }
 
+.follow-loading,
+.follow-empty {
+  padding: 20px var(--vs-space-lg);
+  text-align: center;
+  color: var(--vs-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.follow-empty-icon {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.follow-item--following {
+  opacity: 0.7;
+}
+
+.follow-end-msg {
+  padding: 10px var(--vs-space-lg);
+  font-size: 0.75rem;
+  color: var(--vs-text-muted);
+  text-align: center;
+  border-top: 1px solid var(--vs-border);
+  line-height: 1.5;
+}
+
+.follow-interests {
+  font-size: 0.72rem;
+  color: var(--vs-teal);
+  display: block;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pulse-signal-badge {
+  margin: 0 var(--vs-space-md) var(--vs-space-xs);
+  font-size: 0.78rem;
+  color: var(--vs-teal);
+  font-weight: 500;
+}
+
 .view-more-link {
   display: flex;
   align-items: center;

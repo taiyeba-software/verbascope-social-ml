@@ -618,6 +618,154 @@ body {
 .post-carousel-slide {
   position: relative;
   min-width: 100%;
+}
+
+/* ── Mobile Trending Bar ── */
+.mobile-trending-bar {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 1024px) {
+  .mobile-trending-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-trending-bar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.mobile-trending-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 7px 14px;
+  border-radius: var(--vs-radius-full);
+  border: 1px solid var(--vs-border-card);
+  background: var(--vs-surface);
+  color: var(--vs-teal);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all var(--vs-transition);
+  box-shadow: var(--vs-shadow-sm);
+}
+
+.mobile-trending-chip:hover {
+  background: var(--vs-teal);
+  color: white;
+  border-color: var(--vs-teal);
+}
+
+/* ── Hide desktop sidebar on tablet/mobile ── */
+@media (max-width: 1024px) {
+  .feed-sidebar {
+    display: none;
+  }
+
+  .feed-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Mobile-only wrapper ── */
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .mobile-only {
+    display: block;
+  }
+}
+
+/* ── Inline Who to Follow card ── */
+.inline-card {
+  background: var(--vs-surface);
+  border: 1px solid var(--vs-border-card);
+  border-radius: var(--vs-radius-lg);
+  padding: var(--vs-space-md);
+  box-shadow: var(--vs-shadow-card);
+}
+
+.inline-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--vs-space-sm);
+  margin-bottom: var(--vs-space-md);
+  padding-bottom: var(--vs-space-sm);
+  border-bottom: 1px solid var(--vs-border);
+}
+
+.inline-card-icon {
+  font-size: 1.1rem;
+}
+
+.inline-card-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--vs-text-primary);
+}
+
+.inline-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vs-space-sm);
+}
+
+.inline-follow-item {
+  display: flex;
+  align-items: center;
+  gap: var(--vs-space-md);
+  padding: var(--vs-space-sm) 0;
+}
+
+.inline-follow-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.inline-follow-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.inline-follow-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vs-text-primary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inline-follow-interests {
+  font-size: 0.75rem;
+  color: var(--vs-teal);
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-carousel-slide {
   height: 100%;
   flex-shrink: 0;
   display: flex;

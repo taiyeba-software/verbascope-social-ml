@@ -9,6 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { postApi, postService } from '@/lib/api/posts';
 import { PostCard, type FeedPost } from '@/components/feed/PostCard';
 import { ShareSheet } from '@/components/feed/ShareSheet';
+import { MobileTrendingBar } from './MobileTrendingBar';
+import { WhoToFollowInline } from './WhoToFollowInline';
 import { Sidebar } from '@/components/feed/Sidebar';
 import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
 import {
@@ -31,7 +33,6 @@ export default function FeedPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [openComments, setOpenComments] = useState<OpenComments>({});
-  const [following, setFollowing] = useState<Set<string>>(new Set());
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
   // Pulse signal / trending tags + live post:update / post:deleted sync
@@ -240,15 +241,6 @@ export default function FeedPage() {
     }
   };
 
-  const toggleFollow = (handle: string) => {
-    setFollowing((prev) => {
-      const next = new Set(prev);
-      if (next.has(handle)) next.delete(handle);
-      else next.add(handle);
-      return next;
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="feed-layout">
@@ -269,6 +261,9 @@ export default function FeedPage() {
       <main className="feed-main">
         <CreatePostBox onPost={(newPost) => setPosts((cur) => [{ ...newPost, commentsCount: 0 } as FeedPost, ...cur])} />
 
+        {/* Mobile trending bar — hidden on desktop via CSS */}
+        <MobileTrendingBar trendingTags={trendingTags} />
+
         {feedLoading ? (
           <FeedSkeleton />
         ) : posts.length === 0 ? (
@@ -279,20 +274,27 @@ export default function FeedPage() {
           </div>
         ) : (
           <>
-            {posts.map((post) => (
-              <PostCard
-                key={post._id}
-                post={post}
-                commentState={openComments[post._id] ?? DEFAULT_COMMENT_STATE}
-                onLike={handleLike}
-                onShare={handleShare}
-                onBookmark={handleBookmark}
-                onDelete={handleDeletePost}
-                onToggleComments={toggleComments}
-                onCommentInput={handleCommentInput}
-                onSubmitComment={handleSubmitComment}
-                onDeleteComment={handleDeleteComment}
-              />
+            {posts.map((post, index) => (
+              <div key={post._id}>
+                <PostCard
+                  post={post}
+                  commentState={openComments[post._id] ?? DEFAULT_COMMENT_STATE}
+                  onLike={handleLike}
+                  onShare={handleShare}
+                  onBookmark={handleBookmark}
+                  onDelete={handleDeletePost}
+                  onToggleComments={toggleComments}
+                  onCommentInput={handleCommentInput}
+                  onSubmitComment={handleSubmitComment}
+                  onDeleteComment={handleDeleteComment}
+                />
+                {/* Inject "People you may know" after every 4th post — mobile only */}
+                {(index + 1) % 4 === 0 && (
+                  <div className="mobile-only">
+                    <WhoToFollowInline />
+                  </div>
+                )}
+              </div>
             ))}
 
             {totalPages > 1 && (

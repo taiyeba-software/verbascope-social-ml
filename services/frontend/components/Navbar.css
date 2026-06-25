@@ -152,6 +152,92 @@
   color: #0d2d3a;
 }
 
+/* ──────────────────────────────────────────────────────────
+   Theme Toggle — Sliding Pill Switch (Day/Night)
+   ────────────────────────────────────────────────────────── */
+
+.theme-switch {
+  position: relative;
+  width: 56px;
+  height: 30px;
+  border-radius: var(--vs-radius-full, 9999px);
+  border: 1.5px solid var(--vs-border-card, rgba(0, 140, 190, 0.15));
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.theme-switch-track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+}
+
+.theme-switch-icon {
+  z-index: 0;
+}
+
+.theme-switch-icon--sun {
+  color: #f5b400;
+}
+
+.theme-switch-icon--moon {
+  color: #cbd5e1;
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease, color 0.25s ease;
+  z-index: 1;
+}
+
+/* Light mode (sun side, thumb left) */
+.theme-switch--light {
+  background: #eaf6fa;
+}
+
+.theme-switch--light .theme-switch-thumb {
+  transform: translateX(0);
+  color: #f5b400;
+}
+
+/* Dark mode (moon side, thumb right) */
+.theme-switch--dark {
+  background: #1e293b;
+  border-color: rgba(148, 197, 210, 0.2);
+}
+
+.theme-switch--dark .theme-switch-thumb {
+  transform: translateX(26px);
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.theme-switch:hover {
+  filter: brightness(1.05);
+}
+
+.theme-switch:focus-visible {
+  outline: 2px solid var(--vs-teal, #0e9fab);
+  outline-offset: 2px;
+}
+
 .pulse-dot {
   width: 7px;
   height: 7px;
@@ -316,4 +402,90 @@
   text-align: center;
   font-size: 0.85rem;
   color: rgba(13, 45, 58, 0.4);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Navbar Component — Dark Theme Overrides (high specificity)
+   Paste this at the very bottom of Navbar.css
+   ────────────────────────────────────────────────────────── */
+
+html[data-theme='dark'] .navbar {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-bottom: 1px solid rgba(148, 197, 210, 0.14) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+html[data-theme='dark'] .navbar-logo .v-logo-name {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .live-indicator {
+  background: rgba(20, 184, 166, 0.12) !important;
+  border-color: rgba(20, 184, 166, 0.3) !important;
+  color: #2dd4bf !important;
+}
+
+html[data-theme='dark'] .navbar-icon-btn {
+  color: rgba(248, 250, 252, 0.65) !important;
+}
+
+html[data-theme='dark'] .navbar-icon-btn:hover {
+  color: #2dd4bf !important;
+  background: rgba(20, 184, 166, 0.12) !important;
+}
+
+html[data-theme='dark'] .navbar-user {
+  border-color: rgba(148, 197, 210, 0.18) !important;
+}
+
+html[data-theme='dark'] .navbar-user:hover {
+  background: rgba(30, 41, 59, 0.7) !important;
+  border-color: rgba(20, 184, 166, 0.3) !important;
+}
+
+html[data-theme='dark'] .navbar-user-name {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .navbar-chevron {
+  color: rgba(248, 250, 252, 0.45) !important;
+}
+
+html[data-theme='dark'] .navbar-badge {
+  border-color: rgba(15, 23, 42, 0.92) !important;
+}
+
+html[data-theme='dark'] .notification-dropdown {
+  background: rgba(30, 41, 59, 0.98) !important;
+  border-color: rgba(148, 197, 210, 0.18) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-theme='dark'] .notification-dropdown-header {
+  color: rgba(248, 250, 252, 0.5) !important;
+  border-bottom-color: rgba(148, 197, 210, 0.12) !important;
+}
+
+html[data-theme='dark'] .notification-item {
+  border-bottom-color: rgba(148, 197, 210, 0.08) !important;
+}
+
+html[data-theme='dark'] .notification-item:hover {
+  background: rgba(20, 184, 166, 0.06) !important;
+}
+
+html[data-theme='dark'] .notification-item.unread {
+  background: rgba(20, 184, 166, 0.1) !important;
+}
+
+html[data-theme='dark'] .notification-text {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .notification-time {
+  color: rgba(248, 250, 252, 0.4) !important;
+}
+
+html[data-theme='dark'] .notification-empty {
+  color: rgba(248, 250, 252, 0.4) !important;
 }

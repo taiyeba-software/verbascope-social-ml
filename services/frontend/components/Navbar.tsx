@@ -7,6 +7,7 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService } from '@/lib/api';
 import './Navbar.css';
+import ThemeToggle from './ThemeToggle';
 
 /* ── Types ───────────────────────────────────────────────── */
 interface Notification {
@@ -160,6 +161,8 @@ export default function Navbar() {
         <button type="button" className="navbar-icon-btn" aria-label="Search">
           <Search size={18} strokeWidth={1.75} />
         </button>
+
+        <ThemeToggle />
 
         {/* ── Bell + Dropdown ── */}
         <div className="navbar-notification-wrapper" ref={dropdownRef}>

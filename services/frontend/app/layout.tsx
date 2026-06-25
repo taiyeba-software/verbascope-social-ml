@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/components/auth-provider';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'Verbascope – Decode Emotions Behind Every Post',
@@ -26,9 +27,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <ProtectedRoute>{children}</ProtectedRoute>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ProtectedRoute>{children}</ProtectedRoute>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

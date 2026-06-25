@@ -1,19 +1,18 @@
 # Verbascope Frontend
 
-**AI-powered social media analysis platform that detects sarcasm, sentiment, and emotional tone.**
+**AI-powered social media analysis frontend that detects sarcasm, sentiment, and emotional tone.**
 
-> Built with Next.js 16, React 19, and TypeScript. Inspired by Spy x Family's aesthetic with sophisticated "Loid Forger" theme.
+> Built with Next.js 16, React 19, and TypeScript.
 
 ---
 
-## 🎯 Features
+## 🎯 Core Features
 
-- **Sarcasm Detection** — Understand when people aren't saying what they mean
-- **Sentiment Analysis** — Decode emotional tone in real-time
-- **ML Intelligence** — Powered by advanced machine learning models
-- **Authentication** — Email/password and Google OAuth integration
-- **Live Feed** — Real-time social media post analysis
-- **Responsive Design** — Works seamlessly on desktop and mobile
+- Email/password authentication and Google OAuth
+- Protected routes through `AuthProvider` and `ProtectedRoute`
+- Real-time feed with likes, comments, shares, bookmarks, and pagination
+- Mobile-responsive UI with trending chips and inline recommendations
+- Centralized Axios API client for auth, notification, and post services
 
 ---
 
@@ -21,13 +20,13 @@
 
 | Layer | Technology |
 |-------|-----------|
-| **Framework** | Next.js 16.2.4 (Turbopack) |
-| **UI Library** | React 19 |
-| **Language** | TypeScript 5 |
-| **HTTP Client** | Axios 1.6.2 |
-| **Icons** | Lucide React |
-| **Styling** | CSS Variables + Vanilla CSS |
-| **Package Manager** | pnpm (with npm lock compatibility) |
+| Framework | Next.js 16 |
+| UI Library | React 19 |
+| Language | TypeScript 5 |
+| HTTP Client | Axios 1.6.2 |
+| Icons | Lucide React |
+| Styling | CSS Variables + Vanilla CSS |
+| Package Manager | npm / pnpm |
 
 ---
 
@@ -35,58 +34,60 @@
 
 ```
 frontend/
-├── app/                    # Next.js App Router (main application)
-│   ├── layout.tsx         # Root layout with global metadata
-│   ├── page.tsx           # Home/landing page
-│   ├── globals.css        # Global theme, CSS variables, animations
-│   ├── home.css           # Landing page specific styles
-│   ├── auth/              # Authentication pages
+├── app/
+│   ├── layout.tsx           # Root layout with AuthProvider + ProtectedRoute
+│   ├── page.tsx             # Landing page
+│   ├── globals.css          # Global CSS variables and base styles
+│   ├── home.css             # Landing page styles
+│   ├── auth/                # Authentication pages
 │   │   ├── login/
 │   │   └── register/
-│   └── feed/              # Feed page with post analysis
+│   └── feed/                # Feed page and styles
+│       ├── page.tsx
+│       └── feed.css
 │
-├── components/            # Reusable React components
-│   ├── Navbar.tsx         # Main navigation bar
+├── components/
+│   ├── Navbar.tsx           # Header navigation
 │   ├── Navbar.css
-│   ├── auth-provider.tsx  # Global auth state & session management
-│   ├── CreatePostBox.tsx  # Post creation form
-│   ├── FeedSkeleton.tsx   # Loading skeleton
-│   ├── theme-provider.tsx # Theme context provider
-│   └── ui/                # Shadcn/UI components
+│   ├── auth-provider.tsx    # Auth context provider
+│   ├── CreatePostBox.tsx    # Post composer UI
+│   ├── FeedSkeleton.tsx     # Loading skeleton component
+│   ├── ProtectedRoute.tsx   # Auth route guard
+│   ├── theme-provider.tsx   # Theme utilities
+│   ├── feed/
+│   │   ├── CommentSection.tsx
+│   │   ├── PostCard.tsx
+│   │   ├── Sidebar.tsx
+│   │   ├── ShareSheet.tsx
+│   │   ├── MobileTrendingBar.tsx
+│   │   ├── WhoToFollowInline.tsx
+│   │   └── useFeedSocket.ts
+│   └── ui/                  # Shared design system components
 │       ├── button.tsx
 │       ├── input.tsx
 │       ├── card.tsx
-│       └── ... (30+ UI components)
+│       └── ...
 │
-├── hooks/                 # Custom React hooks
-│   ├── useAuth.ts         # Hook to access auth context
-│   ├── use-mobile.ts      # Mobile detection hook
-│   └── use-toast.ts       # Toast notification hook
+├── hooks/
+│   ├── useAuth.ts           # Auth hook wrapper
+│   ├── use-mobile.ts        # Mobile helper hook
+│   └── use-toast.ts
 │
-├── lib/                   # Utilities and helpers
-│   ├── api.ts            # Axios API client with auth service
-│   └── utils.ts          # General utility functions
+├── lib/
+│   ├── api.ts               # Axios client + service wrappers
+│   └── utils.ts             # Utility helpers
 │
-├── types/                 # TypeScript type definitions
-│   └── index.ts          # User, Auth, Post, MLSignal types
+├── types/
+│   └── index.ts             # Shared TypeScript types
 │
-├── styles/               # Global styles
-│   └── globals.css       # Additional global styles
-│
-├── public/               # Static assets
-│   └── favicon.svg       # Verbascope V logo favicon
-│
-├── docs/                 # Documentation
-│   ├── ARCHITECTURE.md
-│   ├── V_TRIANGLE_GUIDE.md
-│   └── ... (design & implementation docs)
-│
-└── Config Files
-    ├── package.json       # Dependencies and scripts
-    ├── tsconfig.json      # TypeScript configuration
-    ├── next.config.mjs    # Next.js configuration
-    ├── components.json    # Shadcn/UI component config
-    └── postcss.config.mjs # PostCSS configuration
+├── docs/                    # Project documentation
+├── public/                  # Static assets and favicon
+├── components.json          # Shadcn UI config
+├── next.config.mjs          # Next.js config
+├── postcss.config.mjs       # PostCSS config
+├── tsconfig.json            # TypeScript config
+├── package.json             # Scripts and dependencies
+└── pnpm-lock.yaml           # pnpm lockfile
 ```
 
 ---
@@ -95,169 +96,98 @@ frontend/
 
 ### Prerequisites
 
-- **Node.js** 18+ or **pnpm** 8+
-- **Backend Services** running:
+- Node.js 18+
+- pnpm 8+ or npm
+- Backend services available locally:
   - Auth Service: `http://localhost:3000`
   - Notification Service: `http://localhost:3001`
+  - Posts Service: `http://localhost:3003`
 
-### Installation
+### Install dependencies
 
 ```bash
-# Navigate to frontend directory
 cd services/frontend
-
-# Install dependencies
 npm install
-# or with pnpm
+# or
 pnpm install
 ```
 
-### Development
+### Run locally
 
 ```bash
-# Start development server (runs on http://localhost:3002)
 npm run dev
-
-# Open browser and navigate to http://localhost:3002
 ```
 
-The app will:
-1. Load with hot-reload enabled (Turbopack)
-2. Hydrate user session from auth service
-3. Display loading state if auth service unreachable
+The frontend starts on `http://localhost:3002`.
 
-### Production Build
+### Production build
 
 ```bash
-# Build for production
 npm run build
-
-# Start production server
 npm start
+```
 
-# Run linter
+### Lint
+
+```bash
 npm run lint
 ```
 
 ---
 
-## 🏗️ Architecture
+## 🌐 Environment Variables
 
-### Authentication Flow
+The frontend supports these environment variables:
 
-```
-User Registration/Login
-    ↓
-Frontend Form Input → axios POST to /api/auth/register | /api/auth/login
-    ↓
-Backend validates → creates JWT → sets httpOnly cookie
-    ↓
-Frontend receives response → AuthProvider updates global state
-    ↓
-User redirected to /feed
+```env
+NEXT_PUBLIC_AUTH_API_URL=http://localhost:3000
+NEXT_PUBLIC_NOTIFICATION_API_URL=http://localhost:3001
+NEXT_PUBLIC_POST_API_URL=http://localhost:3003
+NEXT_PUBLIC_AUTH_URL=http://localhost:3000
 ```
 
-### Session Hydration
-
-On every page load:
-1. **AuthProvider** runs `hydrateSession()` in useEffect
-2. Makes GET request to `/api/auth/me`
-3. If 401 (no cookie) → silently log as info (expected on first visit)
-4. If authenticated → store user in context
-5. All child components can access user via `useAuth()` hook
-
-### Global State Management
-
-**AuthProvider** (`components/auth-provider.tsx`):
-- Manages user auth state globally
-- Handles register, login, Google OAuth, logout
-- Session persistence via httpOnly cookies
-- Provides `useAuth()` hook for components
-
-```tsx
-const { user, isLoading, error, login, logout } = useAuth();
-```
-
-### API Client
-
-**Axios Instance** (`lib/api.ts`):
-- Automatic error handling with clean error objects
-- 401 responses: silently handled (session loss)
-- Other errors: logged for debugging
-- Credentials: enabled by default (for cookie-based auth)
-- Timeout: 10 seconds
-- Base URL: `http://localhost:3000`
+Default values are provided in `lib/api.ts`.
 
 ---
 
-## 🎨 Design System
+## 🧠 Architecture
 
-### Theme Variables
+### Authentication flow
 
-All colors, spacing, fonts, and transitions defined in `app/globals.css`:
+- `app/layout.tsx` wraps the app with `AuthProvider` and `ProtectedRoute`
+- `AuthProvider` hydrates session state from `/api/auth/me`
+- `useAuth()` exposes `user`, `isLoading`, `error`, `login`, `logout`, and more
+- Protected pages redirect unauthenticated users to `/auth/login`
 
-```css
-:root {
-  /* Backgrounds */
-  --v-bg-primary: #6BA59E;      /* Soft sage teal */
-  --v-bg-dark: #1A2A28;         /* Deep navy */
-  --v-bg-light: #E8E3DB;        /* Warm cream */
+### API client
 
-  /* Text */
-  --v-text-primary: #F5F0E8;    /* Paper cream */
-  --v-text-secondary: #D0D9D6;  /* Soft gray */
+`lib/api.ts` defines:
+- `authApi` and `authService` for authentication
+- `userService` for follow/friend actions
+- `notificationService` for notification endpoints
+- `postApi` and `postService` for feed/post operations
 
-  /* ML Signals */
-  --v-signal-green: #6FBDB3;    /* Sarcasm/positive */
-  --v-signal-yellow: #D4A574;   /* Caution */
-  --v-signal-red: #C17B6D;      /* Risk/emotion */
+### Feed experience
 
-  /* Typography */
-  --v-font-serif-display: 'Bodoni Moda', Georgia, serif;
-  --v-font-sans: 'Inter', system-ui, sans-serif;
-
-  /* Transitions */
-  --v-transition: 0.2s cubic-bezier(0.19, 1, 0.22, 1);
-}
-```
-
-### V-Triangle Decoration System
-
-Dotted right-angled triangles used as playful tactical decorations:
-
-- **Sizes**: Small (60px), Medium (100px), Large (160px)
-- **Animation**: `radar-sweep` 4s (clip-path reveal) or `triangle-pulse` 8s (subtle translation)
-- **Clip-path**: `polygon(100% 0, 0 0, 100% 100%)` (right-angle at bottom-left)
-- **Placement**: Landing page hero, auth pages
-
-```css
-.dot-triangle {
-  clip-path: polygon(100% 0, 0 0, 100% 100%);
-  background-image: radial-gradient(circle, var(--v-accent) var(--v-dot-size), transparent var(--v-dot-size));
-  background-size: var(--v-gap) var(--v-gap);
-}
-
-.dot-triangle.landing-hero {
-  animation: radar-sweep 4s cubic-bezier(0.19, 1, 0.22, 1) infinite;
-}
-```
-
-### Colors
-
-| Name | Hex | Usage |
-|------|-----|-------|
-| **Navy** | `#1A2A28` | Accent, text on light, borders |
-| **Sage Teal** | `#6BA59E` | Primary background, navbar |
-| **Cream** | `#E8E3DB` | Light backgrounds, light text |
-| **Gold** | `#D4A574` | Sarcasm signals, highlights |
-| **Terracotta** | `#C17B6D` | Emotion/risk alerts |
-| **Sage Green** | `#6FBDB3` | Positive signals, success |
+- `app/feed/page.tsx` manages feed loading, pagination, comments, likes, and shares
+- `useFeedSocket` handles trending tags and live pulse updates
+- `PostCard`, `CommentSection`, `ShareSheet`, `MobileTrendingBar`, and `WhoToFollowInline` compose the feed UI
 
 ---
 
-## 📡 API Integration
+## 📌 Notes
 
-### Auth Service Endpoints
+- The frontend uses cookie-based auth with `withCredentials: true`
+- `AuthProvider` handles session persistence via auth service cookies
+- The mobile feed uses `.mobile-only` wrappers and mobile-specific UI components
+- `components.json` configures the local Shadcn UI component registry
+
+---
+
+## 📚 Documentation
+
+See the `docs/` folder for architecture, design, and implementation notes.
+
 
 All requests to `http://localhost:3000`:
 

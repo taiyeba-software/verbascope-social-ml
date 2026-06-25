@@ -1,0 +1,85 @@
+/* ──────────────────────────────────────────────────────────
+   Theme Toggle — Sliding Pill Switch (Day/Night)
+   ────────────────────────────────────────────────────────── */
+
+.theme-switch {
+  position: relative;
+  width: 56px;
+  height: 30px;
+  border-radius: var(--vs-radius-full, 9999px);
+  border: 1.5px solid var(--vs-border-card, rgba(0, 140, 190, 0.15));
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.theme-switch-track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+}
+
+.theme-switch-icon {
+  z-index: 0;
+}
+
+.theme-switch-icon--sun {
+  color: #f5b400;
+}
+
+.theme-switch-icon--moon {
+  color: #cbd5e1;
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease, color 0.25s ease;
+  z-index: 1;
+}
+
+/* Light mode (sun side, thumb left) */
+.theme-switch--light {
+  background: #eaf6fa;
+}
+
+.theme-switch--light .theme-switch-thumb {
+  transform: translateX(0);
+  color: #f5b400;
+}
+
+/* Dark mode (moon side, thumb right) */
+.theme-switch--dark {
+  background: #1e293b;
+  border-color: rgba(148, 197, 210, 0.2);
+}
+
+.theme-switch--dark .theme-switch-thumb {
+  transform: translateX(26px);
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.theme-switch:hover {
+  filter: brightness(1.05);
+}
+
+.theme-switch:focus-visible {
+  outline: 2px solid var(--vs-teal, #0e9fab);
+  outline-offset: 2px;
+}

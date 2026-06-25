@@ -59,6 +59,15 @@ function timeAgo(dateStr: string): string {
   return `${day}d ago`;
 }
 
+/* ── Backend sends `isRead`, frontend uses `read` — normalize at the boundary
+   so this is the only place that needs to know about the mismatch. ── */
+function normalizeNotification(raw: any): Notification {
+  return {
+    ...raw,
+    read: raw.read ?? raw.isRead ?? false,
+  };
+}
+
 /* ── Component ───────────────────────────────────────────── */
 export default function Navbar() {
   const { user } = useAuth();
@@ -77,7 +86,7 @@ export default function Navbar() {
 
     notificationService.getNotifications()
       .then((res: any) => {
-        const data: Notification[] = res.data.notifications ?? [];
+        const data: Notification[] = (res.data.notifications ?? []).map(normalizeNotification);
         setNotifications(data);
         setUnreadCount(res.data.unreadCount ?? 0);
       })
@@ -96,7 +105,7 @@ export default function Navbar() {
     });
 
     socket.on('notification:new', (notification: Notification) => {
-      setNotifications((prev) => [notification, ...prev]);
+      setNotifications((prev) => [normalizeNotification(notification), ...prev]);
       setUnreadCount((prev) => prev + 1);
     });
 
@@ -124,11 +133,20 @@ export default function Navbar() {
     setDropdownOpen((prev) => !prev);
 
     if (!dropdownOpen && unreadCount > 0) {
+      const previousNotifications = notifications;
+      const previousUnreadCount = unreadCount;
+
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
       try {
         await notificationService.markAllRead();
-      } catch {/* silent */}
+      } catch (err) {
+        // Persist failed — roll back so the UI doesn't lie about server state
+        console.error('markAllRead failed, reverting:', err);
+        setNotifications(previousNotifications);
+        setUnreadCount(previousUnreadCount);
+      }
     }
   }
 

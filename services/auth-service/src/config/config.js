@@ -8,7 +8,13 @@ const config = {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || process.env.CLIENT_SECRET,
     GOOGLE_CALLBACK_URL:  process.env.GOOGLE_CALLBACK_URL
                           || 'http://localhost:3000/api/auth/google/callback',
-    RABBITMQ_URI:  process.env.RABBITMQ_URI,  // ← add this
+    RABBITMQ_URI:  process.env.RABBITMQ_URI,  
+
+
+    // ── ImageKit (avatar uploads) ──
+    IMAGEKIT_PUBLIC_KEY:   process.env.IMAGEKIT_PUBLIC_KEY,
+    IMAGEKIT_PRIVATE_KEY:  process.env.IMAGEKIT_PRIVATE_KEY,
+    IMAGEKIT_URL_ENDPOINT: process.env.IMAGEKIT_URL_ENDPOINT,
 };
 
 export default config;

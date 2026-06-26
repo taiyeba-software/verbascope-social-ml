@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema(
     googleID: { type: String },
     role: { type: String, default: 'user' },
 
+    // ── Profile ──────────────────────────────────────────
+    bio: { type: String, default: '' },
+    headline: { type: String, default: '' },
+    avatar: { type: String, default: '' },
+
     // ── Social graph ─────────────────────────────────────
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }],

@@ -37,12 +37,12 @@ class ApiClient {
           code: error.code, // CORS, ECONNABORTED, etc.
           data: error.response?.data,
         };
-        
+
         // Only log actual server errors (not 401, not network errors)
         if (error.response?.status && error.response.status !== 401) {
           console.error('[API Error]', cleanError);
         }
-        
+
         // Throw the clean object, not the raw axios error
         return Promise.reject(cleanError);
       }
@@ -129,6 +129,20 @@ export const userService = {
 
   getMyFollowing: () =>
     authApi.get('/api/users/me/following'),
+
+  // ── Profile (Phase 2 / 4) ──
+  // id can be a real ObjectId string or the literal "me".
+  getUserProfile: (id: string) =>
+    authApi.get(`/api/users/${id}`),
+
+  updateProfile: (data: { bio?: string; headline?: string }) =>
+    authApi.patch('/api/users/profile', data),
+
+  // FormData must contain a single file under the field name "avatar".
+  updateAvatar: (formData: FormData) =>
+    authApi.patch('/api/users/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 export const googleAuthUrl = `${process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3000'}/api/auth/google`;

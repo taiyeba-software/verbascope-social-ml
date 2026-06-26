@@ -4,6 +4,7 @@ import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { uploadToImageKit } from '../utils/imagekit.js';
 import { generateImageKitFileName } from '../middlewares/upload.middleware.js';
+import authClient from '../utils/authClient.js';
 
 // ── Helper: validate MongoDB ObjectId early to avoid CastError ───────
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -72,9 +73,20 @@ export const getFeed = async (req, res) => {
 			.sort({ createdAt: -1 })          // uses the index defined in post.model.js
 			.skip(skip)
 			.limit(limit)
-			.populate('author', 'fullname')   // pulls firstName/lastName from auth-service users
 			.lean();
-		const postsWithState = addStateFlags(posts, userId);
+
+		// Enrich posts with user data from auth-service
+		const userIds = [...new Set(posts.map(p => p.author.toString()))];
+		const usersRes = await authClient.post('/api/users/bulk', { ids: userIds });
+		const userMap = Object.fromEntries(
+			usersRes.data.users.map(user => [user._id.toString(), user])
+		);
+		const enrichedPosts = posts.map(post => ({
+			...post,
+			author: userMap[post.author.toString()] || null,
+		}));
+
+		const postsWithState = addStateFlags(enrichedPosts, userId);
 
 		const total = await Post.countDocuments();
 

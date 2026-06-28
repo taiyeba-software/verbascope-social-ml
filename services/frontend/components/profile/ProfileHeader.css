@@ -1,18 +1,30 @@
 /* ──────────────────────────────────────────────────────────
-   ProfileHeader — built on the existing --vs- token system
-   (defined in app/feed/feed.css). No new global tokens added;
-   --profile-bg-soft below is scoped to this component only.
+   ProfileHeader — built on the GLOBAL --v- token system
+   (defined in app/globals.css, loaded on every page).
+
+   Earlier version used --vs- tokens, which only exist on the
+   /feed route (defined locally in app/feed/feed.css). On
+   /profile/[id] those variables don't exist, so every rule
+   using them silently failed (no background, no border, no
+   spacing) — text rendered because text doesn't depend on a
+   custom property, but every visual property did.
+
+   --profile-bg-soft below is scoped to this component only;
+   no new tokens were added to any global file.
    ────────────────────────────────────────────────────────── */
 
 .profile-header {
-  --profile-bg-soft: linear-gradient(135deg, var(--vs-teal-light), var(--vs-surface) 65%);
+  --profile-accent: var(--v-signal-green);       /* sage-teal accent, closest equivalent to the old vs-teal */
+  --profile-accent-mid: var(--v-accent-soft);
+  --profile-surface-hover: rgba(255, 255, 255, 0.06);
+  --profile-bg-soft: linear-gradient(135deg, var(--v-signal-green-bg), var(--v-bg-card) 65%);
 
-  background: var(--vs-surface);
-  border: 1px solid var(--vs-border-card);
-  border-radius: var(--vs-radius-lg);
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border-strong);
+  border-radius: var(--v-radius-lg);
   overflow: hidden;
-  box-shadow: var(--vs-shadow-card);
-  margin-bottom: var(--vs-space-lg);
+  box-shadow: var(--v-shadow-sm);
+  margin-bottom: var(--v-space-lg);
 }
 
 /* ── Cover ── */
@@ -29,27 +41,27 @@
   right: 0;
   width: 130px;
   height: 130px;
-  color: var(--vs-teal);
+  color: var(--profile-accent);
   opacity: 0.4;
 }
 
 /* ── Body ── */
 .profile-header-body {
   position: relative;
-  padding: 0 var(--vs-space-xl) var(--vs-space-lg);
+  padding: 0 var(--v-space-xl) var(--v-space-lg);
 }
 
 .profile-avatar-ring {
   width: 104px;
   height: 104px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--vs-teal), var(--vs-teal-mid));
-  border: 4px solid var(--vs-surface);
+  background: linear-gradient(135deg, var(--profile-accent), var(--profile-accent-mid));
+  border: 4px solid var(--v-bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: -52px;
-  box-shadow: var(--vs-shadow-md);
+  box-shadow: var(--v-shadow-md);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -64,27 +76,27 @@
   color: white;
   font-size: 2rem;
   font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--v-font-sans);
 }
 
 /* ── Action button (Follow / Edit), top-right of body ── */
 .profile-header-actions {
   position: absolute;
-  top: var(--vs-space-lg);
-  right: var(--vs-space-xl);
+  top: var(--v-space-lg);
+  right: var(--v-space-xl);
 }
 
 .profile-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--v-font-sans);
   font-size: 0.85rem;
   font-weight: 600;
   padding: 8px 18px;
-  border-radius: var(--vs-radius-full);
+  border-radius: var(--v-radius-full);
   cursor: pointer;
-  transition: all var(--vs-transition);
+  transition: all var(--v-transition);
   border: 1.5px solid transparent;
 }
 
@@ -94,63 +106,65 @@
 }
 
 .profile-btn--solid {
-  background: var(--vs-teal);
+  background: var(--profile-accent);
   color: white;
 }
 
 .profile-btn--solid:hover:not(:disabled) {
-  background: var(--vs-teal-mid);
+  background: var(--profile-accent-mid);
 }
 
 .profile-btn--outline {
-  background: transparent;
-  border-color: var(--vs-teal);
-  color: var(--vs-teal);
+  background: var(--v-bg-card);
+  border-color: var(--profile-accent);
+  color: var(--v-text-primary);
+  box-shadow: var(--v-shadow-sm);
 }
 
 .profile-btn--outline:hover:not(:disabled) {
-  background: var(--vs-teal-light);
+  background: var(--v-signal-green-bg);
+  border-color: var(--profile-accent);
 }
 
 .profile-btn--ghost {
   background: transparent;
-  border-color: var(--vs-border-card);
-  color: var(--vs-text-muted);
+  border-color: var(--v-border-strong);
+  color: var(--v-text-muted);
 }
 
 .profile-btn--ghost:hover:not(:disabled) {
-  color: var(--vs-text-primary);
-  border-color: var(--vs-text-muted);
+  color: var(--v-text-primary);
+  border-color: var(--v-text-muted);
 }
 
 .profile-edit-actions {
   display: flex;
-  gap: var(--vs-space-sm);
+  gap: var(--v-space-sm);
 }
 
 /* ── Identity block ── */
 .profile-identity {
-  margin-top: var(--vs-space-md);
+  margin-top: var(--v-space-md);
 }
 
 .profile-name {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--v-font-serif-display);
   font-size: 1.4rem;
   font-weight: 700;
-  color: var(--vs-text-primary);
+  color: var(--v-text-primary);
   margin: 0;
 }
 
 .profile-headline {
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--vs-teal);
+  color: var(--profile-accent);
   margin: 4px 0 0;
 }
 
 .profile-bio {
   font-size: 0.9rem;
-  color: var(--vs-text-secondary);
+  color: var(--v-text-secondary);
   line-height: 1.55;
   margin: 8px 0 0;
   max-width: 560px;
@@ -158,7 +172,7 @@
 }
 
 .profile-bio--placeholder {
-  color: var(--vs-text-muted);
+  color: var(--v-text-muted);
   font-style: italic;
 }
 
@@ -166,29 +180,29 @@
 .profile-edit-fields {
   display: flex;
   flex-direction: column;
-  gap: var(--vs-space-sm);
-  margin-top: var(--vs-space-sm);
+  gap: var(--v-space-sm);
+  margin-top: var(--v-space-sm);
   max-width: 560px;
 }
 
 .profile-edit-input,
 .profile-edit-textarea {
   width: 100%;
-  background: var(--vs-surface-hover);
-  border: 1.5px solid var(--vs-border-card);
-  border-radius: var(--vs-radius-md);
+  background: var(--profile-surface-hover);
+  border: 1.5px solid var(--v-border-strong);
+  border-radius: var(--v-radius-md);
   padding: 10px 14px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--v-font-sans);
   font-size: 0.9rem;
-  color: var(--vs-text-primary);
+  color: var(--v-text-primary);
   outline: none;
-  transition: all var(--vs-transition);
+  transition: all var(--v-transition);
 }
 
 .profile-edit-input:focus,
 .profile-edit-textarea:focus {
-  border-color: var(--vs-teal);
-  box-shadow: 0 0 0 3px rgba(14, 159, 171, 0.1);
+  border-color: var(--profile-accent);
+  box-shadow: 0 0 0 3px rgba(111, 189, 179, 0.15);
 }
 
 .profile-edit-textarea {
@@ -201,10 +215,10 @@
 .profile-stats {
   display: flex;
   align-items: center;
-  gap: var(--vs-space-md);
-  margin-top: var(--vs-space-lg);
-  padding-top: var(--vs-space-md);
-  border-top: 1px solid var(--vs-border);
+  gap: var(--v-space-md);
+  margin-top: var(--v-space-lg);
+  padding-top: var(--v-space-md);
+  border-top: 1px solid var(--v-border);
 }
 
 .profile-stat {
@@ -215,31 +229,31 @@
 }
 
 .profile-stat-icon {
-  color: var(--vs-text-muted);
+  color: var(--v-text-muted);
 }
 
 .profile-stat-count {
   font-weight: 700;
-  color: var(--vs-text-primary);
+  color: var(--v-text-primary);
 }
 
 .profile-stat-label {
-  color: var(--vs-text-muted);
+  color: var(--v-text-muted);
 }
 
 .profile-stat-divider {
   width: 1px;
   height: 14px;
-  background: var(--vs-border-card);
+  background: var(--v-border-strong);
 }
 
 /* ── Loading skeleton ── */
 .profile-header--loading .profile-header-cover {
-  background: var(--vs-surface-hover);
+  background: var(--profile-surface-hover);
 }
 
 .profile-header-skeleton-lines {
-  margin-top: var(--vs-space-md);
+  margin-top: var(--v-space-md);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -247,8 +261,8 @@
 
 .profile-skeleton-line {
   height: 14px;
-  border-radius: var(--vs-radius-sm);
-  background: var(--vs-surface-hover);
+  border-radius: var(--v-radius-sm);
+  background: var(--profile-surface-hover);
 }
 
 .profile-skeleton-line--wide {
@@ -264,25 +278,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--vs-space-xl);
-  color: var(--vs-text-muted);
+  padding: var(--v-space-xl);
+  color: var(--v-text-muted);
   font-size: 0.95rem;
 }
 
-/* ── Dark theme ── */
+/* ── Dark theme ──
+   globals.css already defines a [data-theme='dark'] block that
+   overrides --v-bg-card, --v-text-primary, etc. globally, so most
+   of this component re-themes automatically with no extra rules
+   needed. Only overrides specific to this component go here. ── */
 html[data-theme='dark'] .profile-header {
-  background: var(--vs-surface);
-  border-color: var(--vs-border-card);
+  border-color: var(--v-border-strong);
 }
 
 html[data-theme='dark'] .profile-avatar-ring {
-  border-color: var(--vs-surface);
+  border-color: var(--v-bg-card);
 }
 
 /* ── Responsive ── */
 @media (max-width: 640px) {
   .profile-header-body {
-    padding: 0 var(--vs-space-md) var(--vs-space-md);
+    padding: 0 var(--v-space-md) var(--v-space-md);
   }
 
   .profile-avatar-ring {
@@ -297,7 +314,7 @@ html[data-theme='dark'] .profile-avatar-ring {
 
   .profile-header-actions {
     position: static;
-    margin-top: var(--vs-space-md);
+    margin-top: var(--v-space-md);
   }
 
   .profile-name {

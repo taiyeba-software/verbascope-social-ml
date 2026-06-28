@@ -1,13 +1,16 @@
 import ProfileHeader from '@/components/profile/ProfileHeader';
 
 interface ProfilePageProps {
-  params: { id: string };
+  // Next.js 16: params is a Promise and must be awaited before use.
+  params: Promise<{ id: string }>;
 }
 
-export default function ProfilePage({ params }: ProfilePageProps) {
+export default async function ProfilePage({ params }: ProfilePageProps) {
+  const { id } = await params;
+
   return (
     <div className="profile-page">
-      <ProfileHeader userId={params.id} />
+      <ProfileHeader userId={id} />
       {/* ProfileTabs, ProfilePosts, SuggestedConnections land in later phases */}
     </div>
   );

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/components/auth-provider';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -19,13 +20,30 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
+const themeInitScript = `
+  (function() {
+    try {
+      var saved = localStorage.getItem('vs-theme');
+      var theme = (saved === 'dark' || saved === 'light') ? saved : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {}
+  })();
+`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <head>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
+      </head>
       <body>
         <ThemeProvider>
           <AuthProvider>

@@ -1,8 +1,10 @@
 # Auth Service
 
-Authentication microservice for Verbascope Social ML. Handles user registration, email/password login, Google OAuth 2.0, JWT cookie issuance, and publishes `user_created` events to RabbitMQ.
+**The login and account service for Verbascope Social ML.** Handles signing up, email/password login, "Sign in with Google," issuing secure login tokens, and announcing new users to the rest of the system.
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### 1. Install Dependencies
 
@@ -13,7 +15,7 @@ npm install
 
 ### 2. Configure Environment
 
-Create a `.env` file with the following variables:
+Create a `.env` file with the following values:
 
 ```env
 MONGO_URI=mongodb://localhost:27017/verbascope
@@ -28,7 +30,7 @@ NODE_ENV=development
 
 ### 3. Run the Service
 
-**Development (with hot reload):**
+**Development (auto-restarts when you edit code):**
 ```bash
 npm run dev
 ```
@@ -38,24 +40,28 @@ npm run dev
 npm start
 ```
 
-The service runs on **port 3000** and exposes routes under `/api/auth`.
+The service runs on **port 3000**, and all its routes start with `/api/auth`.
 
-## Environment Variables
+---
 
-| Variable | Required | Default | Notes |
+## 🌐 Environment Variables
+
+| Variable | Required? | Default | What it's for |
 |----------|----------|---------|-------|
-| `MONGO_URI` | Yes | — | MongoDB connection string |
-| `RABBITMQ_URI` | Yes | — | RabbitMQ connection string |
-| `JWT_SECRET` | No | `dev_jwt_secret` | Secret for signing JWTs |
-| `GOOGLE_CLIENT_ID` | Yes | — | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Yes | — | Google OAuth client secret |
-| `GOOGLE_CALLBACK_URL` | No | `http://localhost:3000/api/auth/google/callback` | OAuth callback URL |
-| `CLIENT_URL` | No | `http://localhost:3002` | Frontend URL for post-OAuth redirects |
-| `NODE_ENV` | No | `development` | Environment mode (affects cookie security) |
+| `MONGO_URI` | Yes | — | Address of your MongoDB database |
+| `RABBITMQ_URI` | Yes | — | Address of your RabbitMQ messaging service |
+| `JWT_SECRET` | No | `dev_jwt_secret` | Secret key used to sign login tokens |
+| `GOOGLE_CLIENT_ID` | Yes | — | ID for "Sign in with Google" |
+| `GOOGLE_CLIENT_SECRET` | Yes | — | Secret key for "Sign in with Google" |
+| `GOOGLE_CALLBACK_URL` | No | `http://localhost:3000/api/auth/google/callback` | Where Google sends users back to after they sign in |
+| `CLIENT_URL` | No | `http://localhost:3002` | Address of the frontend website, used after Google login |
+| `NODE_ENV` | No | `development` | Tells the app whether it's running in development or production (changes cookie security) |
 
-## CORS & Cookie Configuration
+---
 
-The service uses an **explicit origin allowlist** for CORS:
+## 🔒 CORS & Cookie Configuration
+
+CORS is a security rule that controls which websites are allowed to send requests to this service. This service only accepts requests from a specific, approved list of addresses:
 
 ```
 Allowed origins:
@@ -65,31 +71,33 @@ Allowed origins:
 - http://127.0.0.1:3000
 ```
 
-**Cookie behavior:**
-- **Development (HTTP):** `secure: false`, `sameSite: 'lax'`
-- **Production (HTTPS):** `secure: true`, `sameSite: 'none'`
+**How login cookies behave:**
+- **In development (plain HTTP):** the cookie is set to be less strict, so it works on `localhost`
+- **In production (secure HTTPS):** the cookie is set to be more strict and secure
 
-Frontend requests must include `credentials: 'include'` (fetch) or `withCredentials: true` (axios) for cookies to be sent cross-origin.
+For the frontend to actually receive and send this cookie, it must include credentials in its requests — this means using `credentials: 'include'` if using `fetch`, or `withCredentials: true` if using `axios`.
 
 ### Troubleshooting Cookies
 
-If cookies aren't being set or transmitted:
-1. Check DevTools → Application → Cookies for `localhost:3000`
-2. Verify the `token` cookie is present after login/OAuth
-3. Ensure frontend uses `credentials: 'include'` in requests
-4. Confirm CORS origin matches exactly (e.g., `localhost` vs `127.0.0.1`)
+If login cookies aren't showing up or being sent:
+1. Open your browser's Developer Tools → Application tab → Cookies, and check for `localhost:3000`
+2. Confirm a cookie named `token` appears after logging in
+3. Make sure the frontend code includes `credentials: 'include'` in its requests
+4. Double-check that the website address matches exactly (e.g. `localhost` and `127.0.0.1` are treated as different addresses)
 
-## API Endpoints
+---
 
-Base URL path: `/api/auth`
+## 📡 API Endpoints
 
-### 1. Register User
+All endpoints below start with: `/api/auth`
+
+### 1. Register a New User
 
 **`POST /api/auth/register`**
 
-Creates a new user with email/password.
+Creates a new account using an email and password.
 
-**Request:**
+**Request body:**
 ```json
 {
   "email": "user@example.com",
@@ -101,13 +109,13 @@ Creates a new user with email/password.
 }
 ```
 
-**Validation:**
-- `email` must be a valid email address
-- `password` minimum 6 characters
-- `fullname.firstName` required
-- `fullname.lastName` required
+**Rules the request must follow:**
+- `email` must look like a real email address
+- `password` must be at least 6 characters
+- `fullname.firstName` is required
+- `fullname.lastName` is required
 
-**Response (201 Created):**
+**Successful response (201 Created):**
 ```json
 {
   "success": true,
@@ -126,23 +134,23 @@ Creates a new user with email/password.
 }
 ```
 
-**On success:**
-- Password hashed with bcrypt
-- User created in MongoDB
-- JWT signed with `{ id, role }` and 2-day expiry
-- `token` cookie set (`httpOnly`, environment-aware `secure`/`sameSite`)
-- Event published to RabbitMQ queue `user_created`
-- User data returned without password
+**What happens behind the scenes when this succeeds:**
+- The password is scrambled (hashed) for security before saving
+- A new user is saved to the database
+- A secure login token is created, valid for 2 days
+- A `token` cookie is sent back to the browser (it's "httpOnly," meaning JavaScript on the page can't read it — extra security)
+- A message is sent to other services announcing that a new user was created
+- The password itself is never included in the response
 
 ---
 
-### 2. Login User
+### 2. Log In
 
 **`POST /api/auth/login`**
 
-Authenticates user with email/password.
+Logs a user in with their email and password.
 
-**Request:**
+**Request body:**
 ```json
 {
   "email": "user@example.com",
@@ -150,11 +158,11 @@ Authenticates user with email/password.
 }
 ```
 
-**Validation:**
-- `email` required and must be valid
-- `password` required
+**Rules:**
+- `email` is required and must be a valid email
+- `password` is required
 
-**Response (200 OK):**
+**Successful response (200 OK):**
 ```json
 {
   "success": true,
@@ -163,7 +171,7 @@ Authenticates user with email/password.
 }
 ```
 
-**Response (401 Unauthorized):**
+**If login fails (401 Unauthorized):**
 ```json
 {
   "success": false,
@@ -173,39 +181,39 @@ Authenticates user with email/password.
 
 ---
 
-### 3. Start Google OAuth
+### 3. Start Google Sign-In
 
 **`GET /api/auth/google`**
 
-Initiates Google OAuth flow. Redirects user to Google consent screen.
+Begins the "Sign in with Google" process by sending the user to Google's own sign-in screen.
 
-**Scopes requested:** `profile`, `email`
+**Information requested from Google:** basic profile info and email address
 
 ---
 
-### 4. Google OAuth Callback
+### 4. Google Sign-In Callback
 
 **`GET /api/auth/google/callback`**
 
-Google redirects here after user consent.
+This is where Google sends the user back to after they approve the sign-in.
 
-**Behavior:**
-- Finds user by `googleID` or `email`
-- If email user exists without `googleID`, links that account
-- Otherwise creates new Google-based user
-- Sets JWT and `token` cookie
-- Publishes `user_created` event to RabbitMQ (only for new users)
-- Redirects to `CLIENT_URL/feed` (e.g., `http://localhost:3002/feed`)
+**What happens here:**
+- The service checks if this Google account already matches an existing user (by Google ID or email)
+- If someone already registered with that email using a password, their account gets linked to Google automatically
+- Otherwise, a brand-new account is created
+- A login token and `token` cookie are issued
+- If this is a brand-new user, an announcement is sent to other services
+- The user is then sent back to the frontend, to the page `CLIENT_URL/feed` (for example, `http://localhost:3002/feed`)
 
-**On failure:** Redirects to `/api/auth/google/failure`
+**If something goes wrong:** the user is redirected to `/api/auth/google/failure`
 
 ---
 
-### 5. Google OAuth Failure
+### 5. Google Sign-In Failure
 
 **`GET /api/auth/google/failure`**
 
-Returns when Google OAuth flow fails.
+Shown when the Google sign-in process doesn't succeed.
 
 **Response (401 Unauthorized):**
 ```json
@@ -217,17 +225,17 @@ Returns when Google OAuth flow fails.
 
 ---
 
-### 6. Get Current User
+### 6. Get the Currently Logged-In User
 
 **`GET /api/auth/me`**
 
-Protected endpoint. Returns authenticated user's data.
+A protected endpoint (you must be logged in) that returns your own account details.
 
-**Requirements:**
-- `token` httpOnly cookie must be present
-- Cookie value must be a valid, non-expired JWT
+**What's required:**
+- A `token` cookie must be present
+- That cookie must contain a valid, non-expired login token
 
-**Response (200 OK):**
+**Successful response (200 OK):**
 ```json
 {
   "success": true,
@@ -246,7 +254,7 @@ Protected endpoint. Returns authenticated user's data.
 }
 ```
 
-**Response (401 Unauthorized):**
+**If not logged in (401 Unauthorized):**
 ```json
 {
   "success": false,
@@ -256,16 +264,15 @@ Protected endpoint. Returns authenticated user's data.
 
 ---
 
-### 7. Logout
+### 7. Log Out
 
 **`POST /api/auth/logout`**
 
-Clears the authentication cookie and logs out the user.
+Logs the user out by clearing their login cookie.
 
-**Requirements:**
-- `token` httpOnly cookie must be present
+**Requirement:** a `token` cookie must be present (you must already be logged in)
 
-**Response (200 OK):**
+**Successful response (200 OK):**
 ```json
 {
   "success": true,
@@ -275,29 +282,29 @@ Clears the authentication cookie and logs out the user.
 
 ---
 
-## OAuth Flow Diagram
+## 🔁 Google Sign-In Flow (Step by Step)
 
 ```
-1. Frontend navigates to GET /api/auth/google
+1. The frontend sends the user to GET /api/auth/google
    ↓
-2. Auth service redirects to Google consent screen
+2. The auth service redirects them to Google's sign-in screen
    ↓
-3. User signs in with Google
+3. The user signs in with their Google account
    ↓
-4. Google redirects to GET /api/auth/google/callback
+4. Google sends them back to GET /api/auth/google/callback
    ↓
-5. Auth service finds/creates user, sets token cookie
+5. The auth service finds or creates their account, and sets a login cookie
    ↓
-6. Auth service redirects to CLIENT_URL/feed
+6. The auth service sends them to CLIENT_URL/feed
    ↓
-7. Frontend calls GET /api/auth/me with credentials
+7. The frontend calls GET /api/auth/me (including the cookie) to confirm login
    ↓
-8. Frontend is authenticated
+8. The user is now fully logged in
 ```
 
 ---
 
-## User Model
+## 🗄️ User Model (What's Stored for Each User)
 
 ```typescript
 {
@@ -307,15 +314,15 @@ Clears the authentication cookie and logs out the user.
     firstName: string (required),
     lastName: string (required)
   },
-  password: string (required if no googleID),
+  password: string (required only if they didn't sign up with Google),
   googleID: string (optional),
   role: string (default: "user"),
   
-  // Social graph
+  // Who follows them, and who they follow
   followers: [ObjectId],
   following: [ObjectId],
   
-  // Behavioral interests (built by post-service via RabbitMQ)
+  // Interests built up over time by the Post Service, based on activity
   interests: Map<string, number>,
   
   createdAt: Date,
@@ -325,13 +332,13 @@ Clears the authentication cookie and logs out the user.
 
 ---
 
-## RabbitMQ Events
+## 📬 RabbitMQ Events
 
 ### `user_created` Queue
 
-Published after successful user registration or Google OAuth for new users.
+This message is sent out after someone successfully registers, or signs in with Google for the first time.
 
-**Payload:**
+**Message contents:**
 ```json
 {
   "id": "mongodb_user_id",
@@ -344,141 +351,139 @@ Published after successful user registration or Google OAuth for new users.
 }
 ```
 
-**Queue properties:**
-- Durable: `true` (survives RabbitMQ restart)
-- Message format: JSON string
+**Queue details:**
+- Marked as "durable," meaning the message survives even if RabbitMQ restarts
+- Sent as a JSON-formatted text message
 
 ---
 
-## Testing Checklist
+## ✅ Testing Checklist
 
 ### Local Setup
-1. Start auth-service: `npm run dev`
-2. Start frontend: `next dev -p 3002`
-3. Open browser DevTools (Network & Application tabs)
+1. Start the auth service: `npm run dev`
+2. Start the frontend: `next dev -p 3002`
+3. Open your browser's Developer Tools (Network and Application tabs)
 
 ### Email/Password Flow
-1. Navigate to login page
-2. Submit registration form with valid data
-3. Confirm `token` cookie appears in DevTools
-4. Confirm `GET /api/auth/me` returns 200 with user data
-5. Logout and confirm cookie is cleared
+1. Go to the login page
+2. Submit the registration form with valid details
+3. Confirm a `token` cookie shows up in Developer Tools
+4. Confirm that calling `GET /api/auth/me` returns a 200 response with user data
+5. Log out and confirm the cookie disappears
 
-### Google OAuth Flow
+### Google Sign-In Flow
 1. Click "Continue with Google"
-2. Confirm Google consent screen appears
-3. Sign in with Google account
-4. Confirm redirect to `/feed` on frontend
-5. Confirm `token` cookie in DevTools
-6. Confirm `GET /api/auth/me` returns 200 with user data
+2. Confirm Google's sign-in screen appears
+3. Sign in with a Google account
+4. Confirm you're redirected to `/feed` on the frontend
+5. Confirm a `token` cookie appears in Developer Tools
+6. Confirm that calling `GET /api/auth/me` returns a 200 response with user data
 
 ### Troubleshooting
-- **Cookie not sent:** Ensure frontend uses `credentials: 'include'`
-- **Cookie not saved:** Check DevTools → Application → Cookies for presence
-- **CORS error:** Verify frontend origin is in allowlist (check exact hostname)
-- **OAuth redirect fails:** Confirm `CLIENT_URL` environment variable is set
-- **RabbitMQ events not published:** Verify `RABBITMQ_URI` is correct and RabbitMQ is running
+- **Cookie not being sent:** Make sure the frontend uses `credentials: 'include'`
+- **Cookie not being saved:** Check Developer Tools → Application → Cookies to see if it's there
+- **CORS error:** Confirm the frontend's exact address is in the allowed list
+- **Google sign-in redirect fails:** Confirm the `CLIENT_URL` setting is correct
+- **RabbitMQ messages not being sent:** Confirm `RABBITMQ_URI` is correct and RabbitMQ is actually running
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 auth-service/
-├── server.js                 # Server entry point
-├── package.json              # Dependencies
-├── .env                       # Environment variables
+├── server.js                 # Where the service starts
+├── package.json              # List of dependencies
+├── .env                       # Environment settings
 └── src/
-    ├── app.js                # Express app setup (CORS, middleware)
+    ├── app.js                # Sets up the web server (CORS, middleware)
     ├── broker/
-    │   └── rabbit.js         # RabbitMQ connection & publish logic
+    │   └── rabbit.js         # Connects to and sends messages via RabbitMQ
     ├── config/
-    │   ├── config.js         # Environment config object
-    │   └── passport.js       # Google OAuth strategy setup
+    │   ├── config.js         # Holds environment settings
+    │   └── passport.js       # Sets up Google sign-in
     ├── controller/
-    │   └── auth.controller.js # Register, login, OAuth, logout handlers
+    │   └── auth.controller.js # Handles register, login, Google sign-in, logout
     ├── db/
-    │   └── db.js             # MongoDB connection
+    │   └── db.js             # Connects to MongoDB
     ├── middlewares/
-    │   ├── auth.middleware.js # JWT verification from cookies
-    │   └── validation.middleware.js # Express-validator rules
+    │   ├── auth.middleware.js # Checks the login token from cookies
+    │   └── validation.middleware.js # Checks that requests have valid data
     ├── model/
-    │   └── user.model.js      # Mongoose user schema
+    │   └── user.model.js      # Describes what a "user" looks like in the database
     └── routes/
-        └── auth.routes.js     # Route definitions
+        └── auth.routes.js     # Lists all the available URLs
 ```
 
 ---
 
-## Key Implementation Details
+## 🔑 Key Implementation Details
 
-### JWT & Cookies
-- JWT includes `{ id, role }` payload with 2-day expiry
-- Cookie is `httpOnly` (not accessible to JavaScript) for security
-- Cookie `secure` flag depends on `NODE_ENV`:
-  - Development: `secure: false`, `sameSite: 'lax'`
-  - Production: `secure: true`, `sameSite: 'none'`
+### Login Tokens & Cookies
+- The login token contains the user's ID and role, and expires after 2 days
+- The cookie is "httpOnly," meaning page scripts can't read it — this protects against certain attacks
+- Whether the cookie requires HTTPS depends on the environment:
+  - Development: looser security, works on plain HTTP
+  - Production: strict security, requires HTTPS
 
-### Google OAuth Linking
-- If user registers with email, then signs in with Google using same email, the accounts are automatically linked
-- Only new Google OAuth users trigger `user_created` event (not account links)
+### Linking Google Accounts
+- If someone first signs up using email/password, and later signs in with Google using the *same* email, their two accounts are automatically linked into one
+- Only brand-new Google sign-ups trigger the "new user" announcement — linking an existing account does not
 
 ### Password Handling
-- Passwords hashed with bcrypt (10 salt rounds)
-- Passwords excluded from response objects
-- Password required only for non-Google users
+- Passwords are scrambled (hashed) using bcrypt before being saved, so the real password is never stored
+- Passwords are never included in any API response
+- Users who sign up with Google don't need a password at all
 
-### Database Resilience
-- Service starts even if MongoDB is unavailable (logs warning)
-- Service starts even if RabbitMQ is unavailable (events skipped)
+### Reliability
+- The service will still start even if MongoDB isn't available (it just logs a warning)
+- The service will still start even if RabbitMQ isn't available (it just skips sending announcements)
 
 ---
 
-## Dependencies
+## 📦 Dependencies
 
 ```json
 {
-  "amqplib": "^1.0.3",           // RabbitMQ client
-  "bcryptjs": "^3.0.3",          // Password hashing
-  "cookie-parser": "^1.4.7",     // Parse cookies
-  "cors": "^2.8.6",              // CORS middleware
-  "dotenv": "^17.3.1",           // Environment variables
-  "express": "^5.2.1",           // Web framework
-  "express-validator": "^7.3.1", // Input validation
-  "jsonwebtoken": "^9.0.3",      // JWT signing/verifying
-  "mongoose": "^9.3.0",          // MongoDB ODM
-  "morgan": "^1.10.1",           // HTTP request logging
-  "passport": "^0.7.0",          // Authentication middleware
-  "passport-google-oauth20": "^2.0.0" // Google OAuth strategy
+  "amqplib": "^1.0.3",           // Connects to RabbitMQ
+  "bcryptjs": "^3.0.3",          // Scrambles passwords for safe storage
+  "cookie-parser": "^1.4.7",     // Reads cookies from requests
+  "cors": "^2.8.6",              // Controls which websites can send requests here
+  "dotenv": "^17.3.1",           // Loads settings from the .env file
+  "express": "^5.2.1",           // Builds the web server
+  "express-validator": "^7.3.1", // Checks that incoming data is valid
+  "jsonwebtoken": "^9.0.3",      // Creates and checks login tokens
+  "mongoose": "^9.3.0",          // Connects to and works with MongoDB
+  "morgan": "^1.10.1",           // Logs incoming requests
+  "passport": "^0.7.0",          // Handles login strategies
+  "passport-google-oauth20": "^2.0.0" // Adds "Sign in with Google" support
 }
 ```
 
 ---
 
-## Development Notes
+## 🧰 Development Notes
 
 ### Running Tests
-No tests configured yet. To add tests, install Jest and configure in `package.json`.
+No tests are set up yet. To add tests, install Jest and configure it in `package.json`.
 
 ### Linting
-No linter configured. Consider adding ESLint for code quality.
+No code-quality checker (linter) is set up yet. Adding ESLint is recommended.
 
-### Nodemon
-Development uses nodemon for auto-reload. Configuration in `package.json`:
+### Auto-Restart While Developing
+The development mode uses a tool called Nodemon, which automatically restarts the service whenever you change code:
 ```json
 "dev": "npx nodemon server.js"
 ```
 
-### Common Issues & Solutions
+### Common Issues & Fixes
 
-| Issue | Cause | Solution |
+| Issue | Likely Cause | How to Fix |
 |-------|-------|----------|
-| "Cannot find module" | Dependencies not installed | Run `npm install` |
-| "ECONNREFUSED: MongoDB" | MongoDB not running | Start MongoDB service |
-| "ECONNREFUSED: RabbitMQ" | RabbitMQ not running | Start RabbitMQ service |
-| CORS errors | Frontend origin not in allowlist | Check `src/app.js` allowlist |
-| Cookie not sent | `credentials` not set on frontend | Use `credentials: 'include'` (fetch) or `withCredentials: true` (axios) |
-| OAuth fails | Google credentials or callback URL incorrect | Verify `.env` GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL |
-| Token rejected | JWT expired or secret mismatch | Check `JWT_SECRET` in `.env` |
-
-
+| "Cannot find module" | Dependencies aren't installed yet | Run `npm install` |
+| "ECONNREFUSED: MongoDB" | MongoDB isn't running | Start your MongoDB service |
+| "ECONNREFUSED: RabbitMQ" | RabbitMQ isn't running | Start your RabbitMQ service |
+| CORS errors | The frontend's address isn't in the allowed list | Check the allowed list in `src/app.js` |
+| Cookie not being sent | Frontend isn't including credentials | Use `credentials: 'include'` (fetch) or `withCredentials: true` (axios) |
+| Google sign-in fails | Google settings or callback address are wrong | Double-check `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` in `.env` |
+| Login token rejected | The token expired, or the secret key doesn't match | Check the `JWT_SECRET` value in `.env` |

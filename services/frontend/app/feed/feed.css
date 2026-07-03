@@ -2,8 +2,6 @@
    Verbascope Social — Light Feed Layout
    ────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
 :root {
   --vs-bg: #ddeef8;
   --vs-bg-gradient: linear-gradient(135deg, #cce4f4 0%, #d8eef8 40%, #e4f3fb 100%);
@@ -41,6 +39,8 @@
   --vs-space-xl: 32px;
 
   --vs-transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --vs-font-sans: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  --vs-font-mono: var(--font-dm-mono), monospace;
 }
 
 [data-theme='dark'] {
@@ -69,11 +69,21 @@
   box-sizing: border-box;
 }
 
+/*
+  Previously: `background: var(--vs-bg-gradient) !important;`
+  That !important beat everything else in the cascade — including the
+  dark-theme variable override above — because !important rules only lose
+  to other !important rules, never to specificity or source order. Since
+  --vs-bg-gradient itself is theme-aware (light vs dark via the
+  [data-theme='dark'] block above), we don't need !important at all: a
+  plain rule already picks up the correct variable value for whichever
+  theme is active on <html>.
+*/
 body {
-  background: var(--vs-bg-gradient) !important;
-  background-attachment: fixed !important;
+  background: var(--vs-bg-gradient);
+  background-attachment: fixed;
   color: var(--vs-text-primary);
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--vs-font-sans);
   margin: 0;
   min-height: 100vh;
 }
@@ -324,7 +334,7 @@ body {
   border-radius: var(--vs-radius-full);
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   transition: all var(--vs-transition);
   flex: 1;
   justify-content: center;
@@ -509,7 +519,7 @@ body {
   color: var(--vs-teal);
   font-size: 0.8rem;
   font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   padding: 5px 14px;
   border-radius: var(--vs-radius-full);
   cursor: pointer;
@@ -679,7 +689,7 @@ body {
   color: var(--vs-teal);
   font-size: 0.8rem;
   font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   cursor: pointer;
   transition: all var(--vs-transition);
   box-shadow: var(--vs-shadow-sm);
@@ -891,7 +901,7 @@ body {
   padding: 3px 8px;
   border-radius: var(--vs-radius-full);
   z-index: 2;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
 }
 
 @keyframes slideDown {
@@ -918,7 +928,7 @@ body {
   border: 1px solid var(--vs-border);
   border-radius: var(--vs-radius-full);
   padding: 8px 16px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   font-size: 0.875rem;
   color: var(--vs-text-primary);
   outline: none;
@@ -1044,7 +1054,7 @@ body {
   padding: 8px 20px;
   border-radius: var(--vs-radius-full);
   cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   font-weight: 600;
   font-size: 0.85rem;
   transition: all var(--vs-transition);
@@ -1153,7 +1163,7 @@ body {
   background: transparent;
   cursor: pointer;
   font-size: 0.875rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   color: var(--vs-text-primary);
   text-align: left;
   transition: all var(--vs-transition);
@@ -1173,7 +1183,7 @@ body {
   color: var(--vs-text-muted);
   cursor: pointer;
   font-size: 0.875rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--vs-font-sans);
   text-align: center;
   transition: color var(--vs-transition);
 }

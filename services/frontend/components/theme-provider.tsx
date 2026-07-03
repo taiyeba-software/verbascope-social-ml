@@ -15,9 +15,21 @@ export const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  // Read whatever the inline head script already stamped onto <html>
+  // so React's first render matches the DOM exactly (no flash / no mismatch).
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const stampedTheme = document.documentElement.getAttribute('data-theme');
+      if (stampedTheme === 'light' || stampedTheme === 'dark') {
+        return stampedTheme;
+      }
+    }
 
-  // Hydrate saved theme on mount
+    return 'light';
+  });
+
+  // Hydrate saved theme on mount (covers edge cases where the inline
+  // script didn't run for some reason, e.g. localStorage was empty).
   useEffect(() => {
     const saved = localStorage.getItem('vs-theme') as Theme | null;
     if (saved === 'light' || saved === 'dark') {

@@ -10,11 +10,11 @@
 
 /* ── Skeleton Card ─────────────────────────────────────── */
 .skeleton-post-card {
-  background: #ffffff;
-  border: 1px solid rgba(0, 140, 190, 0.12);
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border);
   border-radius: 20px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 80, 120, 0.07);
+  box-shadow: var(--v-shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -34,9 +34,9 @@
 .shimmer {
   background: linear-gradient(
     90deg,
-    #e8f4f8 0%,
-    #d0eaf4 40%,
-    #e8f4f8 80%
+    var(--v-bg-secondary) 0%,
+    var(--v-bg-card) 40%,
+    var(--v-bg-secondary) 80%
   );
   background-size: 300% 100%;
   animation: shimmer-sweep 1.6s ease-in-out infinite;
@@ -132,7 +132,7 @@
   display: flex;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid rgba(0, 140, 190, 0.1);
+  border-top: 1px solid var(--v-border);
 }
 
 .skeleton-action-item {

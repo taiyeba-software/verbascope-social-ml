@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import FeedSkeleton from './FeedSkeleton';
 
 const PROTECTED_PATHS = ['/feed'];
 
@@ -21,7 +22,11 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     }
   }, [isLoading, isProtectedPath, router, user]);
 
-  if (isProtectedPath && (isLoading || !user)) {
+  if (isProtectedPath && isLoading) {
+    return <FeedSkeleton />;
+  }
+
+  if (isProtectedPath && !user) {
     return null;
   }
 

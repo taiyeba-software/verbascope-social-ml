@@ -4,8 +4,6 @@
    Character: Agent Loid Forger's sophisticated spy sophistication
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@400;700&family=Playfair+Display:wght@400;700&family=Crimson+Text:wght@400;600&family=Lora:wght@400;600&family=Inter:wght@300;400;500;600&display=swap');
-
 /* ── CSS Variables ─────────────────────────────────────────── */
 :root {
 
@@ -44,9 +42,9 @@
   --v-border-line:     rgba(26, 42, 40, 0.6);   /* Vertical line accent */
 
   /* Typography — Elegant & Sophisticated */
-  --v-font-serif-display: 'Bodoni Moda', 'Playfair Display', Georgia, serif;
-  --v-font-serif:      'Crimson Text', 'Lora', Georgia, serif;
-  --v-font-sans:       'Inter', system-ui, -apple-system, sans-serif;
+  --v-font-serif-display: var(--font-bodoni-moda), var(--font-playfair-display), Georgia, serif;
+  --v-font-serif:      var(--font-crimson-text), var(--font-lora), Georgia, serif;
+  --v-font-sans:       var(--font-inter), system-ui, -apple-system, sans-serif;
   --v-font-mono:       'Courier New', monospace;
 
   /* Spacing */
@@ -91,6 +89,7 @@
   --v-border:          rgba(245, 240, 232, 0.12);
   --v-border-strong:   rgba(245, 240, 232, 0.2);
   --v-border-line:     rgba(245, 240, 232, 0.3);
+  color-scheme: dark;
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -101,7 +100,26 @@
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
-html { font-size: 16px; scroll-behavior: smooth; }
+/*
+  Default the raw (pre-hydration / pre-attribute) paint to the dark neutral,
+  since the inline head script in layout.tsx defaults to 'dark' whenever
+  there's no saved preference. If data-theme ends up 'light' (saved
+  preference or a future change to the default), the override below wins
+  as soon as the attribute is set — which the inline script guarantees
+  happens before first paint.
+*/
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  background-color: #0f1614;
+  color-scheme: dark;
+}
+
+[data-theme='light'] html,
+html[data-theme='light'] {
+  background-color: #6BA59E;
+  color-scheme: light;
+}
 
 body {
   background-color: var(--v-bg-primary);

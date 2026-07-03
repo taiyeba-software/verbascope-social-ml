@@ -4,6 +4,64 @@
 
 ---
 
+## Simple Answers
+
+This section explains the whole app in easy English.
+
+- **What does each service do?**
+  - `auth-service` handles sign up, login, Google login, and logout.
+  - `post-service` handles post create, like/unlike, share, comment, and feed data.
+  - `notification-service` sends notifications and emails.
+  - `ml-service` is planned for future smart analysis work like sentiment or toxicity detection.
+
+- **How does the auth flow work?**
+  - The user sends email and password to the auth service.
+  - The service checks the database.
+  - If the data is correct, it creates a JWT token.
+  - That token is stored in an `httpOnly` cookie named `token`.
+  - The frontend uses that cookie to stay logged in.
+
+- **How is a post created?**
+  - This does not happen in the auth service.
+  - The frontend sends the post data to the `post-service`.
+  - The post service saves the post in MongoDB.
+  - It then sends events to other services through RabbitMQ.
+
+- **How does like/unlike work?**
+  - This also happens in the `post-service`.
+  - When a user likes a post, the service updates the like count and stores the user ID.
+  - When the user unlikes it, the service removes that user ID and lowers the count.
+  - The service also sends live updates and notification events.
+
+- **How does RabbitMQ connect the services?**
+  - RabbitMQ is the message system between services.
+  - One service sends a message when something important happens.
+  - Another service reads that message and does its own job.
+  - For example, `auth-service` sends `user_created`, and `post-service` or `notification-service` can react to it.
+
+- **Why is Socket.IO used?**
+  - Socket.IO is used for real-time updates.
+  - It lets the app show new likes, comments, shares, and notifications instantly.
+  - The user does not need to refresh the page.
+
+- **Why was MongoDB chosen?**
+  - MongoDB is a good fit for social media data because the data changes a lot.
+  - Users, posts, comments, and notifications do not all have the same shape.
+  - MongoDB is flexible and easy to scale.
+
+- **Why microservices instead of one monolith?**
+  - Each service has one clear job.
+  - It is easier to build, test, and fix one part without breaking everything.
+  - A busy part of the app can be scaled separately.
+  - The auth, post, notification, and ML features can grow on their own.
+
+- **Where will the ML service go in the future?**
+  - The ML service will stay as a separate service.
+  - It will connect to the other services through API calls or RabbitMQ.
+  - Later, it can analyze posts and give results like sentiment, emotion, or toxicity scores.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies

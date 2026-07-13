@@ -69,7 +69,8 @@ export const addComment = async (req, res) => {
 	}
 };
 
-// ── GET /api/posts/:id/comments ──────────────────────────────────────
+// ── GET /api/posts/:id/comments ──────────────────────────────────────//
+
 export const getComments = async (req, res) => {
 	try {
 		if (!isValidId(req.params.id)) {

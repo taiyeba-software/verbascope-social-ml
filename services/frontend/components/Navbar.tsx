@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Search, Bell, ChevronDown, Heart, MessageCircle, Repeat2, Home, User } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
@@ -71,6 +72,7 @@ function normalizeNotification(raw: any): Notification {
 /* ── Component ───────────────────────────────────────────── */
 export default function Navbar() {
   const { user } = useAuth();
+  const pathname = usePathname();
 
   const [notifications, setNotifications]   = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount]       = useState(0);
@@ -151,6 +153,8 @@ export default function Navbar() {
   }
 
   /* ── Avatar / display name ── */
+  const userId = user ? (user._id ?? (user as any).id) : null;
+
   const initials = user
     ? `${user?.fullname?.firstName?.[0] ?? ''}${user?.fullname?.lastName?.[0] ?? ''}`.toUpperCase() || 'U'
     : 'U';
@@ -158,6 +162,9 @@ export default function Navbar() {
   const displayName = user
     ? `${user?.fullname?.firstName ?? ''} ${user?.fullname?.lastName ?? ''}`.trim() || 'User'
     : 'User';
+
+  const profileHref = userId ? `/profile/${userId}` : '/profile';
+  const isProfileActive = pathname?.startsWith('/profile') ?? false;
 
   /* ── Shared notification panel markup (used by both desktop dropdown and mobile dropdown) ── */
   const notificationPanel = (
@@ -237,11 +244,20 @@ export default function Navbar() {
             )}
           </div>
 
-          <div className="navbar-user">
-            <div className="navbar-user-avatar">{initials}</div>
+          <Link
+            href={profileHref}
+            className={`navbar-user${isProfileActive ? ' active' : ''}`}
+          >
+            <div className="navbar-user-avatar">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={displayName} className="navbar-user-avatar-img" />
+              ) : (
+                initials
+              )}
+            </div>
             <span className="navbar-user-name">{displayName}</span>
             <ChevronDown size={14} className="navbar-chevron" />
-          </div>
+          </Link>
         </div>
       </nav>
 
@@ -279,8 +295,18 @@ export default function Navbar() {
           )}
         </div>
 
-        <Link href="/profile" className="navbar-mobile-btn" aria-label="Profile">
-          <div className="navbar-mobile-avatar">{initials}</div>
+        <Link
+          href={profileHref}
+          className={`navbar-mobile-btn${isProfileActive ? ' active' : ''}`}
+          aria-label="Profile"
+        >
+          <div className="navbar-mobile-avatar">
+            {user?.avatar ? (
+              <img src={user.avatar} alt={displayName} className="navbar-mobile-avatar-img" />
+            ) : (
+              initials
+            )}
+          </div>
           <span>Profile</span>
         </Link>
       </nav>

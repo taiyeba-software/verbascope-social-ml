@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -16,6 +14,7 @@ interface AuthContextValue {
   loginWithGoogle: () => void;
   logout: () => void;
   clearError: () => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -38,15 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.user) {
         console.log('✅ Session hydrated:', result.user.email);
         setUser(result.user);
-
-          if (result.success && result.user) {
-            console.log('✅ Session hydrated:', result.user.email);
-            console.log('🔍 Full user object:', result.user);   // ADD THIS LINE
-            setUser(result.user);
-          }
-
-
-
       } else {
         console.log('ℹ️ No active session (expected on first visit)');
         setUser(null);
@@ -150,6 +140,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace('/auth/login');
   }, [router]);
 
+  /* ── Called by any component (e.g. ProfileHeader after a save) to push a
+     fresh user object into the shared auth state, so the navbar and any
+     other consumer re-render immediately instead of showing stale data
+     until the next hydrateSession(). ── */
+  const updateUser = useCallback((updated: User) => {
+    setUser(updated);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -161,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithGoogle,
         logout,
         clearError,
+        updateUser,
       }}
     >
       {children}

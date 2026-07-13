@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Users, UserPlus, UserCheck, Pencil, Check, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/components/auth-provider';
 import { userService } from '@/lib/api';
 import type { User, FollowerRef } from '@/types';
 import './ProfileHeader.css';
@@ -25,6 +26,7 @@ function initialsOf(user: User): string {
 
 export default function ProfileHeader({ userId }: ProfileHeaderProps) {
   const { user: currentUser } = useAuth();
+  const { updateUser } = useAuthContext();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,7 +118,17 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
         bio: editBio,
         headline: editHeadline,
       });
-      setProfile(res.data.user);
+      const updated: User = res.data.user;
+      setProfile(updated);
+
+      // Only own-profile edits should overwrite the shared auth-context user —
+      // viewing someone else's profile never reaches this branch anyway
+      // (the Edit button only renders when isOwnProfile is true), but the
+      // guard is kept explicit here so this stays safe if that ever changes.
+      if (isOwnProfile) {
+        updateUser(updated);
+      }
+
       setIsEditing(false);
     } catch (err) {
       console.error('updateProfile failed:', err);

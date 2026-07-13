@@ -39,7 +39,7 @@ router.delete('/:id/unshare',                 protect,                  unshareP
 // ── Comment routes ───────────────────────────────────────────────────
 router.post('/:id/comment',                   protect, validateComment, addComment);
 router.get('/:id/comments',                   protect,                  getComments);
-router.delete('/:postId/comments/:commentId', protect,                  deleteComment);
+router.delete('/:postId        /comments/:commentId', protect,                  deleteComment);
 
 // ── Dwell routes ─────────────────────────────────────────────────────
 router.post('/dwell',                         protect,                  recordDwell);

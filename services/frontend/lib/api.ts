@@ -195,8 +195,12 @@ export const postService = {
   getComments: (id: string) =>
     postApi.get(`/api/posts/${id}/comments`),
 
-  addComment: (id: string, content: string) =>
-    postApi.post(`/api/posts/${id}/comment`, { content }),
+  // NEW: fetch direct replies to a single comment (one level, not the whole subtree)
+  getReplies: (commentId: string) =>
+    postApi.get(`/api/posts/comments/${commentId}/replies`),
+
+  addComment: (id: string, content: string, parentComment?: string) =>
+    postApi.post(`/api/posts/${id}/comment`, { content, parentComment }),
 
   deleteComment: (postId: string, commentId: string) =>
     postApi.delete(`/api/posts/${postId}/comments/${commentId}`),

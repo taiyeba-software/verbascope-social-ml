@@ -7,7 +7,7 @@ import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost } from '../controllers/share.controller.js';
-import { addComment, getComments, deleteComment } from '../controllers/comment.controller.js';
+import { addComment, getComments, getReplies, deleteComment } from '../controllers/comment.controller.js';
 import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
 
@@ -39,7 +39,8 @@ router.delete('/:id/unshare',                 protect,                  unshareP
 // ── Comment routes ───────────────────────────────────────────────────
 router.post('/:id/comment',                   protect, validateComment, addComment);
 router.get('/:id/comments',                   protect,                  getComments);
-router.delete('/:postId        /comments/:commentId', protect,                  deleteComment);
+router.get('/comments/:commentId/replies',    protect,                  getReplies); // ── NEW ──
+router.delete('/:postId/comments/:commentId', protect,                  deleteComment); // ── FIXED: removed stray whitespace in path ──
 
 // ── Dwell routes ─────────────────────────────────────────────────────
 router.post('/dwell',                         protect,                  recordDwell);

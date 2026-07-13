@@ -125,6 +125,7 @@ function ImageCarousel({ images }: { images: string[] }) {
 export function PostCard({
   post,
   commentState,
+  currentUserId,
   onLike,
   onShare,
   onBookmark,
@@ -136,6 +137,7 @@ export function PostCard({
 }: {
   post: FeedPost;
   commentState: CommentState;
+  currentUserId?: string | null;
   onLike: (postId: string, isLiked: boolean) => void;
   onShare: (postId: string, isShared: boolean) => void;
   onBookmark: (postId: string) => void;
@@ -236,6 +238,7 @@ export function PostCard({
         <CommentSection
           postId={post._id}
           state={commentState}
+          currentUserId={currentUserId}
           onInputChange={onCommentInput}
           onSubmit={onSubmitComment}
           onDelete={onDeleteComment}

@@ -21,11 +21,29 @@ export const addComment = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Post not found.' });
 		}
 
+		// ── NEW: validate parentComment if this is a reply ──
+		const { parentComment } = req.body;
+		if (parentComment) {
+			if (!isValidId(parentComment)) {
+				return res.status(400).json({ success: false, message: 'Invalid parent comment ID.' });
+			}
+			const parentExists = await Comment.exists({ _id: parentComment, post: req.params.id });
+			if (!parentExists) {
+				return res.status(404).json({ success: false, message: 'Parent comment not found.' });
+			}
+		}
+
 		const comment = await Comment.create({
 			user: req.user.id,
 			post: req.params.id,
 			content: req.body.content,
+			parentComment: parentComment || null, // ── NEW ──
 		});
+
+		// ── NEW: bump the parent's repliesCount, if this is a reply ──
+		if (parentComment) {
+			await Comment.findByIdAndUpdate(parentComment, { $inc: { repliesCount: 1 } });
+		}
 
 		// Atomic increment — race-condition safe
 		const updatedPost = await Post.findByIdAndUpdate(
@@ -44,6 +62,14 @@ export const addComment = async (req, res) => {
 			commentsCount: updatedPost.commentsCount,
 		});
 
+		// ── NEW: tell listeners specifically about the parent thread ──
+		if (parentComment) {
+			io.emit('comment:reply', {
+				parentCommentId: parentComment,
+				postId: req.params.id,
+			});
+		}
+
 		// notify post owner — fire and forget
 		User.findById(req.user.id, 'fullname').lean().then((actor) => {
 			if (actor && updatedPost) {
@@ -52,7 +78,7 @@ export const addComment = async (req, res) => {
 					recipientId: updatedPost.author.toString(),
 					actorId:     req.user.id,
 					actorName,
-					type:        'comment',
+					type:        parentComment ? 'reply' : 'comment', // ── NEW: distinguish reply notifications ──
 					postId:      req.params.id,
 				});
 			}
@@ -69,15 +95,20 @@ export const addComment = async (req, res) => {
 	}
 };
 
-// ── GET /api/posts/:id/comments ──────────────────────────────────────//
-
+// ── GET /api/posts/:id/comments ──────────────────────────────────────
+// Returns TOP-LEVEL comments only (parentComment: null). Replies are
+// fetched on demand via getReplies below — same lazy-load philosophy
+// as the rest of the feed.
 export const getComments = async (req, res) => {
 	try {
 		if (!isValidId(req.params.id)) {
 			return res.status(400).json({ success: false, message: 'Invalid post ID.' });
 		}
 
-		const comments = await Comment.find({ post: req.params.id })
+		const comments = await Comment.find({
+			post: req.params.id,
+			parentComment: null, // ── NEW: only top-level ──
+		})
 			.sort({ createdAt: -1 })
 			.populate('user', 'fullname')
 			.lean();
@@ -89,6 +120,37 @@ export const getComments = async (req, res) => {
 		return res.status(200).json({ success: true, comments: mapped });
 	} catch (err) {
 		console.error('getComments error:', err);
+		return res.status(500).json({ success: false, message: 'Server error.' });
+	}
+};
+
+// ── NEW: GET /api/posts/comments/:commentId/replies ──────────────────
+// Returns the direct replies to a single comment (one level, not the
+// whole subtree). The frontend calls this again per-reply if it opens
+// a nested thread further down — that's what makes it "lazy".
+export const getReplies = async (req, res) => {
+	try {
+		if (!isValidId(req.params.commentId)) {
+			return res.status(400).json({ success: false, message: 'Invalid comment ID.' });
+		}
+
+		const parentExists = await Comment.exists({ _id: req.params.commentId });
+		if (!parentExists) {
+			return res.status(404).json({ success: false, message: 'Comment not found.' });
+		}
+
+		const replies = await Comment.find({ parentComment: req.params.commentId })
+			.sort({ createdAt: 1 }) // oldest first reads more naturally for replies
+			.populate('user', 'fullname')
+			.lean();
+
+		const mapped = replies.map((c) => ({
+			...c,
+			author: c.user,
+		}));
+		return res.status(200).json({ success: true, replies: mapped });
+	} catch (err) {
+		console.error('getReplies error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });
 	}
 };
@@ -110,6 +172,11 @@ export const deleteComment = async (req, res) => {
 
 		if (comment.user.toString() !== req.user.id) {
 			return res.status(403).json({ success: false, message: 'Not authorized to delete this comment.' });
+		}
+
+		// ── NEW: keep the parent's repliesCount accurate if this was a reply ──
+		if (comment.parentComment) {
+			await Comment.findByIdAndUpdate(comment.parentComment, { $inc: { repliesCount: -1 } });
 		}
 
 		await comment.deleteOne();

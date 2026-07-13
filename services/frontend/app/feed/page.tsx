@@ -279,6 +279,7 @@ export default function FeedPage() {
                 <PostCard
                   post={post}
                   commentState={openComments[post._id] ?? DEFAULT_COMMENT_STATE}
+                  currentUserId={user?._id ?? user?.id}
                   onLike={handleLike}
                   onShare={handleShare}
                   onBookmark={handleBookmark}

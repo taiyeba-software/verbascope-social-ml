@@ -12,6 +12,17 @@ const commentSchema = new mongoose.Schema(
 			ref: 'Post',
 			required: true,
 		},
+		// ── NEW: self-referencing parent — null means top-level comment ──
+		parentComment: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: 'Comment',
+			default: null,
+		},
+		// ── NEW: denormalized count, avoids a COUNT query per comment ──
+		repliesCount: {
+			type: Number,
+			default: 0,
+		},
 		content: {
 			type: String,
 			required: true,
@@ -23,5 +34,8 @@ const commentSchema = new mongoose.Schema(
 		timestamps: true,
 	}
 );
+
+// Speeds up "get top-level comments for a post" and "get replies to a comment"
+commentSchema.index({ post: 1, parentComment: 1, createdAt: -1 });
 
 export default mongoose.model('Comment', commentSchema);

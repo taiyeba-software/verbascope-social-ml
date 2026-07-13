@@ -1,7 +1,9 @@
 'use client';
 
 import { SendIcon } from './icons';
-import { safeAuthorName, safeAuthorInitials, getAvatarColor, getAvatarSeed, type Comment } from './feedHelpers';
+import { type Comment } from './feedHelpers';
+import { CommentThread, type NestedComment } from './CommentThread';
+import './CommentSection.css';
 
 export type { Comment };
 
@@ -24,21 +26,23 @@ export const DEFAULT_COMMENT_STATE: CommentState = {
 export function CommentSection({
   postId,
   state,
+  currentUserId,
   onInputChange,
   onSubmit,
   onDelete,
 }: {
   postId: string;
   state: CommentState;
+  currentUserId?: string | null;
   onInputChange: (postId: string, value: string) => void;
   onSubmit: (postId: string) => void;
   onDelete: (postId: string, commentId: string) => void;
 }) {
   return (
     <div className="comments-panel">
-      <div className="comment-input-row">
+      <div className="top-comment-input-row">
         <input
-          className="comment-input"
+          className="top-comment-input"
           type="text"
           placeholder="Write a comment..."
           value={state.input}
@@ -52,7 +56,7 @@ export function CommentSection({
         />
         <button
           type="button"
-          className="comment-submit-btn"
+          className="top-comment-submit-btn"
           onClick={() => onSubmit(postId)}
           disabled={!state.input.trim() || state.submitting}
           aria-label="Send comment"
@@ -67,26 +71,14 @@ export function CommentSection({
         <div className="comments-empty">No comments yet. Be the first!</div>
       ) : (
         state.comments.map((comment) => (
-          <div key={comment._id} className="comment-item">
-            <div
-              className="comment-avatar"
-              style={{ background: getAvatarColor(getAvatarSeed(comment.author)) }}
-            >
-              {safeAuthorInitials(comment.author)}
-            </div>
-            <div className="comment-body">
-              <span className="comment-author">{safeAuthorName(comment.author)}</span>
-              <p className="comment-text">{comment.content}</p>
-            </div>
-            <button
-              type="button"
-              className="comment-delete-btn"
-              onClick={() => onDelete(postId, comment._id)}
-              aria-label="Delete comment"
-            >
-              ✕
-            </button>
-          </div>
+          <CommentThread
+            key={comment._id}
+            postId={postId}
+            comment={comment as NestedComment}
+            depth={0}
+            currentUserId={currentUserId}
+            onDeleteTopLevel={onDelete}
+          />
         ))
       )}
     </div>

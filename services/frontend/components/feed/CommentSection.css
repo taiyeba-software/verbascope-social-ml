@@ -1,0 +1,59 @@
+/* ──────────────────────────────────────────────────────────
+   Top-level "Write a comment..." input — uses a unique class
+   name (top-comment-*) specifically because .comment-input was
+   found to collide with a legacy rule elsewhere in the CSS
+   bundle that was forcing a white background/white text.
+   ────────────────────────────────────────────────────────── */
+
+.top-comment-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.top-comment-input {
+  flex: 1;
+  background: var(--vs-surface-hover);
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-full);
+  padding: 10px 16px;
+  color: var(--vs-text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all var(--vs-transition);
+}
+
+.top-comment-input::placeholder {
+  color: var(--vs-text-muted);
+}
+
+.top-comment-input:focus {
+  border-color: var(--vs-teal);
+  box-shadow: 0 0 0 3px rgba(14, 159, 171, 0.15);
+}
+
+.top-comment-submit-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: var(--vs-teal);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--vs-transition);
+}
+
+.top-comment-submit-btn:hover:not(:disabled) {
+  background: var(--vs-teal-mid);
+}
+
+.top-comment-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

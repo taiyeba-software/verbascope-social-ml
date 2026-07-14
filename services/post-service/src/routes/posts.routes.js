@@ -7,7 +7,7 @@ import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost } from '../controllers/share.controller.js';
-import { addComment, getComments, getReplies, deleteComment } from '../controllers/comment.controller.js';
+import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
 import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
 
@@ -20,6 +20,10 @@ router.get('/pulse/trending', (req, res) => {
 router.get('/pulse/signal', (req, res) => {
 	res.json(pulse.getSignal());
 });
+
+// ── Milestone 4: per-post comment mood — computed live from the DB, so
+// old threads are accurate immediately, not just newly-arriving comments. ──
+router.get('/:id/pulse/mood', protect, getCommentMood);
 
 // ── Post routes ──────────────────────────────────────────────────────
 router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);

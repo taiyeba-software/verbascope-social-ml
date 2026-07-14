@@ -10,6 +10,38 @@ import { classifyComment } from '../services/commentSentiment.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+// ── Milestone 4 (v2): compute mood straight from the Comment collection,
+// so it's accurate for old threads too, not just live incoming comments.
+async function computeMoodForPost(postId) {
+	const counts = await Comment.aggregate([
+		{ $match: { post: new mongoose.Types.ObjectId(postId) } },
+		{ $group: { _id: '$sentiment.label', count: { $sum: 1 } } },
+	]);
+
+	const tally = { positive: 0, negative: 0, neutral: 0 };
+	counts.forEach((c) => {
+		if (c._id && Object.prototype.hasOwnProperty.call(tally, c._id)) {
+			tally[c._id] = c.count;
+		}
+	});
+
+	return pulse.classifyMood(postId, tally);
+}
+
+// ── GET /api/posts/:id/pulse/mood ─────────────────────────────────────
+export const getCommentMood = async (req, res) => {
+	try {
+		if (!isValidId(req.params.id)) {
+			return res.status(400).json({ success: false, message: 'Invalid post ID.' });
+		}
+		const mood = await computeMoodForPost(req.params.id);
+		return res.status(200).json(mood);
+	} catch (err) {
+		console.error('getCommentMood error:', err);
+		return res.status(500).json({ success: false, message: 'Server error.' });
+	}
+};
+
 // ── POST /api/posts/:id/comment ──────────────────────────────────────
 export const addComment = async (req, res) => {
 	try {
@@ -42,7 +74,7 @@ export const addComment = async (req, res) => {
 			post: req.params.id,
 			content: req.body.content,
 			parentComment: parentComment || null,
-			sentiment, // ── NEW ──
+			sentiment,
 		});
 
 		// ── bump the parent's repliesCount, if this is a reply ──
@@ -60,6 +92,11 @@ export const addComment = async (req, res) => {
 		publish('comment.added', { postId: req.params.id });
 		pulse.onCommentAdded(req.params.id, req.user.id);
 		updateUserPulse(req.user.id, req.params.id, 'comment'); // fire and forget
+
+		// ── Milestone 4 (v2): recompute mood from the DB (includes the
+		// comment we just created) and broadcast, scoped to this post. ──
+		const mood = await computeMoodForPost(req.params.id);
+		io.emit('pulse:mood', mood);
 
 		// ── live sync ──
 		io.emit('post:update', {
@@ -101,9 +138,6 @@ export const addComment = async (req, res) => {
 };
 
 // ── GET /api/posts/:id/comments ──────────────────────────────────────
-// Returns TOP-LEVEL comments only (parentComment: null). Replies are
-// fetched on demand via getReplies below — same lazy-load philosophy
-// as the rest of the feed.
 export const getComments = async (req, res) => {
 	try {
 		if (!isValidId(req.params.id)) {
@@ -130,9 +164,6 @@ export const getComments = async (req, res) => {
 };
 
 // ── GET /api/posts/comments/:commentId/replies ────────────────────────
-// Returns the direct replies to a single comment (one level, not the
-// whole subtree). The frontend calls this again per-reply if it opens
-// a nested thread further down — that's what makes it "lazy".
 export const getReplies = async (req, res) => {
 	try {
 		if (!isValidId(req.params.commentId)) {
@@ -179,7 +210,6 @@ export const deleteComment = async (req, res) => {
 			return res.status(403).json({ success: false, message: 'Not authorized to delete this comment.' });
 		}
 
-		// ── keep the parent's repliesCount accurate if this was a reply ──
 		if (comment.parentComment) {
 			await Comment.findByIdAndUpdate(comment.parentComment, { $inc: { repliesCount: -1 } });
 		}
@@ -192,7 +222,6 @@ export const deleteComment = async (req, res) => {
 			{ returnDocument: 'after', select: 'commentsCount' }
 		);
 
-		// ── live sync ──
 		io.emit('post:update', {
 			postId,
 			commentsCount: updatedPost.commentsCount,

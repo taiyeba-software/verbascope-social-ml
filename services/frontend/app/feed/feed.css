@@ -1191,3 +1191,7 @@ body {
 .share-sheet-cancel:hover {
   color: var(--vs-accent-red);
 }
+
+.pulse-mood-badge {
+  margin-top: 6px;
+}

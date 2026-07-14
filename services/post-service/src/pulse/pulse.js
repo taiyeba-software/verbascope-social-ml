@@ -7,6 +7,19 @@ const ACTIVITY_WINDOW =  2 * 60 * 1000; // 2 minutes sliding window
 
 const recentActivity = { likes: [], posts: [], comments: [] };
 
+// ── Milestone 4 (v2): per-post comment mood ─────────────────────────
+// Unlike getSignal() (a live "last N minutes" sliding window — right
+// for platform-wide activity), thread mood needs to reflect the actual
+// current state of a comment section, including comments posted long
+// ago. So this is a pure classifier over counts pulled from the DB
+// (see comment.controller.js), not an in-memory event window.
+const MOOD_MESSAGES = {
+  heated: '🔴 High emotional intensity',
+  tense:  '🟠 Tension rising',
+  mixed:  '🟡 Mixed reactions',
+  calm:   '🟢 Calm discussion',
+};
+
 export const pulse = {
 
   onPostCreated(post, userId) {
@@ -83,6 +96,48 @@ export const pulse = {
     }
 
     return signal;
+  },
+
+  // ── Milestone 4 (v2) ─────────────────────────────────────────────────
+  // Pure function: takes sentiment counts for a post's comments (however
+  // they were gathered — DB aggregate, in-memory, doesn't matter) and
+  // classifies them into a mood. No side effects, no stored state — the
+  // Comment collection is the single source of truth.
+  classifyMood(postId, tally = {}) {
+    const positive = tally.positive || 0;
+    const negative = tally.negative || 0;
+    const neutral  = tally.neutral  || 0;
+    const total     = positive + negative + neutral;
+
+    const negativeRatio = total > 0 ? negative / total : 0;
+    const positiveRatio = total > 0 ? positive / total : 0;
+
+    let type;
+    if (total === 0) {
+      type = 'calm';
+    } else if (total >= 3 && negativeRatio >= 0.5) {
+      type = 'heated';
+    } else if (total >= 3 && negativeRatio >= 0.25) {
+      type = 'tense';
+    } else if (positive > 0 && negative > 0) {
+      type = 'mixed';
+    } else {
+      type = 'calm';
+    }
+
+    return {
+      postId: postId ? postId.toString() : undefined,
+      type,
+      message: MOOD_MESSAGES[type],
+      meta: {
+        totalComments: total,
+        positive,
+        negative,
+        neutral,
+        negativeRatio: Math.round(negativeRatio * 100) / 100,
+        positiveRatio: Math.round(positiveRatio * 100) / 100,
+      },
+    };
   },
 
   getTrending(limit = 5) {

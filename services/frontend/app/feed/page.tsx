@@ -36,7 +36,7 @@ export default function FeedPage() {
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
   // Pulse signal / trending tags + live post:update / post:deleted sync
-  const { pulseSignal, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
+  const { pulseSignal, trendingTags, setTrendingTags, commentMood } = useFeedSocket(setPosts);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/auth/login');
@@ -318,6 +318,7 @@ export default function FeedPage() {
       <Sidebar
         pulseSignal={pulseSignal}
         trendingTags={trendingTags}
+        commentMood={commentMood}
       />
 
       {shareSheet && (

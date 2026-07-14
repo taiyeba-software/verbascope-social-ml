@@ -7,6 +7,7 @@ import { generateImageKitFileName } from '../middlewares/upload.middleware.js';
 import { detectLanguage } from '../utils/detectLanguage.js';
 import { normalizeText } from '../utils/normalizeText.js';
 import authClient from '../utils/authClient.js';
+import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted ──
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -189,6 +190,12 @@ export const deletePost = async (req, res) => {
     }
 
     await post.deleteOne();
+
+    // ── NEW: tell every connected browser this post is gone, so it
+    // disappears from everyone's feed instantly instead of only after
+    // a reload (useFeedSocket.ts already listens for this event). ──
+    io.emit('post:deleted', { postId: req.params.id });
+
     return res.status(200).json({ success: true, message: 'Post deleted.' });
   } catch (err) {
     console.error('deletePost error:', err);

@@ -36,7 +36,10 @@ function ThreadSentimentBadge({ sentiment }: { sentiment?: NestedComment['sentim
   if (!sentiment) return null;
   const badge = SENTIMENT_BADGE[sentiment.label];
   return (
-    <span className="thread-sentiment-badge" title={`Sentiment score: ${sentiment.score}`}>
+    <span
+      className={`thread-sentiment-badge thread-sentiment-badge--${sentiment.label}`}
+      title={`Sentiment score: ${sentiment.score}`}
+    >
       {badge.emoji} <span className="thread-sentiment-label">{badge.label}</span>
     </span>
   );

@@ -6,6 +6,7 @@ import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
+import { classifyComment } from '../services/commentSentiment.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -21,7 +22,7 @@ export const addComment = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Post not found.' });
 		}
 
-		// ── NEW: validate parentComment if this is a reply ──
+		// ── validate parentComment if this is a reply ──
 		const { parentComment } = req.body;
 		if (parentComment) {
 			if (!isValidId(parentComment)) {
@@ -33,14 +34,18 @@ export const addComment = async (req, res) => {
 			}
 		}
 
+		// ── Milestone 3: classify sentiment once, at write time ──
+		const sentiment = await classifyComment(req.body.content);
+
 		const comment = await Comment.create({
 			user: req.user.id,
 			post: req.params.id,
 			content: req.body.content,
-			parentComment: parentComment || null, // ── NEW ──
+			parentComment: parentComment || null,
+			sentiment, // ── NEW ──
 		});
 
-		// ── NEW: bump the parent's repliesCount, if this is a reply ──
+		// ── bump the parent's repliesCount, if this is a reply ──
 		if (parentComment) {
 			await Comment.findByIdAndUpdate(parentComment, { $inc: { repliesCount: 1 } });
 		}
@@ -62,7 +67,7 @@ export const addComment = async (req, res) => {
 			commentsCount: updatedPost.commentsCount,
 		});
 
-		// ── NEW: tell listeners specifically about the parent thread ──
+		// ── tell listeners specifically about the parent thread ──
 		if (parentComment) {
 			io.emit('comment:reply', {
 				parentCommentId: parentComment,
@@ -78,7 +83,7 @@ export const addComment = async (req, res) => {
 					recipientId: updatedPost.author.toString(),
 					actorId:     req.user.id,
 					actorName,
-					type:        parentComment ? 'reply' : 'comment', // ── NEW: distinguish reply notifications ──
+					type:        parentComment ? 'reply' : 'comment',
 					postId:      req.params.id,
 				});
 			}
@@ -107,7 +112,7 @@ export const getComments = async (req, res) => {
 
 		const comments = await Comment.find({
 			post: req.params.id,
-			parentComment: null, // ── NEW: only top-level ──
+			parentComment: null,
 		})
 			.sort({ createdAt: -1 })
 			.populate('user', 'fullname')
@@ -124,7 +129,7 @@ export const getComments = async (req, res) => {
 	}
 };
 
-// ── NEW: GET /api/posts/comments/:commentId/replies ──────────────────
+// ── GET /api/posts/comments/:commentId/replies ────────────────────────
 // Returns the direct replies to a single comment (one level, not the
 // whole subtree). The frontend calls this again per-reply if it opens
 // a nested thread further down — that's what makes it "lazy".
@@ -140,7 +145,7 @@ export const getReplies = async (req, res) => {
 		}
 
 		const replies = await Comment.find({ parentComment: req.params.commentId })
-			.sort({ createdAt: 1 }) // oldest first reads more naturally for replies
+			.sort({ createdAt: 1 })
 			.populate('user', 'fullname')
 			.lean();
 
@@ -174,7 +179,7 @@ export const deleteComment = async (req, res) => {
 			return res.status(403).json({ success: false, message: 'Not authorized to delete this comment.' });
 		}
 
-		// ── NEW: keep the parent's repliesCount accurate if this was a reply ──
+		// ── keep the parent's repliesCount accurate if this was a reply ──
 		if (comment.parentComment) {
 			await Comment.findByIdAndUpdate(comment.parentComment, { $inc: { repliesCount: -1 } });
 		}

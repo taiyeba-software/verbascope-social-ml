@@ -56,6 +56,17 @@
   color: var(--vs-text-primary);
 }
 
+.sentiment-badge {
+  margin-left: 8px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.sentiment-badge-label {
+  font-size: 0.75rem;
+  vertical-align: middle;
+}
+
 .thread-text {
   margin: 2px 0 4px;
   font-family: 'DM Sans', sans-serif;

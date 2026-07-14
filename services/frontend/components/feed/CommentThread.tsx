@@ -13,10 +13,34 @@ import './CommentThread.css';
 export type NestedComment = Comment & {
   parentComment?: string | null;
   repliesCount?: number;
+  // Milestone 3: computed once server-side by commentSentiment.classifyComment()
+  // and returned as part of the comment document — no extra fetch needed here.
+  sentiment?: {
+    label: 'positive' | 'negative' | 'neutral';
+    score: number;
+  };
 };
 
 // Cap visual indent so very deep threads don't run off the right edge
 const MAX_INDENT_DEPTH = 4;
+
+// Milestone 3: small emoji + label lookup, kept local to this file since
+// it's only ever used here.
+const SENTIMENT_BADGE: Record<'positive' | 'negative' | 'neutral', { emoji: string; label: string }> = {
+  positive: { emoji: '🟢', label: 'Positive' },
+  negative: { emoji: '🔴', label: 'Negative' },
+  neutral: { emoji: '⚪', label: 'Neutral' },
+};
+
+function ThreadSentimentBadge({ sentiment }: { sentiment?: NestedComment['sentiment'] }) {
+  if (!sentiment) return null;
+  const badge = SENTIMENT_BADGE[sentiment.label];
+  return (
+    <span className="thread-sentiment-badge" title={`Sentiment score: ${sentiment.score}`}>
+      {badge.emoji} <span className="thread-sentiment-label">{badge.label}</span>
+    </span>
+  );
+}
 
 export function CommentThread({
   postId,
@@ -107,6 +131,8 @@ export function CommentThread({
       <div className="thread-content">
         <div className="thread-header">
           <span className="thread-author">{safeAuthorName(comment.author)}</span>
+
+          <ThreadSentimentBadge sentiment={comment.sentiment} />
 
           {isOwnComment && depth === 0 && onDeleteTopLevel ? (
             <button

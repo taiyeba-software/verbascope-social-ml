@@ -29,6 +29,20 @@ const commentSchema = new mongoose.Schema(
 			trim: true,
 			maxlength: 500,
 		},
+		// ── Milestone 3: denormalized sentiment, computed once at write time
+		// by commentSentiment.classifyComment() and never recomputed on read.
+		// Same reasoning as repliesCount above. ──
+		sentiment: {
+			label: {
+				type: String,
+				enum: ['positive', 'negative', 'neutral'],
+				default: 'neutral',
+			},
+			score: {
+				type: Number,
+				default: 0,
+			},
+		},
 	},
 	{
 		timestamps: true,

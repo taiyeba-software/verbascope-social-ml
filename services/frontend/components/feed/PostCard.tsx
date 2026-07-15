@@ -5,6 +5,7 @@ import type { Post } from '@/types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon, GlobeIcon } from './icons';
 import { PostMoreMenu } from './PostMoreMenu';
 import { CommentSection, type CommentState } from './CommentSection';
+import { LikeAnimation, type AnchorPoint } from './LikeAnimation';
 import { useDwellTracker } from '@/hooks/useDwellTracker';
 import {
   safeAuthorName,
@@ -147,9 +148,27 @@ export function PostCard({
   onSubmitComment: (postId: string) => void;
   onDeleteComment: (postId: string, commentId: string) => void;
 }) {
+  const [likeBurst, setLikeBurst] = useState(0);
+  const [anchorPoint, setAnchorPoint] = useState<AnchorPoint | null>(null);
+  const likeBtnRef = useRef<HTMLButtonElement>(null);
+
   const tags = post.tags ?? extractTags(post.content);
   const images = post.images ?? [];
   const dwellRef = useDwellTracker(post._id);
+
+  const handleLikeClick = () => {
+    const wasLiked = post.likedByMe ?? false;
+    onLike(post._id, wasLiked);
+
+    if (!wasLiked && likeBtnRef.current) {
+      const rect = likeBtnRef.current.getBoundingClientRect();
+      setAnchorPoint({
+        top: rect.top + rect.height / 2 + window.scrollY,
+        left: rect.left + rect.width / 2 + window.scrollX,
+      });
+      setLikeBurst((k) => k + 1);
+    }
+  };
 
   return (
     <article className="post-card" ref={dwellRef as Ref<HTMLElement>}>
@@ -190,11 +209,12 @@ export function PostCard({
         </div>
       )}
 
-      <div className="post-actions">
+      <div className="post-actions" style={{ position: 'relative' }}>
         <button
+          ref={likeBtnRef}
           type="button"
           className={`post-action-btn${post.likedByMe ? ' liked' : ''}`}
-          onClick={() => onLike(post._id, post.likedByMe ?? false)}
+          onClick={handleLikeClick}
           aria-label={post.likedByMe ? 'Unlike' : 'Like'}
           aria-pressed={post.likedByMe}
         >
@@ -232,6 +252,14 @@ export function PostCard({
         >
           <BookmarkIcon filled={post.bookmarkedByMe} />
         </button>
+
+        {anchorPoint && (
+          <LikeAnimation
+            key={likeBurst}
+            anchorPoint={anchorPoint}
+            onDone={() => setAnchorPoint(null)}
+          />
+        )}
       </div>
 
       {commentState.open && (

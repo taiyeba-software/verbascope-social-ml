@@ -14,10 +14,11 @@ const recentActivity = { likes: [], posts: [], comments: [] };
 // ago. So this is a pure classifier over counts pulled from the DB
 // (see comment.controller.js), not an in-memory event window.
 const MOOD_MESSAGES = {
-  heated: '🔴 High emotional intensity',
-  tense:  '🟠 Tension rising',
-  mixed:  '🟡 Mixed reactions',
-  calm:   '🟢 Calm discussion',
+  heated:       'Negative sentiment is increasing.',
+  tense:        'Negative sentiment is rising.',
+  mixed:        'Positive and negative reactions are balanced.',
+  constructive: 'Most comments are positive or neutral.',
+  calm:         'No strong sentiment detected.',
 };
 
 export const pulse = {
@@ -99,8 +100,7 @@ export const pulse = {
   },
 
   // ── Milestone 4 (v2) ─────────────────────────────────────────────────
-  // Pure function: takes sentiment counts for a post's comments (however
-  // they were gathered — DB aggregate, in-memory, doesn't matter) and
+  // Pure function: takes sentiment counts for a post's comments and
   // classifies them into a mood. No side effects, no stored state — the
   // Comment collection is the single source of truth.
   classifyMood(postId, tally = {}) {
@@ -119,6 +119,8 @@ export const pulse = {
       type = 'heated';
     } else if (total >= 3 && negativeRatio >= 0.25) {
       type = 'tense';
+    } else if (total >= 3 && positiveRatio >= 0.5) {
+      type = 'constructive';
     } else if (positive > 0 && negative > 0) {
       type = 'mixed';
     } else {

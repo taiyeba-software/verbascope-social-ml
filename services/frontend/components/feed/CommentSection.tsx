@@ -5,6 +5,7 @@ import { io as socketIO } from 'socket.io-client';
 import { SendIcon } from './icons';
 import { type Comment } from './feedHelpers';
 import { CommentThread, type NestedComment } from './CommentThread';
+import { postApi } from '@/lib/api/posts';
 import './CommentSection.css';
 
 export type { Comment };
@@ -25,8 +26,9 @@ export const DEFAULT_COMMENT_STATE: CommentState = {
   submitting: false,
 };
 
-// ── Milestone 4: per-post comment mood ──────────────────────────────
-type MoodType = 'calm' | 'mixed' | 'tense' | 'heated';
+// ── Milestone 4 (v3): Discussion Pulse — dashboard-style, no emoji,
+// color carries the meaning ──────────────────────────────────────────
+type MoodType = 'calm' | 'mixed' | 'tense' | 'heated' | 'constructive';
 
 type MoodPayload = {
   postId?: string;
@@ -40,37 +42,45 @@ type MoodPayload = {
   };
 };
 
-const MOOD_ICON: Record<MoodType, string> = {
-  calm: '🟢',
-  mixed: '🟡',
-  tense: '🟠',
-  heated: '🔴',
+const MOOD_CONFIG: Record<MoodType, { status: string; title: string; description: string }> = {
+  heated: {
+    status: 'Elevated',
+    title: 'Discussion becoming heated',
+    description: 'Negative sentiment is increasing.',
+  },
+  tense: {
+    status: 'Rising',
+    title: 'Negative sentiment rising',
+    description: 'Discussion is leaning negative.',
+  },
+  mixed: {
+    status: 'Mixed',
+    title: 'Mixed opinions emerging',
+    description: 'Positive and negative reactions are balanced.',
+  },
+  constructive: {
+    status: 'Constructive',
+    title: 'Discussion is constructive',
+    description: 'Most comments are positive or neutral.',
+  },
+  calm: {
+    status: 'Balanced',
+    title: 'Discussion remains balanced',
+    description: 'No strong sentiment detected.',
+  },
 };
 
-const MOOD_LABEL: Record<MoodType, string> = {
-  calm: 'Calm discussion',
-  mixed: 'Mixed reactions',
-  tense: 'Tension rising',
-  heated: 'High emotional intensity',
-};
-
-function CommentMoodNotice({ mood }: { mood: MoodPayload | null }) {
+function DiscussionPulseCard({ mood }: { mood: MoodPayload | null }) {
   if (!mood || !mood.meta || mood.meta.totalComments === 0) return null;
 
-  // Calm threads stay nearly silent — this is meant to warn, not decorate.
-  if (mood.type === 'calm') return null;
+  const cfg = MOOD_CONFIG[mood.type];
 
   return (
-    <div className={`comment-mood-notice comment-mood-notice--${mood.type}`}>
-      <span className="comment-mood-notice__icon">{MOOD_ICON[mood.type]}</span>
-      <div className="comment-mood-notice__text">
-        <span className="comment-mood-notice__label">{MOOD_LABEL[mood.type]}</span>
-        <span className="comment-mood-notice__sub">
-          {mood.type === 'heated' || mood.type === 'tense'
-            ? "This thread's gotten a bit tense — read with that in mind"
-            : 'Opinions are split in this thread'}
-        </span>
-      </div>
+    <div className={`discussion-pulse discussion-pulse--${mood.type}`}>
+      <div className="discussion-pulse__header">Discussion Pulse</div>
+      <div className="discussion-pulse__status">Status: {cfg.status}</div>
+      <div className="discussion-pulse__title">{cfg.title}</div>
+      <div className="discussion-pulse__desc">{cfg.description}</div>
     </div>
   );
 }
@@ -93,25 +103,23 @@ export function CommentSection({
   const [mood, setMood] = useState<MoodPayload | null>(null);
   const socketRef = useRef<ReturnType<typeof socketIO> | null>(null);
 
-  // Fetch current mood the moment this thread opens (covers pre-existing
-  // nasty comments, not just live ones) + subscribe for live updates.
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`http://localhost:3003/api/posts/${postId}/pulse/mood`, {
-      credentials: 'include',
-    })
-      .then((res) => res.json())
-      .then((data: MoodPayload) => {
-        if (!cancelled) setMood(data);
+    postApi
+      .get<MoodPayload>(`/api/posts/${postId}/pulse/mood`)
+      .then((res) => {
+        if (!cancelled) setMood(res.data);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('[CommentSection] Failed to fetch comment mood:', err);
+      });
 
     const socket = socketIO('http://localhost:3003', { withCredentials: true });
     socketRef.current = socket;
 
     socket.on('pulse:mood', (payload: MoodPayload) => {
-      if (payload.postId !== postId) return; // not about this thread, ignore
+      if (payload.postId !== postId) return;
       setMood(payload);
     });
 
@@ -123,7 +131,7 @@ export function CommentSection({
 
   return (
     <div className="comments-panel">
-      <CommentMoodNotice mood={mood} />
+      <DiscussionPulseCard mood={mood} />
 
       <div className="top-comment-input-row">
         <input

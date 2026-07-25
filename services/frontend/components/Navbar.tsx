@@ -74,6 +74,8 @@ export default function Navbar() {
   const { user } = useAuth();
   const pathname = usePathname();
 
+  console.log('Navbar rendered');
+
   const [notifications, setNotifications]   = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount]       = useState(0);
   const [dropdownOpen, setDropdownOpen]     = useState(false);

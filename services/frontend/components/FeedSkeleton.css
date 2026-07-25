@@ -1,155 +1,336 @@
-/* ──────────────────────────────────────────────────────────
-   Feed Skeleton — Light Theme Shimmer
-   ────────────────────────────────────────────────────────── */
+/* ==========================================================
+   Verbascope Feed Skeleton
+   ----------------------------------------------------------
+   Layout comes from feed.css.
+   This file ONLY paints skeleton placeholders.
+   ========================================================== */
 
 .feed-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--vs-space-md);
 }
 
-/* ── Skeleton Card ─────────────────────────────────────── */
-.skeleton-post-card {
-  background: var(--v-bg-card);
-  border: 1px solid var(--v-border);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: var(--v-shadow-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  animation: skFadeIn 0.3s ease both;
+/* ----------------------------------------------------------
+   Skeleton card
+---------------------------------------------------------- */
+
+.skeleton-post {
+  animation: skeletonFade 0.28s ease both;
 }
 
-.skeleton-post-card:nth-child(2) { animation-delay: 0.05s; }
-.skeleton-post-card:nth-child(3) { animation-delay: 0.10s; }
-.skeleton-post-card:nth-child(4) { animation-delay: 0.15s; }
+@keyframes skeletonFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 
-@keyframes skFadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* ── Shimmer Effect ────────────────────────────────────── */
-.shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--v-bg-secondary) 0%,
-    var(--v-bg-card) 40%,
-    var(--v-bg-secondary) 80%
-  );
-  background-size: 300% 100%;
-  animation: shimmer-sweep 1.6s ease-in-out infinite;
+/* ----------------------------------------------------------
+   Shared shimmer block
+---------------------------------------------------------- */
+.skeleton-block {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  background: var(--vs-surface-hover, #1e2836);
   border-radius: 8px;
 }
 
-@keyframes shimmer-sweep {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+.skeleton-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  transform: translateX(-100%);
+
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,.45) 50%,
+    transparent 100%
+  );
+
+  animation: skeletonShimmer 1.8s linear infinite;
 }
 
-/* ── Header ────────────────────────────────────────────── */
-.skeleton-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+[data-theme='dark'] .skeleton-block::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,.08) 50%,
+    transparent 100%
+  );
 }
 
-.skeleton-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
+@keyframes skeletonShimmer {
+
+  100% {
+    transform: translateX(100%);
+  }
+
 }
+
+/* ----------------------------------------------------------
+   Header
+---------------------------------------------------------- */
 
 .skeleton-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
   flex-shrink: 0;
+  margin-right: 0;
 }
 
-.skeleton-header-text {
+.skeleton-author {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+}
+
+.skeleton-name {
+  width: 150px;
+  height: 14px;
+  margin-bottom: 8px;
+}
+
+.skeleton-time {
+  width: 90px;
+  height: 10px;
 }
 
 .skeleton-more {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  flex-shrink: 0;
 }
 
-/* ── Content Lines ─────────────────────────────────────── */
+/* ----------------------------------------------------------
+   Content
+---------------------------------------------------------- */
+
 .skeleton-content {
+  margin: 0 0 var(--vs-space-md);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .skeleton-line {
-  height: 13px;
+  height: 16px;
+  border-radius: 8px;
+}
+
+.w-100 {
   width: 100%;
 }
 
-.skeleton-line.short {
-  width: 55%;
+.w-92 {
+  width: 92%;
 }
 
-.skeleton-line.xshort {
-  width: 35%;
-  height: 11px;
-}
-
-.skeleton-line.long {
-  width: 90%;
-}
-
-.skeleton-line.medium {
+.w-70 {
   width: 70%;
 }
 
-/* ── Tags ──────────────────────────────────────────────── */
-.skeleton-tags {
-  display: flex;
-  gap: 8px;
+/* ----------------------------------------------------------
+   Fake image placeholder
+---------------------------------------------------------- */
+
+.skeleton-image {
+  width: 100%;
+  height: 400px;
+  border-radius: var(--vs-radius-md);
+  margin: var(--vs-space-md) 0;
 }
+
+.skeleton-image + .post-tags {
+  margin-top: var(--vs-space-md);
+}
+
+/* ----------------------------------------------------------
+   Tags
+---------------------------------------------------------- */
 
 .skeleton-tag {
-  height: 24px;
-  border-radius: 9999px;
+  pointer-events: none;
+  color: transparent !important;
 }
 
-.skeleton-tag:nth-child(1) { width: 90px; }
-.skeleton-tag:nth-child(2) { width: 75px; }
-.skeleton-tag:nth-child(3) { width: 65px; }
+.skeleton-tag-fill {
+  width: 72px;
+  height: 24px;
+  border-radius: 999px;
+}
 
-/* ── Actions ───────────────────────────────────────────── */
+.skeleton-tag-fill.short {
+  width: 56px;
+}
+
+.skeleton-tag-fill.tiny {
+  width: 42px;
+}
+
+/* ----------------------------------------------------------
+   Actions
+---------------------------------------------------------- */
+
 .skeleton-actions {
   display: flex;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--v-border);
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--vs-border);
+  padding-top: var(--vs-space-md);
+  gap: var(--vs-space-xs);
 }
 
-.skeleton-action-item {
+.skeleton-action {
+  pointer-events: none;
+  cursor: default;
+  color: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 1;
-  height: 32px;
-  border-radius: 9999px;
+  min-height: 44px;
 }
 
-/* ── Responsive ────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .skeleton-post-card {
-    padding: 14px;
-    border-radius: 14px;
+.skeleton-action-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.skeleton-action-text {
+  width: 28px;
+  height: 10px;
+}
+
+/* ----------------------------------------------------------
+   Sidebar skeleton
+---------------------------------------------------------- */
+
+.sidebar-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vs-space-md);
+}
+
+.skeleton-sidebar-card {
+  background: var(--vs-surface);
+  border: 1px solid var(--vs-border-card);
+  border-radius: var(--vs-radius-lg);
+  padding: var(--vs-space-lg);
+  box-shadow: var(--vs-shadow-card);
+}
+
+.skeleton-trending-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vs-space-sm);
+  margin-top: var(--vs-space-md);
+}
+
+.skeleton-trending-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skeleton-trending-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-trending-line {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.skeleton-trending-line.short {
+  width: 70px;
+}
+
+.skeleton-trending-line.medium {
+  width: 110px;
+}
+
+.skeleton-trending-line.long {
+  width: 140px;
+}
+
+.skeleton-follow-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vs-space-md);
+  margin-top: var(--vs-space-md);
+}
+
+.skeleton-follow-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skeleton-follow-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-follow-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skeleton-trending {
+  width: 120px;
+  height: 12px;
+}
+
+.skeleton-follow-name {
+  width: 90px;
+  height: 12px;
+  margin-bottom: 6px;
+}
+
+.skeleton-follow-interest {
+  width: 70px;
+  height: 10px;
+}
+
+.skeleton-follow-btn {
+  width: 64px;
+  height: 32px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------
+   Mobile
+---------------------------------------------------------- */
+
+@media (max-width:640px) {
+
+  .skeleton-name {
+    width: 120px;
   }
 
-  .skeleton-avatar {
-    width: 38px;
-    height: 38px;
+  .skeleton-time {
+    width: 72px;
   }
+
 }

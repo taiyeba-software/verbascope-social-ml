@@ -2,68 +2,6 @@
    Verbascope Social — Light Feed Layout
    ────────────────────────────────────────────────────────── */
 
-:root {
-  --vs-bg: #ddeef8;
-  --vs-bg-gradient: linear-gradient(135deg, #cce4f4 0%, #d8eef8 40%, #e4f3fb 100%);
-  --vs-surface: #ffffff;
-  --vs-surface-hover: #f4fafd;
-  --vs-border: rgba(0, 150, 200, 0.12);
-  --vs-border-card: rgba(0, 140, 190, 0.15);
-
-  --vs-teal: #0e9fab;
-  --vs-teal-light: #e0f6f8;
-  --vs-teal-mid: #17b0bc;
-  --vs-blue-dark: #0d2d3a;
-  --vs-blue-mid: #1a4a5e;
-  --vs-text-primary: #0d2d3a;
-  --vs-text-secondary: #4a7a8a;
-  --vs-text-muted: #7aa8b8;
-  --vs-accent-teal: #0e9fab;
-  --vs-accent-green: #22c55e;
-  --vs-accent-red: #ef4444;
-  --vs-accent-orange: #f97316;
-
-  --vs-shadow-sm: 0 1px 3px rgba(0, 80, 120, 0.08), 0 1px 2px rgba(0, 80, 120, 0.06);
-  --vs-shadow-md: 0 4px 16px rgba(0, 80, 120, 0.1), 0 2px 6px rgba(0, 80, 120, 0.06);
-  --vs-shadow-card: 0 2px 8px rgba(0, 80, 120, 0.08);
-
-  --vs-radius-sm: 8px;
-  --vs-radius-md: 16px;
-  --vs-radius-lg: 20px;
-  --vs-radius-full: 9999px;
-
-  --vs-space-xs: 4px;
-  --vs-space-sm: 8px;
-  --vs-space-md: 16px;
-  --vs-space-lg: 24px;
-  --vs-space-xl: 32px;
-
-  --vs-transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  --vs-font-sans: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, sans-serif;
-  --vs-font-mono: var(--font-dm-mono), monospace;
-}
-
-[data-theme='dark'] {
-  --vs-bg: #0f172a;
-  --vs-bg-gradient: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #131c2e 100%);
-  --vs-surface: #1e293b;
-  --vs-surface-hover: #243349;
-  --vs-border: rgba(148, 197, 210, 0.12);
-  --vs-border-card: rgba(148, 197, 210, 0.15);
-
-  --vs-teal: #14b8a6;
-  --vs-teal-light: rgba(20, 184, 166, 0.14);
-  --vs-teal-mid: #2dd4bf;
-  --vs-blue-dark: #f8fafc;
-  --vs-blue-mid: #e2e8f0;
-  --vs-text-primary: #f8fafc;
-  --vs-text-secondary: #cbd5e1;
-  --vs-text-muted: #7c93a8;
-  --vs-accent-teal: #14b8a6;
-  --vs-accent-green: #4ade80;
-  --vs-accent-red: #f87171;
-  --vs-accent-orange: #fb923c;
-}
 
 * {
   box-sizing: border-box;
@@ -121,8 +59,8 @@ body {
 }
 
 .post-card {
-  background: var(--vs-surface);
-  border: 1px solid var(--vs-border-card);
+  background: var(--vs-surface, #1e293b);
+  border: 1px solid var(--vs-border-card, rgba(148, 197, 210, 0.12));
   border-radius: var(--vs-radius-lg);
   padding: var(--vs-space-lg);
   box-shadow: var(--vs-shadow-card);
@@ -153,10 +91,15 @@ body {
   opacity: 1;
 }
 
+.post-card-loading {
+  pointer-events: none;
+}
+
 .post-header {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--vs-space-md);
   margin-bottom: var(--vs-space-md);
 }
 
@@ -164,6 +107,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--vs-space-md);
+  flex: 1;
+  min-width: 0;
 }
 
 .post-avatar {
@@ -188,11 +133,11 @@ body {
 }
 
 .post-author-name {
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: var(--vs-fw-post-author);
+  font-size: var(--vs-fs-post-author);
+  line-height: var(--vs-lh-post-author);
   color: var(--vs-text-primary);
   display: block;
-  line-height: 1.3;
 }
 
 .post-meta {
@@ -203,7 +148,9 @@ body {
 }
 
 .post-time {
-  font-size: 0.8rem;
+  font-size: var(--vs-fs-timestamp);
+  font-weight: var(--vs-fw-timestamp);
+  line-height: var(--vs-lh-timestamp);
   color: var(--vs-text-muted);
 }
 
@@ -275,12 +222,12 @@ body {
 
 .post-content {
   color: var(--vs-text-primary);
-  font-size: 0.975rem;
-  font-weight: 400;
+  font-size: var(--vs-fs-post-body);
+  font-weight: var(--vs-fw-post-body);
   margin: 0 0 var(--vs-space-md);
   white-space: pre-wrap;
-  line-height: 1.8;
-  letter-spacing: -0.01em;
+  line-height: var(--vs-lh-post-body);
+  letter-spacing: var(--vs-ls-post-body);
   word-break: break-word;
 }
 
@@ -302,8 +249,9 @@ body {
   background: var(--vs-teal-light);
   color: var(--vs-teal);
   border-radius: var(--vs-radius-full);
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: var(--vs-fs-tag);
+  font-weight: var(--vs-fw-tag);
+  line-height: var(--vs-lh-tag);
   transition: all var(--vs-transition);
   cursor: pointer;
   text-decoration: none;
@@ -317,8 +265,11 @@ body {
 .post-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--vs-space-xs);
+
   border-top: 1px solid var(--vs-border);
+
   padding-top: var(--vs-space-md);
 }
 
@@ -331,6 +282,7 @@ body {
   color: var(--vs-text-muted);
   cursor: pointer;
   padding: 7px 14px;
+  min-height: var(--vs-touch-target-min);
   border-radius: var(--vs-radius-full);
   font-size: 0.875rem;
   font-weight: 500;
@@ -415,6 +367,7 @@ body {
 .sidebar-card-title {
   font-size: 0.8rem;
   font-weight: 700;
+  line-height: 1.4;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--vs-text-primary);
@@ -451,11 +404,13 @@ body {
 .trending-tag {
   font-size: 0.9rem;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--vs-text-primary);
 }
 
 .trending-count {
   font-size: 0.75rem;
+  line-height: 1.4;
   color: var(--vs-text-muted);
   margin-top: 1px;
 }
@@ -499,6 +454,7 @@ body {
 .follow-name {
   font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--vs-text-primary);
   display: block;
   white-space: nowrap;
@@ -508,6 +464,7 @@ body {
 
 .follow-handle {
   font-size: 0.775rem;
+  line-height: 1.4;
   color: var(--vs-text-muted);
   display: block;
 }
@@ -521,6 +478,9 @@ body {
   font-weight: 600;
   font-family: var(--vs-font-sans);
   padding: 5px 14px;
+  min-height: var(--vs-touch-target-min);
+  display: inline-flex;
+  align-items: center;
   border-radius: var(--vs-radius-full);
   cursor: pointer;
   transition: all var(--vs-transition);

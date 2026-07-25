@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Bodoni_Moda, Crimson_Text, DM_Mono, DM_Sans, Inter, Lora, Playfair_Display } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/components/auth-provider';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -76,7 +77,7 @@ const themeInitScript = `
           ? 'dark'
           : 'dark';
       document.documentElement.setAttribute('data-theme', theme);
-      document.documentElement.style.backgroundColor = theme === 'dark' ? '#0f1614' : '#6BA59E';
+      document.documentElement.style.backgroundColor = theme === 'dark' ? '#0f172a' : '#ddeef8';
       document.documentElement.style.colorScheme = theme;
     } catch (e) {}
   })();
@@ -90,13 +91,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
-        {/*
-          Raw <script> tag instead of next/script's beforeInteractive strategy.
-          beforeInteractive is not reliably guaranteed to run before first
-          paint in the App Router — a plain inline script in <head> is.
-        */}
-        <script
+        <Script
           id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
       </head>

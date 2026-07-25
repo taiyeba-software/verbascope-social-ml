@@ -2,41 +2,90 @@
 
 import './FeedSkeleton.css';
 
+const POSTS = Array.from({ length: 4 });
+const HAS_IMAGE = [true, false, true, true];
+const TAG_COUNT = [3, 1, 2, 0];
+const TEXT_WIDTHS = [
+  ['w-100', 'w-92', 'w-70'],
+  ['w-100', 'w-75'],
+  ['w-95', 'w-100', 'w-70'],
+  ['w-100', 'w-85', 'w-60'],
+];
+
 export default function FeedSkeleton() {
   return (
-    <div className="feed-skeleton">
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="skeleton-post-card">
-          <div className="skeleton-header">
-            <div className="skeleton-header-left">
-              <div className="skeleton-avatar shimmer" />
-              <div className="skeleton-header-text">
-                <div className="skeleton-line shimmer short" />
-                <div className="skeleton-line shimmer xshort" />
+    <div className="feed-skeleton" aria-hidden="true">
+      {POSTS.map((_, index) => (
+        <article
+          key={index}
+          className="post-card skeleton-post post-card-loading"
+          style={{ animationDelay: `${index * 0.08}s` }}
+        >
+          {/* Header */}
+          <div className="post-header">
+            <div className="post-author-info">
+              <div className="post-avatar skeleton-block skeleton-avatar" />
+
+              <div className="skeleton-author">
+                <div className="skeleton-block skeleton-name" />
+                <div className="post-meta">
+                  <div className="skeleton-block skeleton-time" />
+                </div>
               </div>
             </div>
-            <div className="skeleton-more shimmer" />
+
+            <div className="post-more-wrap">
+              <div className="skeleton-block skeleton-more" />
+            </div>
           </div>
 
-          <div className="skeleton-content">
-            <div className="skeleton-line shimmer" />
-            <div className="skeleton-line shimmer long" />
-            <div className="skeleton-line shimmer medium" />
+          {/* Post text */}
+          <div className="post-content skeleton-content">
+            {TEXT_WIDTHS[index].map((width, i) => (
+              <div key={i} className={`skeleton-block skeleton-line ${width}`} />
+            ))}
           </div>
 
-          <div className="skeleton-tags">
-            <div className="skeleton-tag shimmer" />
-            <div className="skeleton-tag shimmer" />
-            <div className="skeleton-tag shimmer" />
-          </div>
+          {/* Fake image (occasionally) */}
+          {HAS_IMAGE[index] && <div className="skeleton-block skeleton-image" />}
 
-          <div className="skeleton-actions">
-            <div className="skeleton-action-item shimmer" />
-            <div className="skeleton-action-item shimmer" />
-            <div className="skeleton-action-item shimmer" />
-            <div className="skeleton-action-item shimmer" />
+          {/* Tags */}
+          {TAG_COUNT[index] > 0 && (
+            <div className="post-tags">
+              {Array.from({ length: TAG_COUNT[index] }).map((_, i) => (
+                <div key={i} className="post-tag skeleton-tag">
+                  <span
+                    className={`skeleton-block skeleton-tag-fill ${i === 1 ? 'short' : i === 2 ? 'tiny' : ''}`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="post-actions">
+
+            <div className="post-action-btn skeleton-action">
+              <div className="skeleton-block skeleton-action-icon" />
+              <div className="skeleton-block skeleton-action-text" />
+            </div>
+
+            <div className="post-action-btn skeleton-action">
+              <div className="skeleton-block skeleton-action-icon" />
+              <div className="skeleton-block skeleton-action-text" />
+            </div>
+
+            <div className="post-action-btn skeleton-action">
+              <div className="skeleton-block skeleton-action-icon" />
+              <div className="skeleton-block skeleton-action-text" />
+            </div>
+
+            <div className="post-action-btn skeleton-action">
+              <div className="skeleton-block skeleton-action-icon" />
+            </div>
+
           </div>
-        </div>
+        </article>
       ))}
     </div>
   );

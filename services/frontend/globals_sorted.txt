@@ -1,0 +1,79 @@
+.avatar {
+.badge-green  {
+.badge-green:hover {
+.badge-red    {
+.badge-red:hover {
+.badge-yellow {
+.badge-yellow:hover {
+.badge {
+.btn-ghost {
+.btn-ghost:hover {
+.btn-outline {
+.btn-outline:hover {
+.btn-primary {
+.btn-primary:hover {
+.btn {
+.card-dark {
+.card-light {
+.card {
+.card::before {
+.card:hover {
+.container {
+.divider-bold {
+.divider-vertical {
+.divider {
+.dot-triangle {
+.dot-triangle.bottom-left {
+.dot-triangle.bottom-right {
+.dot-triangle.landing-hero {
+.dot-triangle.landing-hero:hover {
+.dot-triangle.large {
+.dot-triangle.medium {
+.dot-triangle.middle-left {
+.dot-triangle.middle-right {
+.dot-triangle.small {
+.dot-triangle.top-left {
+.dot-triangle.top-right {
+.flex-between  { display: flex; align-items: center; justify-content: space-between; }
+.flex-center   { display: flex; align-items: center; justify-content: center; }
+.flex          { display: flex; }
+.floating-gradient {
+.gap-md        { gap: var(--v-space-md); }
+.gap-sm        { gap: var(--v-space-sm); }
+.glow-hover:hover {
+.input-dark {
+.input-dark::placeholder {
+.input {
+.input::placeholder { 
+.input:disabled {
+.input:focus {
+.label-serif {
+.label {
+.mt-lg         { margin-top: var(--v-space-lg); }
+.mt-md         { margin-top: var(--v-space-md); }
+.mt-sm         { margin-top: var(--v-space-sm); }
+.navbar-title {
+.navbar {
+.navbar::before {
+.post-card {
+.post-card.highlight {
+.post-card:hover { 
+.pulse-dot {
+.scan-effect {
+.shimmer {
+.symbol-behavior::before  { content: '◎'; color: #C17B6D; }
+.symbol-emotion::before {
+.symbol-insight::before   { content: '◌'; color: #6FBDB3; }
+.symbol-orbit::before     { content: '◈'; color: #6FBDB3; }
+.symbol-sarcasm::before {
+.symbol-signal::before    { content: '⊹'; color: #D4A574; }
+.symbol-social::before    { content: '⟡'; color: #6FBDB3; }
+.symbol-tone::before      { content: '⌁'; color: #D4A574; }
+.symbol-wave::before      { content: '⟢'; color: #C17B6D; }
+.symbol {
+.symbol:hover {
+.triangle-container {
+.v-logo-name   {
+.v-logo-sub    {
+.v-logo        { display: flex; align-items: center; gap: var(--v-space-sm); }
+.v-mark        { width: 90px; height: 90px; color: var(--v-accent); }

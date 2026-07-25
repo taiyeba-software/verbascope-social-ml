@@ -1,0 +1,178 @@
+.feed-layout {
+.feed-layout > nav {
+.feed-main {
+.feed-sidebar {
+.post-card {
+.post-card::before {
+.post-card:hover {
+.post-card:hover::before {
+.post-card-loading {
+.post-header {
+.post-author-info {
+.post-avatar {
+.post-avatar img {
+.post-author-name {
+.post-meta {
+.post-time {
+.post-visibility {
+.post-more-btn {
+.post-more-btn:hover {
+.post-more-wrap {
+.post-more-dropdown {
+.post-more-item {
+.post-more-item:hover {
+.post-more-item.danger {
+.post-more-item.danger:hover {
+.post-content {
+.post-content p + p {
+.post-tags {
+.post-tag {
+.post-tag:hover {
+.post-actions {
+.post-action-btn {
+.post-action-btn svg {
+.post-action-btn:hover {
+.post-action-btn:hover svg {
+.post-action-btn.liked {
+.post-action-btn.liked:hover {
+.post-action-btn.shared {
+.post-action-btn.shared:hover {
+.post-action-btn.bookmarked {
+.post-action-btn.bookmarked:hover {
+.sidebar-card {
+.sidebar-card-header {
+.sidebar-card-icon {
+.sidebar-card-title {
+.trending-list {
+.trending-item {
+.trending-item:hover {
+.trending-dot {
+.trending-tag {
+.trending-count {
+.follow-list {
+.follow-item {
+.follow-item:hover {
+.follow-avatar {
+.follow-avatar img {
+.follow-info {
+.follow-name {
+.follow-handle {
+.follow-btn {
+.follow-btn:hover,
+.follow-btn.following {
+.follow-loading,
+.follow-empty {
+.follow-empty-icon {
+.follow-item--following {
+.follow-end-msg {
+.follow-interests {
+.pulse-signal-badge {
+.view-more-link {
+.view-more-link:hover {
+.comments-panel {
+.post-image-single {
+.post-image-single .post-image-backdrop {
+.post-image-single .post-image-fg {
+.post-carousel {
+.post-carousel-track {
+.post-carousel-slide {
+.mobile-trending-bar {
+.mobile-trending-chip {
+.mobile-trending-chip:hover {
+.mobile-only {
+.inline-card {
+.inline-card-header {
+.inline-card-icon {
+.inline-card-title {
+.inline-card-list {
+.inline-follow-item {
+.inline-follow-avatar {
+.inline-follow-info {
+.inline-follow-name {
+.inline-follow-interests {
+.post-carousel-slide {
+.post-carousel-slide .post-carousel-backdrop {
+.post-carousel-slide .post-carousel-fg {
+.post-carousel-btn {
+.post-carousel-btn:hover {
+.post-carousel-btn--prev { left: 10px; }
+.post-carousel-btn--next { right: 10px; }
+.post-carousel-dots {
+.post-carousel-dot {
+.post-carousel-dot.active {
+.post-carousel-counter {
+.comment-input-row {
+.comment-input {
+.comment-input:focus {
+.comment-input::placeholder {
+.comment-submit-btn {
+.comment-submit-btn:hover {
+.comment-item {
+.comment-avatar {
+.comment-body {
+.comment-author {
+.comment-text {
+.comment-delete-btn {
+.comment-item:hover .comment-delete-btn {
+.comment-delete-btn:hover {
+.comments-loading,
+.comments-empty {
+.post-action-btn.active {
+.pagination {
+.pagination button {
+.pagination button:hover:not(:disabled) {
+.pagination button:disabled {
+.pagination span {
+.feed-empty {
+.feed-empty-icon {
+.feed-empty-title {
+.share-sheet-overlay {
+.share-sheet {
+.share-sheet-title {
+.share-sheet-options {
+.share-reason-btn {
+.share-reason-btn:hover {
+.share-sheet-cancel {
+.share-sheet-cancel:hover {
+.pulse-mood-badge {
+.feed-skeleton {
+.skeleton-post {
+.skeleton-block {
+.skeleton-block::after {
+.skeleton-avatar {
+.skeleton-author {
+.skeleton-name {
+.skeleton-time {
+.skeleton-more {
+.skeleton-content {
+.skeleton-line {
+.w-100 {
+.w-92 {
+.w-70 {
+.skeleton-image {
+.skeleton-image + .post-tags {
+.skeleton-tag {
+.skeleton-tag-fill {
+.skeleton-tag-fill.short {
+.skeleton-tag-fill.tiny {
+.skeleton-actions {
+.skeleton-action {
+.skeleton-action-icon {
+.skeleton-action-text {
+.sidebar-skeleton {
+.skeleton-sidebar-card {
+.skeleton-trending-list {
+.skeleton-trending-item {
+.skeleton-trending-dot {
+.skeleton-trending-line {
+.skeleton-trending-line.short {
+.skeleton-trending-line.medium {
+.skeleton-trending-line.long {
+.skeleton-follow-list {
+.skeleton-follow-item {
+.skeleton-follow-avatar {
+.skeleton-follow-info {
+.skeleton-trending {
+.skeleton-follow-name {
+.skeleton-follow-interest {
+.skeleton-follow-btn {

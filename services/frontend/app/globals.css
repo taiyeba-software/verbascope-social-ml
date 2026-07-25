@@ -1,75 +1,142 @@
 /* ============================================================
    VERBASCOPE — Loid Forger Theme
    Inspired by: Spy x Family official invitation card aesthetic
-   Character: Agent Loid Forger's sophisticated spy sophistication
    ============================================================ */
 
-/* ── CSS Variables ─────────────────────────────────────────── */
 :root {
-
-  /* Backgrounds — Loid Forger Invitation Card Palette */
-  --v-bg-primary:      #6BA59E;   /* Soft sage teal from the card */
-  --v-bg-secondary:    #5A9590;   /* Slightly darker teal */
-  --v-bg-card:         #7BB5AE;   /* Light card surface */
-  --v-bg-dark:         #1A2A28;   /* Deep navy for contrast */
-  --v-bg-light:        #E8E3DB;   /* Warm cream/paper white */
+  /* ── Legacy "Loid Forger" variables ─────────────────────────
+     Still used by body/h1-h6/.label/.v-mark/.card/.avatar/.badge/
+     .btn/.input/.navbar and other rules further down this file.
+     These were accidentally dropped in an earlier edit — restored
+     here so those rules resolve again instead of falling back to
+     nothing. */
+  --v-bg-primary:      #6BA59E;
+  --v-bg-secondary:    #5A9590;
+  --v-bg-card:         #7BB5AE;
+  --v-bg-dark:         #1A2A28;
+  --v-bg-light:        #E8E3DB;
   --v-bg-overlay:      rgba(26, 42, 40, 0.65);
 
-  /* Accent — Spy Agency Aesthetic */
-  --v-accent:          #1A2A28;   /* Deep navy — mission critical */
-  --v-accent-soft:     #2A3A38;   /* Hover state */
+  --v-accent:          #1A2A28;
+  --v-accent-soft:     #2A3A38;
   --v-accent-border:   rgba(26, 42, 40, 0.3);
   --v-dot-size:        2px;
   --v-gap:             12px;
 
-  /* Text — Elegant Loid Forger Style */
-  --v-text-primary:    #F5F0E8;   /* Warm paper cream (primary) */
-  --v-text-secondary:  #D0D9D6;   /* Soft gray on teal */
-  --v-text-muted:      #a9d8cf;   /* Muted sage for hints */
-  --v-text-dark:       #1A2A28;   /* For light backgrounds */
+  --v-text-primary:    #F5F0E8;
+  --v-text-secondary:  #D0D9D6;
+  --v-text-muted:      #a9d8cf;
+  --v-text-dark:       #1A2A28;
 
-  /* ML Brain signal colors */
-  --v-signal-green:    #6FBDB3;   /* Softer sage-green */
-  --v-signal-yellow:   #D4A574;   /* Warm beige-gold */
-  --v-signal-red:      #C17B6D;   /* Warm terracotta */
+  --v-signal-green:    #6FBDB3;
+  --v-signal-yellow:   #D4A574;
+  --v-signal-red:      #C17B6D;
   --v-signal-green-bg: rgba(111, 189, 179, 0.15);
   --v-signal-yellow-bg:rgba(212, 165, 116, 0.15);
   --v-signal-red-bg:   rgba(193, 123, 109, 0.15);
 
-  /* Borders */
   --v-border:          rgba(26, 42, 40, 0.2);
   --v-border-strong:   rgba(26, 42, 40, 0.4);
-  --v-border-line:     rgba(26, 42, 40, 0.6);   /* Vertical line accent */
+  --v-border-line:     rgba(26, 42, 40, 0.6);
 
-  /* Typography — Elegant & Sophisticated */
   --v-font-serif-display: var(--font-bodoni-moda), var(--font-playfair-display), Georgia, serif;
   --v-font-serif:      var(--font-crimson-text), var(--font-lora), Georgia, serif;
   --v-font-sans:       var(--font-inter), system-ui, -apple-system, sans-serif;
   --v-font-mono:       'Courier New', monospace;
 
-  /* Spacing */
   --v-space-xs:  4px;
   --v-space-sm:  8px;
   --v-space-md:  16px;
   --v-space-lg:  24px;
   --v-space-xl:  40px;
 
-  /* Border radius */
   --v-radius-sm:   6px;
   --v-radius-md:   12px;
   --v-radius-lg:   20px;
   --v-radius-full: 9999px;
 
-  /* Shadows */
   --v-shadow-sm: 0 2px 8px rgba(28, 43, 42, 0.2);
   --v-shadow-md: 0 4px 20px rgba(28, 43, 42, 0.3);
   --v-shadow-lg: 0 8px 40px rgba(28, 43, 42, 0.4);
 
-  /* Transitions */
   --v-transition: 0.2s cubic-bezier(0.19, 1, 0.22, 1);
+
+  /* ── Feed / current design system variables ─────────────── */
+  --vs-bg: #ddeef8;
+  --vs-bg-gradient: linear-gradient(135deg, #cce4f4 0%, #d8eef8 40%, #e4f3fb 100%);
+  --vs-surface: #ffffff;
+  --vs-surface-hover: #f4fafd;
+  --vs-border: rgba(0, 150, 200, 0.12);
+  --vs-border-card: rgba(0, 140, 190, 0.15);
+
+  --vs-teal: #0e9fab;
+  --vs-teal-light: #e0f6f8;
+  --vs-teal-mid: #17b0bc;
+  --vs-blue-dark: #0d2d3a;
+  --vs-blue-mid: #1a4a5e;
+  --vs-text-primary: #0d2d3a;
+  --vs-text-secondary: #4a7a8a;
+  --vs-text-muted: #7aa8b8;
+  --vs-accent-teal: #0e9fab;
+  --vs-accent-green: #22c55e;
+  --vs-accent-red: #ef4444;
+  --vs-accent-orange: #f97316;
+
+  --vs-shadow-sm: 0 1px 3px rgba(0, 80, 120, 0.08), 0 1px 2px rgba(0, 80, 120, 0.06);
+  --vs-shadow-md: 0 4px 16px rgba(0, 80, 120, 0.1), 0 2px 6px rgba(0, 80, 120, 0.06);
+  --vs-shadow-card: 0 2px 8px rgba(0, 80, 120, 0.08);
+
+  --vs-radius-sm: 8px;
+  --vs-radius-md: 16px;
+  --vs-radius-lg: 20px;
+  --vs-radius-full: 9999px;
+
+  --vs-space-xs: 4px;
+  --vs-space-sm: 8px;
+  --vs-space-md: 16px;
+  --vs-space-lg: 24px;
+  --vs-space-xl: 32px;
+
+  --vs-transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --vs-font-sans: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  --vs-font-mono: var(--font-dm-mono), monospace;
+
+  --vs-fs-post-author: 0.95rem;
+  --vs-fw-post-author: 600;
+  --vs-lh-post-author: 1.35;
+
+  --vs-fs-post-body: 1rem;
+  --vs-fw-post-body: 400;
+  --vs-lh-post-body: 1.75;
+  --vs-ls-post-body: -0.011em;
+
+  --vs-fs-timestamp: 0.8rem;
+  --vs-fw-timestamp: 500;
+  --vs-lh-timestamp: 1.4;
+
+  --vs-fs-tag: 0.8rem;
+  --vs-fw-tag: 600;
+  --vs-lh-tag: 1.4;
+
+  --vs-fs-comment-author: 0.875rem;
+  --vs-fw-comment-author: 700;
+  --vs-lh-comment-author: 1.4;
+
+  --vs-fs-comment-body: 0.925rem;
+  --vs-fw-comment-body: 400;
+  --vs-lh-comment-body: 1.65;
+  --vs-ls-comment-body: -0.006em;
+
+  --vs-fs-reply-link: 0.8rem;
+  --vs-fw-reply-link: 600;
+  --vs-lh-reply-link: 1.4;
+
+  --vs-space-comment-gap: 18px;
+  --vs-touch-target-min: 44px;
 }
 
 [data-theme='dark'] {
+  /* Legacy Loid Forger dark overrides */
   --v-bg-primary:      #0f1614;
   --v-bg-secondary:    #131c1a;
   --v-bg-card:         #1a2422;
@@ -89,6 +156,28 @@
   --v-border:          rgba(245, 240, 232, 0.12);
   --v-border-strong:   rgba(245, 240, 232, 0.2);
   --v-border-line:     rgba(245, 240, 232, 0.3);
+
+  /* Feed system dark overrides */
+  --vs-bg: #0f172a;
+  --vs-bg-gradient: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #131c2e 100%);
+  --vs-surface: #1e293b;
+  --vs-surface-hover: #243349;
+  --vs-border: rgba(148, 197, 210, 0.12);
+  --vs-border-card: rgba(148, 197, 210, 0.15);
+
+  --vs-teal: #14b8a6;
+  --vs-teal-light: rgba(20, 184, 166, 0.14);
+  --vs-teal-mid: #2dd4bf;
+  --vs-blue-dark: #f8fafc;
+  --vs-blue-mid: #e2e8f0;
+  --vs-text-primary: #f8fafc;
+  --vs-text-secondary: #cbd5e1;
+  --vs-text-muted: #7c93a8;
+  --vs-accent-teal: #14b8a6;
+  --vs-accent-green: #4ade80;
+  --vs-accent-red: #f87171;
+  --vs-accent-orange: #fb923c;
+
   color-scheme: dark;
 }
 
@@ -100,48 +189,21 @@
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
-/*
-  Default the raw (pre-hydration / pre-attribute) paint to the dark neutral,
-  since the inline head script in layout.tsx defaults to 'dark' whenever
-  there's no saved preference. If data-theme ends up 'light' (saved
-  preference or a future change to the default), the override below wins
-  as soon as the attribute is set — which the inline script guarantees
-  happens before first paint.
-*/
 html {
   font-size: 16px;
   scroll-behavior: smooth;
-  background-color: #0f1614;
+  background-color: #0f172a;
   color-scheme: dark;
 }
 
 [data-theme='light'] html,
 html[data-theme='light'] {
-  background-color: #6BA59E;
+  background-color: #ddeef8;
   color-scheme: light;
 }
 
 body {
-  background-color: var(--v-bg-primary);
-  background-image: 
-    radial-gradient(
-      ellipse 80% 80% at 20% 50%,
-      rgba(111, 189, 179, 0.15) 0%,
-      rgba(111, 189, 179, 0) 50%
-    ),
-    radial-gradient(
-      ellipse 60% 60% at 80% 80%,
-      rgba(212, 165, 116, 0.08) 0%,
-      rgba(212, 165, 116, 0) 45%
-    ),
-    repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 2px,
-      rgba(255, 255, 255, 0.01) 2px,
-      rgba(255, 255, 255, 0.01) 4px
-    );
-  background-attachment: fixed;
+  background-color: inherit;
   color: var(--v-text-primary);
   font-family: var(--v-font-sans);
   font-weight: 400;
@@ -420,7 +482,7 @@ a:hover {
   color: var(--v-text-dark);
 }
 
-/* ── Post Card — Mission Brief Style ───────────────────────── */
+/* 
 .post-card {
   background: var(--v-bg-card);
   border: 1px solid var(--v-border-strong);
@@ -439,6 +501,7 @@ a:hover {
 .post-card.highlight {
   border-left-color: var(--v-signal-yellow);
 }
+*/
 
 /* ── Avatar ────────────────────────────────────────────────── */
 .avatar {

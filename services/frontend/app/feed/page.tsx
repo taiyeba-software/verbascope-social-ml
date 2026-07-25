@@ -1,9 +1,11 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import FeedSkeleton from '@/components/FeedSkeleton';
+import SidebarSkeleton from '@/components/SidebarSkeleton';
 import CreatePostBox from '@/components/CreatePostBox';
 import { useAuth } from '@/hooks/useAuth';
 import { postApi, postService } from '@/lib/api/posts';
@@ -20,13 +22,17 @@ import {
 } from '@/components/feed/CommentSection';
 import './feed.css';
 
-
+// Force this route to always render per-request instead of being
+// statically prerendered at build time.
+export const dynamic = 'force-dynamic';
 
 type OpenComments = Record<string, CommentState>;
 
 export default function FeedPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+
+  console.log('FeedPage rendered');
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -36,7 +42,7 @@ export default function FeedPage() {
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
   // Pulse signal / trending tags + live post:update / post:deleted sync
-  const { pulseSignal, trendingTags, setTrendingTags, commentMood } = useFeedSocket(setPosts);
+  const { pulseSignal, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/auth/login');
@@ -241,16 +247,16 @@ export default function FeedPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="feed-layout">
-        <Navbar />
-        <main className="feed-main">
-          <FeedSkeleton />
-        </main>
-      </div>
-    );
-  }
+  // NOTE: the old `if (isLoading) { return <bare skeleton> }` branch that
+  // used to live here has been removed. ProtectedRoute (in the root
+  // layout) already renders the correct, full skeleton — with Navbar,
+  // CreatePostBox, and the sidebar — for the entire duration that
+  // isLoading is true, and only mounts FeedPage's children once loading
+  // is done. That made this branch dead code in the normal case, but it
+  // was a bare, sidebar-less version that didn't match ProtectedRoute's
+  // fallback — so if it ever did render for even one frame, it looked
+  // like a second, "wrong" skeleton. Removing it means there's only ever
+  // one possible loading appearance for this route.
 
   if (!user) return null;
 
@@ -315,11 +321,16 @@ export default function FeedPage() {
         )}
       </main>
 
-      <Sidebar
-        pulseSignal={pulseSignal}
-        trendingTags={trendingTags}
-        commentMood={commentMood}
-      />
+      {feedLoading ? (
+        <aside className="feed-sidebar">
+          <SidebarSkeleton />
+        </aside>
+      ) : (
+        <Sidebar
+          pulseSignal={pulseSignal}
+          trendingTags={trendingTags}
+        />
+      )}
 
       {shareSheet && (
         <ShareSheet

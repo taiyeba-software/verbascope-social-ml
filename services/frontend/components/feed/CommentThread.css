@@ -12,7 +12,7 @@
 /* Extra breathing room + a subtle divider between top-level comments only —
    nested replies keep their existing tighter spacing (.thread-children gap) */
 .thread-item--top {
-  margin-bottom: 18px;
+  margin-bottom: var(--vs-space-comment-gap);
   padding-bottom: 16px;
   border-bottom: 1px solid var(--vs-border);
 }
@@ -45,33 +45,25 @@
 .thread-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
 }
 
 .thread-author {
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-family: var(--vs-font-sans);
+  font-weight: var(--vs-fw-comment-author);
+  font-size: var(--vs-fs-comment-author);
+  line-height: var(--vs-lh-comment-author);
   color: var(--vs-text-primary);
-}
-
-.sentiment-badge {
-  margin-left: 8px;
-  font-size: 0.85rem;
-  opacity: 0.85;
-}
-
-.sentiment-badge-label {
-  font-size: 0.75rem;
-  vertical-align: middle;
 }
 
 .thread-text {
   margin: 2px 0 4px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.88rem;
-  line-height: 1.5;
+  font-family: var(--vs-font-sans);
+  font-size: var(--vs-fs-comment-body);
+  font-weight: var(--vs-fw-comment-body);
+  line-height: var(--vs-lh-comment-body);
+  letter-spacing: var(--vs-ls-comment-body);
   color: var(--vs-text-secondary);
   word-break: break-word;
 }
@@ -87,15 +79,25 @@
   background: transparent;
   border: none;
   padding: 0;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.76rem;
-  font-weight: 600;
+  font-family: var(--vs-font-sans);
+  font-size: var(--vs-fs-reply-link);
+  font-weight: var(--vs-fw-reply-link);
+  line-height: var(--vs-lh-reply-link);
   color: var(--vs-text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 3px;
   transition: color var(--vs-transition);
+  /* Touch target: text stays small, tap area expands via pseudo-element
+     so the visible reply link doesn't grow to a bulky 44px pill */
+  position: relative;
+}
+
+.thread-action-btn::after {
+  content: '';
+  position: absolute;
+  inset: -12px -6px;
 }
 
 .thread-action-btn:hover {
@@ -118,6 +120,15 @@
   border-radius: 50%;
   transition: all var(--vs-transition);
   flex-shrink: 0;
+  margin-left: auto;
+  /* Touch target: icon stays tiny, tap area expands via pseudo-element */
+  position: relative;
+}
+
+.thread-delete-btn::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
 }
 
 .thread-delete-btn:hover {
@@ -141,8 +152,8 @@
   border-radius: var(--vs-radius-full);
   padding: 8px 14px;
   color: var(--vs-text-primary);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.85rem;
+  font-family: var(--vs-font-sans);
+  font-size: var(--vs-fs-comment-body);
   outline: none;
   transition: all var(--vs-transition);
 }
@@ -189,7 +200,7 @@
   border-left: 2px solid var(--vs-border);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--vs-space-comment-gap);
 }
 
 @media (max-width: 640px) {
@@ -205,49 +216,36 @@
   }
 }
 
-.thread-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-start; 
-}
-
-.thread-delete-btn {
-  margin-left: auto; 
-}
-
-/* Pill-style badges instead of plain text + colored dot */
+/* ── Sentiment badge: reverted from a filled colored pill (Milestone 3)
+   back to a plain-text-plus-dot style — a colored dot character plus a
+   muted-tone label, no background/pill shape. ── */
 .thread-sentiment-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  line-height: 1.6;
-  background: rgba(255, 255, 255, 0.06); /* subtle pill background for dark theme */
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.thread-sentiment-dot {
+  font-size: 1.55rem;
+  line-height: 1;
 }
 
 .thread-sentiment-label {
+  color: var(--vs-text-secondary);
   vertical-align: middle;
 }
 
-/* Optional: tint the pill background per sentiment for a bit more color
-   without clashing with the dark theme. Requires adding the label as a
-   data attribute or modifier class in the component if you want this -
-   see note below. */
-.thread-sentiment-badge--positive {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
+.thread-sentiment-badge--positive .thread-sentiment-dot {
+  color: var(--vs-accent-green);
 }
 
-.thread-sentiment-badge--negative {
-  background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+.thread-sentiment-badge--negative .thread-sentiment-dot {
+  color: var(--vs-accent-red);
 }
 
-.thread-sentiment-badge--neutral {
-  background: rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
+.thread-sentiment-badge--neutral .thread-sentiment-dot {
+  color: var(--vs-text-muted);
 }

@@ -24,12 +24,14 @@ export type NestedComment = Comment & {
 // Cap visual indent so very deep threads don't run off the right edge
 const MAX_INDENT_DEPTH = 4;
 
-// Milestone 3: small emoji + label lookup, kept local to this file since
-// it's only ever used here.
-const SENTIMENT_BADGE: Record<'positive' | 'negative' | 'neutral', { emoji: string; label: string }> = {
-  positive: { emoji: '🟢', label: 'Positive' },
-  negative: { emoji: '🔴', label: 'Negative' },
-  neutral: { emoji: '⚪', label: 'Neutral' },
+// Typography pass: reverted from an emoji-in-a-filled-pill (Milestone 3)
+// back to a plain-text-plus-dot style — the dot is a plain CSS-colored
+// character, not an emoji, so it matches the app's own accent colors
+// instead of the OS emoji set.
+const SENTIMENT_BADGE: Record<'positive' | 'negative' | 'neutral', { label: string }> = {
+  positive: { label: 'Positive' },
+  negative: { label: 'Negative' },
+  neutral: { label: 'Neutral' },
 };
 
 function ThreadSentimentBadge({ sentiment }: { sentiment?: NestedComment['sentiment'] }) {
@@ -40,7 +42,8 @@ function ThreadSentimentBadge({ sentiment }: { sentiment?: NestedComment['sentim
       className={`thread-sentiment-badge thread-sentiment-badge--${sentiment.label}`}
       title={`Sentiment score: ${sentiment.score}`}
     >
-      {badge.emoji} <span className="thread-sentiment-label">{badge.label}</span>
+      <span className="thread-sentiment-dot" aria-hidden="true">●</span>
+      <span className="thread-sentiment-label">{badge.label}</span>
     </span>
   );
 }

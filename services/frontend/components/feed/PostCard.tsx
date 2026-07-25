@@ -274,4 +274,4 @@ export function PostCard({
       )}
     </article>
   );
-}
+}      

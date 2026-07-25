@@ -1,188 +1,161 @@
-# Post Service - Simple Guide
+# Post Service
 
-This is an easy-to-understand explanation of the Post Service. Think of it as the part of VerbaScope (a social media app) that handles everything about posts: making them, showing them in a feed, liking them, sharing them, and commenting on them.
+This service powers the social posting experience in VerbaScope. It handles post creation, feed retrieval, likes, comments, shares, recommendations, and realtime engagement signals.
 
-## What does this service do?
+## Overview
 
-In simple terms, this is the "posts brain" of the app. It lets users:
+The post service is an Express-based backend that stores post data in MongoDB, uploads images to ImageKit, publishes and consumes RabbitMQ events, and broadcasts live updates over Socket.IO. It also keeps a local copy of user records and user-interest pulse data used for recommendations and trending analysis.
 
-- Write a post with text and up to 4 pictures
-- See a scrolling feed of posts (like Instagram or Twitter)
-- Look at posts from one specific user
-- Like or unlike a post
-- Share or unshare a post (and say why they shared it)
-- Add, view, or delete comments
-- Get recommended people to follow, based on their interests
-- See "trending" topics, like what's popular right now
+## Features
 
-## What tools and technology does it use?
+- Create posts with text and up to 4 images
+- Retrieve a paginated feed of posts
+- View posts by a specific user or by post ID
+- Like and unlike posts
+- Share and unshare posts with supported reasons
+- Add, list, reply to, and delete comments
+- Record dwell time for post engagement analysis
+- Recommend users based on shared hashtags and user interest signals
+- Expose trending and activity pulse endpoints
+- Broadcast live updates such as post changes and pulse changes
 
-- **Node.js** - the programming language environment
-- **Express** - a tool to build the web server and handle requests
-- **MongoDB** - the database where posts, comments, and users are stored
-- **JWT (JSON Web Token)** - used to check that a user is logged in, stored in a cookie called `token`
-- **Socket.IO** - sends live updates (so when someone likes a post, you see it instantly without refreshing)
-- **RabbitMQ** - lets this service talk to other services in the background (like sending notifications)
-- **ImageKit** - handles uploading and storing images
+## Tech Stack
 
-## How the project is organized
+- Node.js + Express
+- MongoDB + Mongoose
+- Socket.IO for real-time updates
+- RabbitMQ via amqplib
+- ImageKit for image uploads
+- JWT-based cookie authentication
+- express-validator and multer
 
-- `server.js` - the starting point; turns everything on (database, messaging, live updates)
-- `src/app.js` - sets up the web server and connects all the routes (URLs)
-- `src/config/config.js` - holds settings like the port number
-- `src/db/db.js` - connects to the MongoDB database
-- `src/broker/rabbit.js` - handles sending and receiving messages to other services
-- `src/routes/posts.routes.js` - lists all the available URLs (endpoints) for posts
-- `src/controllers/` - the actual code that runs when someone calls each URL
-- `src/middlewares/` - checks things before a request goes through, like "is this user logged in?"
-- `src/models/` - describes what a Post, Comment, or User looks like in the database
-- `src/pulse/` - figures out what's trending right now
-- `src/utils/` - small helper tools, like detecting what language a post is written in
+## Project Structure
 
-## Setting it up (Environment Variables)
+- server.js - Starts the HTTP server, Socket.IO, DB connection, pulse seeding, and RabbitMQ consumers
+- src/app.js - Express app setup and route mounting
+- src/routes/posts.routes.js - All API endpoints for posts, comments, likes, shares, dwell tracking, and recommendations
+- src/controllers/ - Request handlers for posts, likes, comments, dwell tracking, and recommendations
+- src/middlewares/ - Authentication, validation, and upload middleware
+- src/models/ - Mongoose schemas for posts, comments, users, and user pulse data
+- src/pulse/ - In-memory engagement and trending logic
+- src/broker/rabbit.js - RabbitMQ publish/consume logic
+- src/utils/ - Helpers for auth client calls, language detection, normalization, and ImageKit uploads
 
-Before running the service, you need to create a `.env` file with these settings:
+## Environment Variables
 
-```dotenv
-MONGO_URI=mongodb://...
+Create a .env file in the service root with:
+
+```env
+MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
-RABBITMQ_URI=amqps://...
+RABBITMQ_URI=amqp://localhost:5672
 PORT=3003
 CLIENT_URL=http://localhost:3002
-IMAGEKIT_PUBLIC_KEY=...
-IMAGEKIT_PRIVATE_KEY=...
-IMAGEKIT_URL_ENDPOINT=...
+IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
+IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
+IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_instance
 ```
 
-What each one means:
-
-- `MONGO_URI` - the address of your database (required)
-- `JWT_SECRET` - a secret password used to verify logins; must be the same one used by the login service
-- `RABBITMQ_URI` - address for the messaging system (if you don't set this, it tries `amqp://localhost:5672`)
-- `PORT` - which port the service runs on (defaults to `3003` if not set)
-- `CLIENT_URL` - the address of the front-end app (defaults to `http://localhost:3002`)
-- The `IMAGEKIT_*` values - needed only if you want image uploads to work
-
-## How to install and run it
-
-First, install all the needed packages:
+## Installation
 
 ```bash
 npm install
 ```
 
-To run it while developing (it restarts automatically when you change code):
+## Running the Service
+
+Development mode:
 
 ```bash
 npm run dev
 ```
 
-To run it normally, like in production:
+Production mode:
 
 ```bash
 npm start
 ```
 
-## Where all the URLs live
+The service runs on port 3003 by default.
 
-Every URL for this service starts with:
+## API Endpoints
 
-```text
-/api/posts
-```
+All routes are mounted under /api/posts.
 
-## List of available actions (Routes)
+### Pulse
 
-### Trending info
-- `GET /api/posts/pulse/trending` - see what hashtags are trending
-- `GET /api/posts/pulse/signal` - see the current activity level
+- GET /api/posts/pulse/trending - Returns trending hashtags from the in-memory pulse tracker
+- GET /api/posts/pulse/signal - Returns current engagement signal status
+- GET /api/posts/:id/pulse/mood - Returns comment sentiment mood for a specific post
 
 ### Posts
-- `POST /api/posts` - create a new post
-- `GET /api/posts/feed` - get the main feed of posts
-- `GET /api/posts/user/:userId` - get posts from one specific user
-- `GET /api/posts/:id` - get one specific post
-- `DELETE /api/posts/:id` - delete your own post
+
+- POST /api/posts - Create a post with optional images
+- GET /api/posts/feed - Get a paginated feed of posts
+- GET /api/posts/user/:userId - Get posts for a specific user
+- GET /api/posts/:id - Get a single post by ID
+- DELETE /api/posts/:id - Delete your own post
 
 ### Likes
-- `POST /api/posts/:id/like` - like a post
-- `DELETE /api/posts/:id/unlike` - remove your like
+
+- POST /api/posts/:id/like - Like a post
+- DELETE /api/posts/:id/unlike - Remove a like
 
 ### Shares
-- `POST /api/posts/:id/share` - share a post
-- `DELETE /api/posts/:id/unshare` - undo a share
+
+- POST /api/posts/:id/share - Share a post
+- DELETE /api/posts/:id/unshare - Remove a share
 
 ### Comments
-- `POST /api/posts/:id/comment` - add a comment
-- `GET /api/posts/:id/comments` - see all comments on a post
-- `DELETE /api/posts/:postId/comments/:commentId` - delete your own comment
 
-### Other features
-- `POST /api/posts/dwell` - tells the system how long you looked at a post (used to improve recommendations)
-- `GET /api/posts/recommendations/users` - get suggested people to follow
+- POST /api/posts/:id/comment - Add a comment or reply
+- GET /api/posts/:id/comments - Get top-level comments for a post
+- GET /api/posts/comments/:commentId/replies - Get replies for a comment
+- DELETE /api/posts/:postId/comments/:commentId - Delete your own comment
 
-## Rules for uploading images
+### Engagement and Recommendations
 
-- Images must be sent as `multipart/form-data` under the field name `images`
-- You can upload up to 4 images per post
-- Each image must be 5 MB or smaller
-- Allowed image types: JPEG, PNG, WEBP, GIF
+- POST /api/posts/dwell - Record dwell time for a post
+- GET /api/posts/recommendations/users - Get recommended users based on shared interests
 
-## How login/authentication works
+## Image Uploads
 
-To use most features, you need to be logged in. The service checks a small file called a "cookie" named `token`, which proves who you are. This cookie must be included automatically when your app makes requests (this is usually called "credentials" mode in code).
+- Uploads must use multipart/form-data under the images field
+- Maximum 4 images per post
+- Each image must be under 5 MB
+- Allowed types: JPEG, PNG, WEBP, GIF
 
-## Messages sent to other services (RabbitMQ)
+## Authentication
 
-**Messages it listens for:**
-- `user_created` - when a new user signs up elsewhere, this service saves a local copy of their info
+Most endpoints require a valid JWT stored in the token cookie. The middleware verifies the cookie and attaches the user payload to req.user.
 
-**Messages it sends out:**
-- `post.created` - a new post was made
-- `post.liked` - someone liked a post
-- `comment.added` - someone added a comment
-- `post.shared` - someone shared a post
-- `notification_created` - tells the notification system to alert someone
+## RabbitMQ Integration
 
-## Live updates (Socket.IO)
+The service publishes and consumes RabbitMQ events:
 
-These are instant updates sent to users without needing to refresh the page:
+- Consumes user_created to upsert a local user copy
+- Publishes post.created, post.liked, comment.added, post.shared, and notification_created events
+- Uses pulse_events for engagement signal updates
 
-- `post:update` - sent when a post gets a like, comment, share, or unlike
-- `pulse:trending` - sent when the trending list changes
-- `pulse:update` - sent when overall activity changes
+## Socket.IO Events
 
-## What information is stored (Data Models)
+The service emits live updates for clients to react to immediately:
 
-### Post
-Stores things like:
-- Who wrote it (`author`)
-- The text content, plus a cleaned-up version and detected language
-- Hashtags and images
-- Counts: how many likes, comments, and shares
-- Lists of who liked it and who shared it
-- Counts of *why* people shared it (e.g. "agree", "funny", "insightful")
+- post:update - when likes, comments, or shares change
+- post:deleted - when a post is deleted
+- pulse:trending - when trending data changes
+- pulse:update - when engagement signal changes
+- pulse:mood - when a post comment mood is recalculated
 
-### Comment
-- Who wrote it
-- Which post it belongs to
-- The text (up to 500 characters)
+## Data Models
 
-### User
-A local copy of basic user info (created when someone signs up), including email, full name, role, and interests.
+- Post - stores author, content, tags, images, counts, likes, shares, and share reasons
+- Comment - stores comment content, parent-child reply structure, and sentiment
+- User - stores a local copy of auth-service user info for feed enrichment and recommendations
+- UserPulse - tracks per-user hashtag interest scores
 
-### UserPulse
-Keeps track of which hashtags each user seems interested in, used for recommending content and people.
+## Notes
 
-## How it connects to other parts of the system
-
-- It asks the login/auth service for user details (like names) when needed
-- If the messaging system (RabbitMQ) isn't working when the service starts, the service still runs — but live updates and notifications won't work properly
-- When the service starts up, it looks at existing posts to figure out what's currently trending
-
-## Common errors and what they mean
-
-- `401` - you're not logged in, or your login token is invalid
-- `422` - something you submitted didn't pass validation (like missing required info)
-- `404` - the post or comment you're looking for doesn't exist
-- `409` - you already liked or shared this (can't do it twice)
+- If RabbitMQ is unavailable at startup, the service still runs but realtime and notification-driven features will be limited.
+- The service seeds its pulse state from existing posts when it starts.
+- Authenticated user details are fetched from the auth service for feed enrichment and user profile display.

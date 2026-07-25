@@ -1,153 +1,247 @@
-# VerbaScope Social ML
+# VerbaScope
 
-VerbaScope Social ML is a distributed social intelligence platform that combines a Next.js frontend with backend services for authentication, posts, notifications, and machine learning analysis.
+VerbaScope is a social platform where people can sign up, build a profile, share posts, follow each other, and interact in real time through likes, comments, shares, and notifications.
 
-The project now has a real, working backend workflow — including protected routes, full CRUD operations, pagination, likes, comments, validation, authorization, atomic counters, MongoDB indexes, duplicate prevention, and tested edge cases.
+The project is built as a set of small backend services (a "microservices" setup) plus one frontend application. Each service has one job, and they talk to each other over HTTP and through a message queue (RabbitMQ). This README gives you the big picture. Each service also has its own README with more detail if you want to dig deeper.
 
----
+## What's in this project
 
-## ✅ What Works Today
-
-- Protected API routes that require a logged-in user
-- A complete post creation, retrieval, and deletion workflow
-- Paginated feed retrieval (loads posts in pages, not all at once)
-- Like and unlike system, with protection against duplicate likes
-- Comment creation, listing, and deletion
-- Request validation and authorization checks on every protected route
-- Atomic counters for likes and comments (so counts stay accurate even with many users acting at once)
-- MongoDB indexing for faster feed loading and lookups
-- Tested edge cases, including invalid IDs and repeated like attempts
-
----
-
-## 🛠️ Tech Stack
-
-VerbaScope is a polyglot, multi-service project. Here's everything used across the stack:
-
-| Category | Technology | Used In |
+| Service | What it does | Port |
 |---|---|---|
-| Frontend Framework | Next.js 16 | Frontend |
-| UI Library | React 19 | Frontend |
-| Language | TypeScript 5 | Frontend |
-| Language | Node.js (ES Modules) | Auth, Post, Notification services |
-| Backend Framework | Express 5 | Auth, Post, Notification services |
-| Database | MongoDB | Auth, Post, Notification services |
-| Database ODM | Mongoose | Auth, Post, Notification services |
-| Messaging / Events | RabbitMQ (`amqplib`) | All backend services |
-| Real-Time Updates | Socket.IO | Post, Notification services, Frontend |
-| Authentication | JWT (JSON Web Tokens) + httpOnly cookies | Auth Service, all protected routes |
-| OAuth | Passport.js + Google OAuth 2.0 | Auth Service |
-| Password Security | bcrypt | Auth Service |
-| Image Hosting | ImageKit | Post Service |
-| Email Delivery | Nodemailer (Gmail SMTP) | Notification Service |
-| HTTP Client | Axios | Frontend |
-| Validation | Express Validator | Auth, Post services |
-| Logging | Morgan | Auth, Post, Notification services |
-| Icons | Lucide React | Frontend |
-| Styling | CSS Variables + Vanilla CSS | Frontend |
-| Package Managers | npm / pnpm | All services |
+| **Frontend** | The website people actually use — login, feed, profiles, live updates | 3002 |
+| **Auth Service** | Handles sign up, login, Google sign-in, user profiles, and follow/unfollow | 3000 |
+| **Post Service** | Handles posts, likes, comments, shares, and recommendations | 3003 |
+| **Notification Service** | Sends emails and delivers in-app notifications in real time | 3001 |
 
----
+## How it all fits together
 
-## 🧩 Architecture Overview
+Think of it like this:
 
-VerbaScope is built as a set of small, independent backend services (a microservice-style architecture) sitting behind a single Next.js frontend. Each service owns its own database collections and exposes its own REST API, and services talk to each other indirectly through RabbitMQ events rather than calling each other directly. This keeps services loosely coupled — for example, the Notification Service doesn't need to know how the Post Service works internally; it just reacts to events like `post.liked` or `comment.added`.
+1. A user opens the **Frontend** and logs in. The frontend talks to the **Auth Service** to check who they are.
+2. Once logged in, the frontend loads the feed from the **Post Service** — posts, likes, comments, shares.
+3. When something happens that a user should know about (someone liked their post, for example), the **Post Service** tells the **Notification Service** about it through RabbitMQ, and the **Notification Service** pushes a live update to the frontend using Socket.IO, and/or sends an email.
+4. All the pieces share the same login session, since it's based on a secure cookie set by the Auth Service.
+
+In short: **Auth** handles "who are you", **Post** handles "what did you post and how did people react", and **Notification** handles "let the user know what happened". The **Frontend** ties all three together into one app.
+
+## Architecture Diagram
+
+```mermaid
+flowchart TB
+    User[User's Browser]
+
+    subgraph Frontend["Frontend (Next.js) - port 3002"]
+        FE[React App + Socket.IO Client]
+    end
+
+    subgraph Auth["Auth Service - port 3000"]
+        AuthAPI[Express API]
+        AuthDB[(MongoDB - Users)]
+    end
+
+    subgraph Post["Post Service - port 3003"]
+        PostAPI[Express API + Socket.IO Server]
+        PostDB[(MongoDB - Posts, Comments, Pulse)]
+    end
+
+    subgraph Notification["Notification Service - port 3001"]
+        NotifAPI[Express API + Socket.IO Server]
+        NotifDB[(MongoDB - Notifications)]
+        Email[Gmail SMTP]
+    end
+
+    MQ{{RabbitMQ}}
+    ImageKit[(ImageKit - Avatars & Post Images)]
+    Google[Google OAuth]
+
+    User --> FE
+    FE -- HTTP --> AuthAPI
+    FE -- HTTP --> PostAPI
+    FE -- HTTP --> NotifAPI
+    FE -. Socket.IO .-> PostAPI
+    FE -. Socket.IO .-> NotifAPI
+
+    AuthAPI --> AuthDB
+    AuthAPI --> ImageKit
+    AuthAPI --> Google
+
+    PostAPI --> PostDB
+    PostAPI --> ImageKit
+
+    NotifAPI --> NotifDB
+    NotifAPI --> Email
+
+    AuthAPI -- publish user_created --> MQ
+    PostAPI -- publish post/comment/like events --> MQ
+    MQ -- consume user_created --> PostAPI
+    MQ -- consume user_created --> NotifAPI
+    MQ -- consume notification_created --> NotifAPI
+```
+
+## Data Flow Diagram
+
+The diagram below shows a typical journey: a user signs up, then later likes someone else's post.
+
+```mermaid
+sequenceDiagram
+    participant U as User (Browser)
+    participant F as Frontend
+    participant A as Auth Service
+    participant Q as RabbitMQ
+    participant N as Notification Service
+    participant P as Post Service
+
+    U->>F: Sign up (email/password)
+    F->>A: POST /api/auth/register
+    A->>A: Save user in MongoDB
+    A->>Q: publish user_created
+    Q->>N: deliver user_created
+    N->>N: Send welcome email
+    Q->>P: deliver user_created
+    P->>P: Save local copy of user
+    A-->>F: Set JWT cookie
+    F-->>U: Redirect to feed
+
+    Note over U,P: Later, the user likes a post
+
+    U->>F: Click "Like" on a post
+    F->>P: POST /api/posts/:id/like
+    P->>P: Update like count in MongoDB
+    P-->>F: Live update via Socket.IO (post:update)
+    P->>Q: publish notification_created
+    Q->>N: deliver notification_created
+    N->>N: Save notification in MongoDB
+    N-->>F: Live update via Socket.IO (notification:new)
+    F-->>U: Show updated like count and new notification
+```
+
+## Tech Stack (shared across the project)
+
+- **Node.js + Express** for all backend services
+- **MongoDB + Mongoose** for data storage
+- **RabbitMQ** for services to send events to each other (e.g. "a new user signed up")
+- **Socket.IO** for real-time updates (likes, comments, notifications) without refreshing the page
+- **JWT stored in an HTTP-only cookie** for login sessions across all services
+- **ImageKit** for storing uploaded images (avatars and post photos)
+- **Next.js + React + TypeScript** for the frontend
+
+## Project Layout
 
 ```
-                     ┌────────────────────┐
-                     │  Frontend (Next.js)  │
-                     │   localhost:3002      │
-                     └──────────┬─────────┘
-                                │  REST + cookies + Socket.IO
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-┌───────▼────────┐     ┌────────▼────────┐     ┌────────▼─────────────┐
-│  Auth Service   │     │  Post Service    │     │ Notification Service │
-│  localhost:3000 │     │  localhost:3003  │     │  localhost:3001       │
-└───────┬─────────┘     └────────┬────────┘     └────────┬─────────────┘
-        │                        │                        │
-        └───────────► RabbitMQ (event bus) ◄───────────────┘
-                                │
-                       (future) ML Service
-                       sarcasm / sentiment / tone
+verbascope/
+├── services/
+│   ├── auth-service/         # Sign up, login, profiles, follow/unfollow
+│   ├── post-service/         # Posts, likes, comments, shares, recommendations
+│   ├── notification-service/ # Emails and in-app notifications
+│   └── frontend/             # The Next.js website
 ```
 
-**How it fits together:**
+Each folder is its own independent app with its own `package.json`, `.env` file, and `npm` scripts.
 
-- The **Frontend** is the only thing end users interact with directly. It calls each backend service's REST API and listens for live updates through Socket.IO.
-- The **Auth Service** is the source of truth for user identity. It issues a `token` cookie that the other services trust to identify who's making a request.
-- The **Post Service** owns posts, likes, comments, shares, and trending data, and is the main thing users interact with after logging in.
-- The **Notification Service** doesn't talk to the Post or Auth services directly — instead, it listens for events on RabbitMQ (like `user_created` or `notification_created`) and reacts by sending emails or saving/pushing notifications.
-- **RabbitMQ** acts as the messenger between services, so they can stay independent and don't break if one of them is temporarily down.
-- The **ML Service** is planned for later, and will plug into this same event-driven setup to analyze posts for sarcasm, sentiment, and tone.
+## Getting Started
 
----
+You'll need each service running at the same time for the full app to work. A typical order is:
 
-## 🗂️ Services
+1. **Start MongoDB and RabbitMQ** locally (or point the `.env` files to hosted versions).
+2. **Auth Service** — handles logins, so start this first.
+3. **Notification Service** — listens for events like new signups.
+4. **Post Service** — depends on users existing, so start after Auth.
+5. **Frontend** — connects to all three services above.
 
-### Frontend
+For each service:
 
-The Next.js website that users interact with — handles login screens, the feed, and the overall user experience.
+```bash
+cd services/<service-name>
+npm install
+npm run dev
+```
 
-- Location: `frontend/`
-- Full docs: [frontend/README.md](frontend/README.md)
+Each service needs its own `.env` file (see below). Once everything is running, open the frontend at `http://localhost:3002`.
 
-### Auth Service
+## Environment Variables
 
-Handles account registration, email/password login, "Sign in with Google," issuing secure login tokens, and looking up the current logged-in user.
+Each service has its own `.env` file. Here's a quick summary of what each one needs — see each service's README for the full list.
 
-- Location: `auth-service/`
-- Full docs: [auth-service/README.md](auth-service/README.md)
+**Auth Service** (`services/auth-service/.env`)
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+RABBITMQ_URI=amqp://localhost
+IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
+IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
+IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_instance
+CLIENT_URL=http://localhost:3002
+```
 
-### Post Service
+**Post Service** (`services/post-service/.env`)
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+RABBITMQ_URI=amqp://localhost:5672
+PORT=3003
+CLIENT_URL=http://localhost:3002
+IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
+IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
+IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_instance
+```
 
-Handles creating posts, loading the feed, likes, comments, and deleting posts.
+**Notification Service** (`services/notification-service/.env`)
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+RABBITMQ_URI=amqp://localhost
+EMAIL_USER=your_gmail_address
+EMAIL_PASS=your_gmail_app_password
+PORT=3001
+```
 
-- Location: `post-service/`
-- Full docs: [post-service/README.md](post-service/README.md)
+**Frontend** (`services/frontend/.env.local`)
+```env
+NEXT_PUBLIC_AUTH_API_URL=http://localhost:3000
+NEXT_PUBLIC_NOTIFICATION_API_URL=http://localhost:3001
+NEXT_PUBLIC_POST_API_URL=http://localhost:3003
+NEXT_PUBLIC_AUTH_URL=http://localhost:3000
+```
 
-### Notification Service
+> **Important:** The `JWT_SECRET` value must be the same across Auth, Post, and Notification services — this is what lets a single login cookie work across all of them.
 
-Listens for events happening elsewhere in the system (like a new comment or like) and turns them into emails or in-app notifications, delivered through RabbitMQ.
+## Core Features
 
-- Location: `notification-service/`
-- Full docs: [notification-service/README.md](notification-service/README.md)
+- **Accounts:** Email/password sign up and login, plus Google sign-in
+- **Profiles:** Bio, headline, avatar uploads, and viewing other users' profiles
+- **Social graph:** Follow and unfollow other users
+- **Posts:** Create posts with up to 4 images, view a feed, view posts by user
+- **Engagement:** Like, comment (with replies), and share posts
+- **Recommendations:** Suggested users to follow based on shared interests, plus trending hashtags
+- **Notifications:** Real-time in-app notifications and welcome emails
+- **Live updates:** New likes, comments, shares, and notifications appear instantly without a page refresh
 
-### ML Service
+## How the services talk to each other
 
-Reserved for upcoming machine learning features, such as detecting sarcasm, sentiment, and emotional tone in posts.
+- **HTTP requests** — the frontend calls each backend service directly for things like logging in, loading the feed, or updating a profile.
+- **RabbitMQ (events)** — backend services notify each other when something important happens, without needing to wait on each other directly. For example:
+  - Auth Service publishes a `user_created` event when someone signs up.
+  - Notification Service listens for `user_created` and sends a welcome email.
+  - Post Service listens for `user_created` too, so it can keep a local copy of user info for the feed.
+  - Post Service publishes a `notification_created` event when something happens (a like, a comment, etc.), and the Notification Service turns that into a real notification.
+- **Socket.IO (real-time)** — the Post and Notification services push live updates straight to the browser, so users see new likes, comments, and notifications without refreshing.
 
-- Location: `ml-service/`
-- *(Documentation coming once this service is built out)*
+## A Note on Local Development
 
----
+This project is set up for local development first. A few things to keep in mind:
 
-## 📌 Project Status
+- If RabbitMQ isn't running, most services will still start, but real-time and notification features will be limited.
+- The frontend currently disables image optimization and ignores some TypeScript build errors, purely to make local development smoother. This should be revisited before a production deployment.
+- Each service should be started separately, and MongoDB/RabbitMQ should be available before starting the backend services.
 
-The backend has moved well past basic scaffolding and now reflects real, service-level engineering concerns:
+## Individual Service Documentation
 
-- Route protection (only logged-in users can access certain endpoints)
-- Concurrency-safe counters (likes/comments stay accurate under heavy use)
-- Duplicate prevention enforced at the database level
-- Proper validation and error handling
-- Clear separation between services, communicating through events rather than being tightly connected
+For full details on API endpoints, folder structure, and scripts, see each service's own README:
 
----
-
-## 🛣️ Recommended Next Steps
-
-- Connect the frontend to the verified Post Service endpoints
-- Expand the ML Service to add sarcasm and sentiment scoring
-- Add more end-to-end tests that check the full path across multiple services
-- Document how to deploy and configure the entire stack for production
-
----
-
-## 📚 Service Documentation
-
-Each service keeps its own README with setup instructions and full API details. If you want to run or debug a single service on its own, start with that service's documentation:
-
-- [Frontend README](frontend/README.md)
-- [Auth Service README](auth-service/README.md)
-- [Post Service README](post-service/README.md)
-- [Notification Service README](notification-service/README.md)
+- Auth Service README — services/auth-service/README.md
+- Post Service README — services/post-service/README.md
+- Notification Service README — services/notification-service/README.md
+- Frontend README — services/frontend/README.md

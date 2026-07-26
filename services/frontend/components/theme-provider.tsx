@@ -10,37 +10,38 @@ interface ThemeContextValue {
 }
 
 export const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'light',
+  theme: 'dark',
   toggleTheme: () => {},
 });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Read whatever the inline head script already stamped onto <html>
-  // so React's first render matches the DOM exactly (no flash / no mismatch).
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const stampedTheme = document.documentElement.getAttribute('data-theme');
-      if (stampedTheme === 'light' || stampedTheme === 'dark') {
-        return stampedTheme;
-      }
-    }
+const COOKIE_NAME = 'vs-theme';
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
-    return 'light';
-  });
+function setThemeCookie(theme: Theme) {
+  document.cookie = `${COOKIE_NAME}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
 
-  // Hydrate saved theme on mount (covers edge cases where the inline
-  // script didn't run for some reason, e.g. localStorage was empty).
-  useEffect(() => {
-    const saved = localStorage.getItem('vs-theme') as Theme | null;
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved);
-    }
-  }, []);
+export function ThemeProvider({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme: Theme;
+}) {
+  // The server already resolved the theme from the cookie and stamped it
+  // onto <html data-theme="..."> before this component ever mounts, so
+  // this first render matches the server exactly — no client-only
+  // guessing, no mismatch, no flash.
+  const [theme, setTheme] = useState<Theme>(initialTheme);
 
-  // Apply theme to <html data-theme="..."> and persist
+  // Keep <html>, localStorage (kept for any other code still reading it),
+  // and the cookie (so the *next* server render already knows the choice)
+  // all in sync whenever the theme changes.
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.colorScheme = theme;
     localStorage.setItem('vs-theme', theme);
+    setThemeCookie(theme);
   }, [theme]);
 
   const toggleTheme = () => {

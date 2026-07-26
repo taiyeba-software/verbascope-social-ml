@@ -6,9 +6,48 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+
+  /* ── Landing-page-only palette ──────────────────────────
+     Scoped to .home-layout on purpose: after several rounds of
+     shared --v-* / --vs-* variables silently breaking auth/feed
+     pages, this page gets its own local tokens that can't leak
+     anywhere else. */
+  --lp-ink:          #ffffff;
+  --lp-ink-soft:     #d8e6ff;
+  --lp-ink-muted:    #a9c2f2;
+  --lp-pop:          #ff6f59;
+  --lp-pop-soft:     #ff8973;
+  --lp-yellow:       #ffd166;
+  --lp-mint:         #4fd6bb;
+  --lp-surface:      #ffffff;
+  --lp-surface-ink:  #0b1b4d;
+  --lp-surface-muted: #5a6da3;
+  --lp-gradient:     linear-gradient(135deg, #1b3fe0 0%, #2f7dff 55%, #6fd1ff 100%);
+  --lp-dot:          rgba(255, 255, 255, 0.55);
+  --lp-orb-a:        rgba(255, 111, 89, 0.35);
+  --lp-orb-b:        rgba(255, 209, 102, 0.3);
+  --lp-orb-c:        rgba(79, 214, 187, 0.3);
 }
 
-/* ── Hero Section ──────────────────────────────────────– */
+[data-theme='dark'] .home-layout {
+  --lp-ink:          #f5f8ff;
+  --lp-ink-soft:     #b9c9f5;
+  --lp-ink-muted:    #8ca0da;
+  --lp-pop:          #ff8166;
+  --lp-pop-soft:     #ff9a83;
+  --lp-yellow:       #ffd873;
+  --lp-mint:         #58e0c4;
+  --lp-surface:      #101a3d;
+  --lp-surface-ink:  #f5f8ff;
+  --lp-surface-muted: #a3b3e0;
+  --lp-gradient:     linear-gradient(135deg, #05082b 0%, #142b8c 55%, #2f6bff 100%);
+  --lp-dot:          rgba(255, 255, 255, 0.35);
+  --lp-orb-a:        rgba(255, 129, 102, 0.3);
+  --lp-orb-b:        rgba(255, 216, 115, 0.22);
+  --lp-orb-c:        rgba(88, 224, 196, 0.22);
+}
+
+/* ── Hero Section ──────────────────────────────────────── */
 .hero {
   flex: 1;
   padding: var(--v-space-xl);
@@ -17,6 +56,7 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
+  background: var(--lp-gradient);
 }
 
 .hero-content {
@@ -35,13 +75,13 @@
   font-size: 3rem;
   margin-bottom: var(--v-space-lg);
   line-height: 1.1;
-  color: var(--v-text-primary);
+  color: var(--lp-ink);
 }
 
 .hero-text > p {
   font-size: 1.1rem;
   margin-bottom: var(--v-space-lg);
-  color: var(--v-text-secondary);
+  color: var(--lp-ink-soft);
   line-height: 1.8;
 }
 
@@ -58,18 +98,37 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  background: var(--v-accent);
-  color: var(--v-text-primary);
-  border: 2px solid var(--v-accent);
-  box-shadow: 0 4px 12px rgba(26, 42, 40, 0.3);
   transition: all var(--v-transition);
 }
 
-.btn-lg:hover {
-  background: var(--v-accent-soft);
-  border-color: var(--v-accent-soft);
-  box-shadow: 0 6px 16px rgba(26, 42, 40, 0.4);
-  transform: translateY(-2px);
+/* Scoped overrides so the landing page's buttons get their own
+   playful treatment without touching the shared .btn-primary /
+   .btn-ghost rules that auth pages also rely on. */
+.home-layout .btn-primary {
+  background: var(--lp-pop);
+  color: #ffffff;
+  border: 2px solid var(--lp-pop);
+  box-shadow: 0 10px 24px rgba(255, 111, 89, 0.35);
+}
+
+.home-layout .btn-primary:hover {
+  background: var(--lp-pop-soft);
+  border-color: var(--lp-pop-soft);
+  box-shadow: 0 14px 30px rgba(255, 111, 89, 0.45);
+  transform: translateY(-3px) rotate(-1deg);
+}
+
+.home-layout .btn-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--lp-ink);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.home-layout .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: #ffffff;
+  color: #ffffff;
+  transform: translateY(-3px) rotate(1deg);
 }
 
 /* ── Features Grid ─────────────────────────────────────– */
@@ -92,30 +151,45 @@
   min-width: 48px;
   height: 48px;
   border-radius: var(--v-radius-md);
-  background: rgba(111, 189, 179, 0.15);
-  color: var(--v-text-primary);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--lp-ink);
   transition: all var(--v-transition);
   font-weight: 600;
 }
 
+/* Each feature gets its own color — sarcasm, sentiment, and ML
+   intelligence read as three distinct signals, not one flat tint. */
+.feature-item:nth-child(1) .feature-icon {
+  background: var(--lp-pop);
+  color: #ffffff;
+}
+
+.feature-item:nth-child(2) .feature-icon {
+  background: var(--lp-yellow);
+  color: var(--lp-surface-ink);
+}
+
+.feature-item:nth-child(3) .feature-icon {
+  background: var(--lp-mint);
+  color: var(--lp-surface-ink);
+}
+
 .feature-item:hover .feature-icon {
-  background: rgba(111, 189, 179, 0.25);
-  transform: scale(1.05);
-  color: var(--v-text-primary);
-  box-shadow: 0 0 12px rgba(111, 189, 179, 0.2);
+  transform: scale(1.08) rotate(-4deg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
 .feature-item h3 {
   font-size: 1rem;
   margin-bottom: var(--v-space-xs);
-  color: var(--v-text-primary);
+  color: var(--lp-ink);
   font-weight: 700;
   letter-spacing: 0.3px;
 }
 
 .feature-item p {
   font-size: 0.9rem;
-  color: var(--v-text-secondary);
+  color: var(--lp-ink-soft);
   font-weight: 400;
 }
 
@@ -129,17 +203,22 @@
 }
 
 .visual-card {
-  background: var(--v-bg-card);
-  border: 1px solid var(--v-border-strong);
+  background: var(--lp-surface);
+  border: none;
   border-radius: var(--v-radius-md);
   padding: var(--v-space-lg);
-  box-shadow: 0 8px 32px rgba(26, 42, 40, 0.25), 0 0 40px rgba(111, 189, 179, 0.1);
+  box-shadow: 0 24px 50px rgba(5, 10, 40, 0.35), 0 0 0 6px rgba(255, 255, 255, 0.15);
   max-width: 360px;
   width: 100%;
   position: relative;
   z-index: 3;
   animation: slideUp 0.8s ease-out;
-  backdrop-filter: blur(10px);
+  transform: rotate(-2deg);
+  transition: transform var(--v-transition);
+}
+
+.visual-card:hover {
+  transform: rotate(0deg) translateY(-4px);
 }
 
 .visual-card::before {
@@ -147,18 +226,18 @@
   position: absolute;
   inset: 0;
   border-radius: var(--v-radius-md);
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%);
   pointer-events: none;
 }
 
 @keyframes slideUp {
   0% {
     opacity: 0;
-    transform: translateY(50px);
+    transform: rotate(-2deg) translateY(50px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: rotate(-2deg) translateY(0);
   }
 }
 
@@ -175,13 +254,13 @@
 
 .name {
   font-weight: 600;
-  color: var(--v-text-primary);
+  color: var(--lp-surface-ink);
   font-size: 0.95rem;
 }
 
 .timestamp {
   font-size: 0.8rem;
-  color: var(--v-text-muted);
+  color: var(--lp-surface-muted);
 }
 
 .card-content {
@@ -189,7 +268,7 @@
 }
 
 .card-content p {
-  color: var(--v-text-secondary);
+  color: var(--lp-surface-ink);
   line-height: 1.7;
   font-size: 0.95rem;
 }
@@ -246,7 +325,7 @@
   border-color: #E07060;
 }
 
-/* ── Floating Orbs — Ambient Emotional Processing ────────── */
+/* ── Floating Orbs — Ambient Signal Energy ───────────────── */
 .floating-orbs {
   position: absolute;
   inset: 0;
@@ -257,7 +336,6 @@
 .orb {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(111, 189, 179, 0.35), rgba(111, 189, 179, 0.05));
   filter: blur(60px);
   animation: float-breathe 8s ease-in-out infinite;
 }
@@ -268,7 +346,7 @@
   top: -80px;
   right: -100px;
   animation-delay: var(--delay, 0s);
-  background: radial-gradient(circle at 35% 35%, rgba(111, 189, 179, 0.3), rgba(111, 189, 179, 0));
+  background: radial-gradient(circle at 35% 35%, var(--lp-orb-a), transparent);
 }
 
 .orb:nth-child(2) {
@@ -277,7 +355,7 @@
   bottom: -40px;
   left: 5%;
   animation-delay: calc(var(--delay, 0s) + 2s);
-  background: radial-gradient(circle at 35% 35%, rgba(212, 165, 116, 0.2), rgba(212, 165, 116, 0));
+  background: radial-gradient(circle at 35% 35%, var(--lp-orb-b), transparent);
   filter: blur(80px);
 }
 
@@ -287,7 +365,7 @@
   top: 40%;
   right: 5%;
   animation-delay: calc(var(--delay, 0s) + 4s);
-  background: radial-gradient(circle at 35% 35%, rgba(111, 189, 179, 0.25), rgba(111, 189, 179, 0));
+  background: radial-gradient(circle at 35% 35%, var(--lp-orb-c), transparent);
 }
 
 @keyframes float-breathe {
@@ -309,11 +387,16 @@
   }
 }
 
+/* Dot-triangle decorations recolored to sit on the vivid gradient */
+.home-layout .dot-triangle {
+  background-image: radial-gradient(circle, var(--lp-dot) var(--v-dot-size), transparent var(--v-dot-size));
+}
+
 /* ── Footer ────────────────────────────────────────────– */
 .footer {
   padding: var(--v-space-lg);
   text-align: center;
-  border-top: 1px solid var(--v-border);
+  border-top: 3px solid var(--lp-pop);
   background: var(--v-bg-dark);
 }
 
@@ -372,5 +455,10 @@
 
   .visual-card {
     max-width: 100%;
+    transform: none;
+  }
+
+  .visual-card:hover {
+    transform: translateY(-4px);
   }
 }

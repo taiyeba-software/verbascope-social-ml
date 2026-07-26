@@ -2,8 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Search, Bell, ChevronDown, Heart, MessageCircle, Repeat2, Home, User } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  Search,
+  SlidersHorizontal,
+  Bell,
+  ChevronDown,
+  Heart,
+  MessageCircle,
+  Repeat2,
+  Menu,
+  X,
+  Home,
+  Compass,
+  Bookmark,
+  LogOut,
+} from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService } from '@/lib/api';
@@ -20,6 +34,13 @@ interface Notification {
   createdAt: string;
   reason?: 'agree' | 'funny' | 'needs_attention' | 'insightful' | 'concerning' | 'educational' | null;
 }
+
+/* ── Nav links ───────────────────────────────────────────── */
+const NAV_LINKS = [
+  { href: '/feed', label: 'Feed', icon: Home },
+  { href: '/explore', label: 'Explore', icon: Compass },
+  { href: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
+] as const;
 
 /* ── Helpers ─────────────────────────────────────────────── */
 const REASON_LABELS: Record<string, string> = {
@@ -71,18 +92,19 @@ function normalizeNotification(raw: any): Notification {
 
 /* ── Component ───────────────────────────────────────────── */
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
-  console.log('Navbar rendered');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount]     = useState(0);
+  const [dropdownOpen, setDropdownOpen]   = useState(false);
+  const [menuOpen, setMenuOpen]           = useState(false);
+  const [searchValue, setSearchValue]     = useState('');
 
-  const [notifications, setNotifications]   = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount]       = useState(0);
-  const [dropdownOpen, setDropdownOpen]     = useState(false);
-
-  const socketRef   = useRef<Socket | null>(null);
+  const socketRef  = useRef<Socket | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const mobileDropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef      = useRef<HTMLDivElement>(null);
 
   /* ── Fetch notifications on mount ── */
   useEffect(() => {
@@ -119,18 +141,24 @@ export default function Navbar() {
     };
   }, [user?._id]);
 
-  /* ── Close dropdown when clicking outside (desktop + mobile) ── */
+  /* ── Close notification dropdown / mobile menu when clicking outside ── */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      const clickedDesktop = dropdownRef.current && dropdownRef.current.contains(e.target as Node);
-      const clickedMobile  = mobileDropdownRef.current && mobileDropdownRef.current.contains(e.target as Node);
-      if (!clickedDesktop && !clickedMobile) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  /* ── Close the mobile menu on route change ── */
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   /* ── Bell click: open dropdown + mark all read ── */
   async function handleBellClick() {
@@ -154,6 +182,13 @@ export default function Navbar() {
     }
   }
 
+  /* ── Search submit — routes to /search once the search page exists ── */
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchValue.trim();
+    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
+  }
+
   /* ── Avatar / display name ── */
   const userId = user ? (user._id ?? (user as any).id) : null;
 
@@ -168,7 +203,12 @@ export default function Navbar() {
   const profileHref = userId ? `/profile/${userId}` : '/profile';
   const isProfileActive = pathname?.startsWith('/profile') ?? false;
 
-  /* ── Shared notification panel markup (used by both desktop dropdown and mobile dropdown) ── */
+  function isLinkActive(href: string) {
+    if (href === '/feed') return pathname === '/feed';
+    return pathname?.startsWith(href) ?? false;
+  }
+
+  /* ── Shared notification panel markup ── */
   const notificationPanel = (
     <>
       <div className="notification-dropdown-header">
@@ -199,34 +239,56 @@ export default function Navbar() {
   /* ── Render ── */
   return (
     <>
-      {/* ════════════════ TOP BAR ════════════════ */}
       <nav className="navbar">
-        <Link href="/feed" className="navbar-logo">
-          <svg className="v-mark" viewBox="0 0 42 42" fill="none" stroke="currentColor" strokeWidth="2">
-            <polygon points="4,6 21,36 38,6 32,6 21,26 10,6" />
-          </svg>
-          <div>
-            <span className="v-logo-name">Verbascope</span>
-          </div>
-        </Link>
-
-        <div className="navbar-center">
-          <div className="live-indicator">
-            <span className="pulse-dot"></span>
-            <span>Live Feed</span>
-          </div>
-        </div>
-
-        <div className="navbar-end">
-          {/* Search: desktop only, moves to bottom nav on mobile */}
-          <button type="button" className="navbar-icon-btn navbar-desktop-only" aria-label="Search">
-            <Search size={18} strokeWidth={1.75} />
+        <div className="navbar-left">
+          <button
+            type="button"
+            className="navbar-hamburger"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            {menuOpen ? <X size={20} strokeWidth={1.9} /> : <Menu size={20} strokeWidth={1.9} />}
           </button>
 
+          <Link href="/feed" className="navbar-logo">
+            <svg className="v-mark" viewBox="0 0 42 42" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="4,6 21,36 38,6 32,6 21,26 10,6" />
+            </svg>
+            <span className="v-logo-name">Verbascope</span>
+          </Link>
+        </div>
+
+        <ul className="navbar-links">
+          {NAV_LINKS.map(({ href, label, icon: Icon }) => (
+            <li key={href}>
+              <Link href={href} className={`navbar-link${isLinkActive(href) ? ' active' : ''}`}>
+                <Icon size={16} strokeWidth={1.9} />
+                <span>{label}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        <form className="navbar-search" onSubmit={handleSearchSubmit} role="search">
+          <Search size={16} className="navbar-search-icon" strokeWidth={1.9} />
+          <input
+            type="text"
+            className="navbar-search-input"
+            placeholder="Search posts, people, tags..."
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            aria-label="Search posts, people, tags"
+          />
+          <button type="button" className="navbar-search-filter" aria-label="Search filters">
+            <SlidersHorizontal size={15} strokeWidth={1.9} />
+          </button>
+        </form>
+
+        <div className="navbar-end">
           <ThemeToggle />
 
-          {/* Bell + Dropdown: desktop only, moves to bottom nav on mobile */}
-          <div className="navbar-notification-wrapper navbar-desktop-only" ref={dropdownRef}>
+          <div className="navbar-notification-wrapper" ref={dropdownRef}>
             <button
               type="button"
               className="navbar-icon-btn"
@@ -263,62 +325,56 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* ════════════════ MOBILE BOTTOM NAV ════════════════ */}
-      <nav className="navbar-mobile" aria-label="Mobile navigation">
-        <Link href="/feed" className="navbar-mobile-btn" aria-label="Home">
-          <Home size={22} strokeWidth={1.75} />
-          <span>Home</span>
-        </Link>
+      {/* ════════════════ HAMBURGER MENU (tablet + mobile) ════════════════ */}
+      {menuOpen && (
+        <>
+          <div className="navbar-mobile-menu-backdrop" onClick={() => setMenuOpen(false)} />
+          <div className="navbar-mobile-menu" ref={menuRef}>
+            <ul className="navbar-mobile-menu-links">
+              {NAV_LINKS.map(({ href, label, icon: Icon }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className={`navbar-mobile-menu-link${isLinkActive(href) ? ' active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Icon size={18} strokeWidth={1.8} />
+                    <span>{label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
 
-        <button type="button" className="navbar-mobile-btn" aria-label="Search">
-          <Search size={22} strokeWidth={1.75} />
-          <span>Search</span>
-        </button>
+            <div className="navbar-mobile-menu-divider" />
 
-        <div className="navbar-mobile-notification-wrapper" ref={mobileDropdownRef}>
-          <button
-            type="button"
-            className="navbar-mobile-btn"
-            aria-label="Notifications"
-            onClick={handleBellClick}
-          >
-            <Bell size={22} strokeWidth={1.75} />
-            {unreadCount > 0 && (
-              <span className="navbar-badge navbar-badge-mobile">{unreadCount > 99 ? '99+' : unreadCount}</span>
-            )}
-            <span>Bell</span>
-          </button>
+            <Link
+              href={profileHref}
+              className="navbar-mobile-menu-link"
+              onClick={() => setMenuOpen(false)}
+            >
+              <div className="navbar-mobile-avatar-small">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={displayName} className="navbar-mobile-avatar-img" />
+                ) : (
+                  initials
+                )}
+              </div>
+              <span>{displayName}</span>
+            </Link>
 
-          {dropdownOpen && (
-            <div className="notification-sheet">
-              <div className="sheet-handle" />
-              {notificationPanel}
-            </div>
-          )}
-        </div>
-
-        <Link
-          href={profileHref}
-          className={`navbar-mobile-btn${isProfileActive ? ' active' : ''}`}
-          aria-label="Profile"
-        >
-          <div className="navbar-mobile-avatar">
-            {user?.avatar ? (
-              <img src={user.avatar} alt={displayName} className="navbar-mobile-avatar-img" />
-            ) : (
-              initials
-            )}
+            <button
+              type="button"
+              className="navbar-mobile-menu-link navbar-mobile-logout"
+              onClick={() => {
+                setMenuOpen(false);
+                logout?.();
+              }}
+            >
+              <LogOut size={18} strokeWidth={1.8} />
+              <span>Log out</span>
+            </button>
           </div>
-          <span>Profile</span>
-        </Link>
-      </nav>
-
-      {/* Backdrop for mobile notification sheet */}
-      {dropdownOpen && (
-        <div
-          className="notification-sheet-backdrop"
-          onClick={() => setDropdownOpen(false)}
-        />
+        </>
       )}
     </>
   );

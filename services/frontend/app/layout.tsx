@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Bodoni_Moda, Crimson_Text, DM_Mono, DM_Sans, Inter, Lora, Playfair_Display } from 'next/font/google';
-import Script from 'next/script';
+import { cookies } from 'next/headers';
 import './globals.css';
 import { AuthProvider } from '@/components/auth-provider';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -62,43 +62,38 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-// NOTE: this currently always resolves to 'dark' when there's no saved
-// preference, since both branches of the matchMedia ternary return 'dark'.
-// That's presumably intentional (dark-by-default), but flagging it in case
-// it wasn't — if you want the OS preference respected, the false branch
-// should be 'light'.
-const themeInitScript = `
-  (function() {
-    try {
-      var saved = localStorage.getItem('vs-theme');
-      var theme = saved === 'dark' || saved === 'light'
-        ? saved
-        : window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'dark';
-      document.documentElement.setAttribute('data-theme', theme);
-      document.documentElement.style.backgroundColor = theme === 'dark' ? '#0f172a' : '#ddeef8';
-      document.documentElement.style.colorScheme = theme;
-    } catch (e) {}
-  })();
-`;
+const THEME_COOKIE = 'vs-theme';
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Theme is resolved here, on the server, from the cookie the person's
+  // browser already sent with this request — so `data-theme` (and the
+  // matching background/color-scheme) is present in the very first byte
+  // of HTML we send back. There's no "unthemed" moment for the browser
+  // to paint before JS runs, which is what caused the light/dark flash.
+  //
+  // No saved cookie yet (first-ever visit) → default to 'dark', matching
+  // the previous client-side script's default.
+  const cookieStore = await cookies();
+  const savedTheme = cookieStore.get(THEME_COOKIE)?.value;
+  const theme: 'light' | 'dark' = savedTheme === 'light' ? 'light' : 'dark';
+
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <head>
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeInitScript }}
-        />
-      </head>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      data-theme={theme}
+      style={{
+        backgroundColor: theme === 'dark' ? '#0f172a' : '#ddeef8',
+        colorScheme: theme,
+      }}
+    >
       <body className={`${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${crimsonText.variable} ${lora.variable} ${dmSans.variable} ${dmMono.variable}`}>
-        <ThemeProvider>
+        <ThemeProvider initialTheme={theme}>
           <AuthProvider>
             <ProtectedRoute>{children}</ProtectedRoute>
           </AuthProvider>

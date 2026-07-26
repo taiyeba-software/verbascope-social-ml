@@ -133,6 +133,8 @@
 
   --vs-space-comment-gap: 18px;
   --vs-touch-target-min: 44px;
+  --v-on-accent: #F5F0E8;
+  
 }
 
 [data-theme='dark'] {
@@ -177,8 +179,36 @@
   --vs-accent-green: #4ade80;
   --vs-accent-red: #f87171;
   --vs-accent-orange: #fb923c;
+  --v-on-accent: #0a1110;
+
 
   color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --v-bg-primary:      #ddeef8;
+  --v-bg-secondary:    #cce4f4;
+  --v-bg-card:         #ffffff;
+  --v-bg-dark:         #0d2d3a;
+  --v-bg-light:        #f4fafd;
+  --v-bg-overlay:      rgba(13, 45, 58, 0.08);
+
+  --v-accent:          #0d2d3a;
+  --v-accent-soft:     #16465a;
+  --v-accent-border:   rgba(13, 45, 58, 0.3);
+
+  --v-text-primary:    #0d2d3a;
+  --v-text-secondary:  #4a7a8a;
+  --v-text-muted:      #7aa8b8;
+  --v-text-dark:       #0d2d3a;
+
+  --v-border:          rgba(13, 45, 58, 0.12);
+  --v-border-strong:   rgba(13, 45, 58, 0.22);
+  --v-border-line:     rgba(13, 45, 58, 0.35);
+  --v-on-accent: #F5F0E8;
+  
+
+  color-scheme: light;
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -505,11 +535,12 @@ a:hover {
 
 /* ── Avatar ────────────────────────────────────────────────── */
 .avatar {
+
   width: 38px;
   height: 38px;
   border-radius: var(--v-radius-full);
   background: var(--v-accent);
-  color: var(--v-text-secondary);
+  color: var(--v-on-accent);  
   display: flex;
   align-items: center;
   justify-content: center;
@@ -657,15 +688,22 @@ a:hover {
 
 .btn-primary {
   background: var(--v-accent);
-  color: var(--v-text-secondary);
+  color: var(--v-on-accent);          /* was --v-text-secondary */
   box-shadow: 0 2px 8px rgba(26, 42, 40, 0.2);
 }
 
 .btn-primary:hover {
   background: var(--v-accent-soft);
-  color: var(--v-text-primary);
+  color: var(--v-on-accent);          /* was --v-text-primary */
   box-shadow: 0 4px 12px rgba(26, 42, 40, 0.3);
   transform: translateY(-1px);
+}
+
+
+
+.btn-outline:hover {
+  background: var(--v-accent);
+  color: var(--v-on-accent);          /* was --v-text-secondary */
 }
 
 .btn-ghost {
@@ -686,10 +724,6 @@ a:hover {
   border: 1.5px solid var(--v-accent);
 }
 
-.btn-outline:hover {
-  background: var(--v-accent);
-  color: var(--v-text-secondary);
-}
 
 /* ── Inputs — Mission Data Entry ───────────────────────────── */
 .input {

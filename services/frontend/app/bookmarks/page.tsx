@@ -3,45 +3,42 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import FeedSkeleton from '@/components/FeedSkeleton';
-import SidebarSkeleton from '@/components/SidebarSkeleton';
-import CreatePostBox from '@/components/CreatePostBox';
+import BookmarkSkeleton from './BookmarkSkeleton';
 import { useAuth } from '@/hooks/useAuth';
-import { postApi, postService } from '@/lib/api/posts';
+import { postService } from '@/lib/api/posts';
 import { PostCard, type FeedPost } from '@/components/feed/PostCard';
 import { ShareSheet } from '@/components/feed/ShareSheet';
-import { MobileTrendingBar } from './MobileTrendingBar';
-import { WhoToFollowInline } from './WhoToFollowInline';
-import { Sidebar } from '@/components/feed/Sidebar';
-import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
 import {
   DEFAULT_COMMENT_STATE,
   type CommentState,
   type Comment,
 } from '@/components/feed/CommentSection';
-import './feed.css';
+import '../feed/feed.css';
 
-// Force this route to always render per-request instead of being
-// statically prerendered at build time.
+// Always render per-request — this is a personal, per-user list.
 export const dynamic = 'force-dynamic';
 
 type OpenComments = Record<string, CommentState>;
 
-export default function FeedPage() {
+type SavedPostsResponse = {
+  posts: FeedPost[];
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export default function BookmarksPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-
-  console.log('FeedPage rendered');
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [openComments, setOpenComments] = useState<OpenComments>({});
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
-
-  // Pulse signal / trending tags + live post:update / post:deleted sync
-  const { pulseSignal, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/auth/login');
@@ -51,37 +48,22 @@ export default function FeedPage() {
     if (!user) return;
     setFeedLoading(true);
     postService
-      .getFeed(page)
+      .getBookmarkedPosts(page)
       .then(({ data }) => {
-        const result = data as { posts: FeedPost[]; totalPages: number };
-        setPosts(result.posts ?? []);
-        setTotalPages(result.totalPages ?? 1);
+        const result = data as SavedPostsResponse;
+        // The saved-posts endpoint marks these as `isSaved`; normalize to the
+        // `bookmarkedByMe` field PostCard already reads everywhere else.
+        const normalized = (result.posts ?? []).map((p: any) => ({
+          ...p,
+          bookmarkedByMe: p.bookmarkedByMe ?? p.isSaved ?? true,
+        }));
+        setPosts(normalized);
+        setHasMore(result.hasMore ?? false);
+        setTotalPages(Math.max(1, Math.ceil((result.total ?? normalized.length) / (result.limit || 10))));
       })
-      .catch(() => {})
+      .catch(() => setPosts([]))
       .finally(() => setFeedLoading(false));
   }, [user, page]);
-
-  useEffect(() => {
-    const fetchTrending = async () => {
-      try {
-        const res = await postApi.get<{ trending: Array<string | { tag: string; count?: number }> }>(
-          '/api/posts/pulse/trending'
-        );
-        const next = res.data.trending
-          .map((item) => {
-            if (typeof item === 'string') return { tag: item };
-            if (!item?.tag) return null;
-            return { tag: item.tag, count: item.count != null ? `${item.count} posts` : undefined };
-          })
-          .filter((item): item is TrendingTag => Boolean(item));
-
-        if (next.length > 0) setTrendingTags(next);
-      } catch {
-        // trending is non-critical — socket will update it live
-      }
-    };
-    fetchTrending();
-  }, [setTrendingTags]);
 
   const handleLike = async (postId: string, isLiked: boolean) => {
     setPosts((cur) =>
@@ -151,26 +133,24 @@ export default function FeedPage() {
     }
   };
 
-  // ── Bookmark / save — optimistic toggle against the real save/unsave
-  // endpoints, with rollback if the request fails. ──
+  // ── Unbookmark — a post leaving the saved list means it disappears from
+  // this page entirely (unlike the feed, where it just toggles the icon). ──
   const handleBookmark = async (postId: string) => {
-    const target = posts.find((post) => post._id === postId);
-    const wasBookmarked = target?.bookmarkedByMe ?? false;
-
-    setPosts((cur) =>
-      cur.map((post) => (post._id === postId ? { ...post, bookmarkedByMe: !wasBookmarked } : post))
-    );
+    const removed = posts.find((post) => post._id === postId);
+    setPosts((cur) => cur.filter((post) => post._id !== postId));
 
     try {
-      if (wasBookmarked) {
-        await postService.unbookmarkPost(postId);
-      } else {
-        await postService.bookmarkPost(postId);
-      }
+      await postService.unbookmarkPost(postId);
     } catch {
-      setPosts((cur) =>
-        cur.map((post) => (post._id === postId ? { ...post, bookmarkedByMe: wasBookmarked } : post))
-      );
+      // Put it back where it was if the unsave failed server-side.
+      if (removed) {
+        setPosts((cur) => {
+          const idx = posts.indexOf(removed);
+          const next = [...cur];
+          next.splice(idx, 0, removed);
+          return next;
+        });
+      }
     }
   };
 
@@ -180,10 +160,6 @@ export default function FeedPage() {
     try {
       await postService.deletePost(postId);
     } catch {
-      postService.getFeed(page).then(({ data }) => {
-        const result = data as { posts: FeedPost[]; totalPages: number };
-        setPosts(result.posts ?? []);
-      });
       alert('Failed to delete post. Please try again.');
     }
   };
@@ -265,61 +241,40 @@ export default function FeedPage() {
     }
   };
 
-  // NOTE: the old `if (isLoading) { return <bare skeleton> }` branch that
-  // used to live here has been removed. ProtectedRoute (in the root
-  // layout) already renders the correct, full skeleton — with Navbar,
-  // CreatePostBox, and the sidebar — for the entire duration that
-  // isLoading is true, and only mounts FeedPage's children once loading
-  // is done. That made this branch dead code in the normal case, but it
-  // was a bare, sidebar-less version that didn't match ProtectedRoute's
-  // fallback — so if it ever did render for even one frame, it looked
-  // like a second, "wrong" skeleton. Removing it means there's only ever
-  // one possible loading appearance for this route.
-
   if (!user) return null;
 
   return (
     <div className="feed-layout">
       <Navbar />
 
-      <main className="feed-main">
-        <CreatePostBox onPost={(newPost) => setPosts((cur) => [{ ...newPost, commentsCount: 0 } as FeedPost, ...cur])} />
-
-        {/* Mobile trending bar — hidden on desktop via CSS */}
-        <MobileTrendingBar trendingTags={trendingTags} />
+      <main className="feed-main" style={{ marginInline: 'auto' }}>
+        <h1 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '4px 0 16px' }}>Your Bookmarks</h1>
 
         {feedLoading ? (
-          <FeedSkeleton />
+          <BookmarkSkeleton/>
         ) : posts.length === 0 ? (
           <div className="feed-empty">
-            <div className="feed-empty-icon">📡</div>
-            <div className="feed-empty-title">No posts yet</div>
-            <p>Be the first to share something with the community.</p>
+            <div className="feed-empty-icon">🔖</div>
+            <div className="feed-empty-title">No saved posts yet</div>
+            <p>Tap the bookmark icon on any post to save it for later.</p>
           </div>
         ) : (
           <>
-            {posts.map((post, index) => (
-              <div key={post._id}>
-                <PostCard
-                  post={post}
-                  commentState={openComments[post._id] ?? DEFAULT_COMMENT_STATE}
-                  currentUserId={user?._id ?? user?.id}
-                  onLike={handleLike}
-                  onShare={handleShare}
-                  onBookmark={handleBookmark}
-                  onDelete={handleDeletePost}
-                  onToggleComments={toggleComments}
-                  onCommentInput={handleCommentInput}
-                  onSubmitComment={handleSubmitComment}
-                  onDeleteComment={handleDeleteComment}
-                />
-                {/* Inject "People you may know" after every 4th post — mobile only */}
-                {(index + 1) % 4 === 0 && (
-                  <div className="mobile-only">
-                    <WhoToFollowInline />
-                  </div>
-                )}
-              </div>
+            {posts.map((post) => (
+              <PostCard
+                key={post._id}
+                post={post}
+                commentState={openComments[post._id] ?? DEFAULT_COMMENT_STATE}
+                currentUserId={user?._id ?? (user as any)?.id}
+                onLike={handleLike}
+                onShare={handleShare}
+                onBookmark={handleBookmark}
+                onDelete={handleDeletePost}
+                onToggleComments={toggleComments}
+                onCommentInput={handleCommentInput}
+                onSubmitComment={handleSubmitComment}
+                onDeleteComment={handleDeleteComment}
+              />
             ))}
 
             {totalPages > 1 && (
@@ -330,7 +285,7 @@ export default function FeedPage() {
                 <span>
                   Page {page} of {totalPages}
                 </span>
-                <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>
+                <button type="button" onClick={() => setPage((p) => p + 1)} disabled={!hasMore}>
                   Next →
                 </button>
               </div>
@@ -338,17 +293,6 @@ export default function FeedPage() {
           </>
         )}
       </main>
-
-      {feedLoading ? (
-        <aside className="feed-sidebar">
-          <SidebarSkeleton />
-        </aside>
-      ) : (
-        <Sidebar
-          pulseSignal={pulseSignal}
-          trendingTags={trendingTags}
-        />
-      )}
 
       {shareSheet && (
         <ShareSheet

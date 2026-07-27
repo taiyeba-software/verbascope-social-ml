@@ -71,8 +71,14 @@ export function Sidebar({
           recData.recommendations.map((r) => [r.userId, r.sharedInterests])
         );
 
-        const merged: RecommendedUser[] = usersData.users
-          .filter((u) => u._id !== user._id)
+        const rawUsers = Array.isArray(usersData?.users)
+          ? usersData.users
+          : Array.isArray(usersData)
+            ? usersData
+            : [];
+
+        const merged: RecommendedUser[] = rawUsers
+          .filter((u) => u && user && u._id !== user._id)
           .map((u) => ({ ...u, sharedInterests: interestMap[u._id] ?? [] }));
 
         setRecommendations(merged);

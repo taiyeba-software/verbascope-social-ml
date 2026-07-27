@@ -10,6 +10,7 @@ import { sharePost, unsharePost } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
 import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
+import { savePost, unsavePost, getSavedPosts } from '../controllers/savedPost.controller.js';
 
 const router = Router();
 
@@ -29,6 +30,14 @@ router.get('/:id/pulse/mood', protect, getCommentMood);
 router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);
 router.get('/feed',                           protect,                  getFeed);
 router.get('/user/:userId',                   protect,                  getPostsByUser);
+
+// ── Saved post routes ─────────────────────────────────────────────────
+// NOTE: '/saved' MUST be registered before the generic '/:id' route just
+// below. Express matches routes top-to-bottom, so if '/:id' came first,
+// a request to GET /api/posts/saved would match '/:id' with id="saved"
+// and get routed into getPost instead of getSavedPosts.
+router.get('/saved',                          protect,                  getSavedPosts);
+
 router.get('/:id',                            protect,                  getPost);
 router.delete('/:id',                         protect,                  deletePost);
 
@@ -39,6 +48,10 @@ router.delete('/:id/unlike',                  protect,                  unlikePo
 // ── Share routes ────────────────────────────────────────────────────
 router.post('/:id/share',                     protect,                  sharePost);
 router.delete('/:id/unshare',                 protect,                  unsharePost);
+
+// ── Save routes ──────────────────────────────────────────────────────
+router.post('/:id/save',                      protect,                  savePost);
+router.delete('/:id/unsave',                  protect,                  unsavePost);
 
 // ── Comment routes ───────────────────────────────────────────────────
 router.post('/:id/comment',                   protect, validateComment, addComment);

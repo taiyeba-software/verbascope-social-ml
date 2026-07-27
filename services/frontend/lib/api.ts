@@ -214,6 +214,17 @@ export const postService = {
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),
 
+  // ── Saved / bookmarked posts ──────────────────────────────────────
+  // Matches: POST /:id/save, DELETE /:id/unsave, GET /saved on posts.routes.js
+  bookmarkPost: (id: string) =>
+    postApi.post(`/api/posts/${id}/save`),
+
+  unbookmarkPost: (id: string) =>
+    postApi.delete(`/api/posts/${id}/unsave`),
+
+  getBookmarkedPosts: (page = 1, limit = 10) =>
+    postApi.get(`/api/posts/saved?page=${page}&limit=${limit}`),
+
   recordDwell: (postId: string, duration: number) =>
     postApi.post('/api/posts/dwell', { postId, duration }),
 

@@ -126,6 +126,8 @@ export const addComment = async (req, res) => {
 			}
 		}).catch(() => {});
 
+		// avatar added alongside fullname so comment authors render their
+		// real photo instead of always falling back to initials
 		const populated = await comment.populate('user', 'fullname avatar');
 		return res.status(201).json({
 			success: true,

@@ -3,7 +3,7 @@ import type { Post } from '@/types';
 export type Comment = {
   _id: string;
   content: string;
-  author?: { fullname?: { firstName?: string; lastName?: string } } | string | null;
+  author?: { fullname?: { firstName?: string; lastName?: string }; avatar?: string } | string | null;
   createdAt?: string;
 };
 

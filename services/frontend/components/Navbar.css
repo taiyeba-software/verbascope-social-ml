@@ -570,13 +570,12 @@
   .navbar-search {
     max-width: none;
   }
-}
 
-@media (max-width: 480px) {
-  .navbar-end {
-    gap: 6px;
+  .navbar-user-avatar {
+    width: 28px;
+    height: 28px;
   }
-}
+}         
 
 /* ──────────────────────────────────────────────────────────
    Navbar Component — Dark Theme Overrides

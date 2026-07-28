@@ -21,6 +21,29 @@ const upsertUser = async (payload) => {
 	);
 };
 
+// Handles profile changes (avatar, name) made after signup. Kept separate
+// from upsertUser: this only ever updates an existing doc, and only the
+// fields actually included in the payload, so it never clobbers a field
+// (like email/role) that user_updated doesn't carry.
+const applyUserUpdate = async (payload) => {
+	if (!payload?.id) return;
+
+	const setFields = {};
+	if (payload.fullname !== undefined) setFields.fullname = payload.fullname;
+	if (payload.avatar !== undefined) setFields.avatar = payload.avatar;
+
+	if (Object.keys(setFields).length === 0) return;
+
+	// upsert: true as a safety net in case a user_updated event somehow
+	// arrives before user_created has been processed (e.g. queue replay,
+	// out-of-order delivery) — same reasoning as upsertUser above.
+	await User.findByIdAndUpdate(
+		payload.id,
+		{ $set: setFields },
+		{ upsert: true, new: true, setDefaultsOnInsert: true }
+	);
+};
+
 const consumeQueue = async (queueName, handler) => {
 	await channel.assertQueue(queueName, { durable: true });
 	await channel.consume(queueName, async (message) => {
@@ -84,6 +107,7 @@ export const connect = async () => {
 		await channel.assertQueue('notification_created', { durable: true });
 
 		await consumeQueue('user_created', upsertUser);
+		await consumeQueue('user_updated', applyUserUpdate);
 
 		console.log('RabbitMQ connected (post-service)');
 		return true;

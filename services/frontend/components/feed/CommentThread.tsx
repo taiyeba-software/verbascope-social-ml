@@ -2,7 +2,14 @@
 
 import { useState } from 'react';
 import { SendIcon } from './icons';
-import { safeAuthorName, safeAuthorInitials, getAvatarColor, getAvatarSeed, type Comment } from './feedHelpers';
+import {
+  safeAuthorName,
+  safeAuthorInitials,
+  getAuthorAvatarUrl,
+  getAvatarColor,
+  getAvatarSeed,
+  type Comment,
+} from './feedHelpers';
 import { postService } from '@/lib/api';
 import './CommentThread.css';
 
@@ -128,10 +135,21 @@ export function CommentThread({
   const authorId = (comment.author as { _id?: string } | undefined)?._id;
   const isOwnComment = !!currentUserId && !!authorId && currentUserId === authorId;
 
+  // Same avatar/initials fallback logic PostCard already uses — reused
+  // via getAuthorAvatarUrl() rather than duplicated here.
+  const avatarUrl = getAuthorAvatarUrl(comment.author);
+
   return (
     <div className={`thread-item${depth === 0 ? ' thread-item--top' : ''}`}>
-      <div className="thread-avatar" style={{ background: getAvatarColor(getAvatarSeed(comment.author)) }}>
-        {safeAuthorInitials(comment.author)}
+      <div
+        className="thread-avatar"
+        style={avatarUrl ? undefined : { background: getAvatarColor(getAvatarSeed(comment.author)) }}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={safeAuthorName(comment.author)} />
+        ) : (
+          safeAuthorInitials(comment.author)
+        )}
       </div>
 
       <div className="thread-content">

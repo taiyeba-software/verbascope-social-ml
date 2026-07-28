@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import userModel from '../model/user.model.js';
 import { uploadToImageKit, deleteOldAvatars } from '../utils/imagekit.js';
 import { generateAvatarFileName } from '../middlewares/avatarUpload.middleware.js';
+import { publishToQueue } from '../broker/rabbit.js';
 
 // GET /api/users/:id - Public Profile Info
 export const getUserProfile = async (req, res) => {
@@ -74,6 +75,17 @@ export const updateProfile = async (req, res) => {
       .findByIdAndUpdate(userId, { $set: updateFields }, { new: true })
       .select('-password');
 
+    // ── keep post-service's local User copy in sync ──
+    // Only fullname/avatar are relevant to other services (bio/headline
+    // aren't consumed anywhere else today), but we always send the
+    // current values so a partial update never overwrites good data
+    // with stale data on the consumer side.
+    publishToQueue('user_updated', {
+      id: updatedUser._id,
+      fullname: updatedUser.fullname,
+      avatar: updatedUser.avatar,
+    }).catch(() => {});
+
     return res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
@@ -124,6 +136,16 @@ export const updateAvatar = async (req, res) => {
     // New avatar is already saved and will be returned below — cleanup
     // runs after the response-critical work is done and never blocks it.
     deleteOldAvatars(userId, fileId);
+
+    // ── keep post-service's local User copy in sync ──
+    // Without this, post-service (and anything else consuming
+    // user_created/user_updated) keeps showing whatever avatar the user
+    // had at signup — which is usually none — forever.
+    publishToQueue('user_updated', {
+      id: updatedUser._id,
+      fullname: updatedUser.fullname,
+      avatar: updatedUser.avatar,
+    }).catch(() => {});
 
     return res.status(200).json({
       success: true,

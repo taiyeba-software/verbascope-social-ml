@@ -16,6 +16,28 @@
    on every route) instead of the feed-scoped --vs- tokens.
    ────────────────────────────────────────────────────────── */
 
+
+@media (max-width: 640px) {
+  .post-card {
+    padding: var(--v-space-md);
+    border-radius: var(--v-radius-md);
+  }
+
+  .post-action-btn span {
+    display: none;
+  }
+
+  .post-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .comment-avatar {
+    width: 26px;
+    height: 26px;
+  }
+}
+
 .post-card {
   --pc-accent: var(--v-signal-green);
   --pc-accent-mid: var(--v-accent-soft);
@@ -337,16 +359,7 @@
   }
 }
 
-@media (max-width: 640px) {
-  .post-card {
-    padding: var(--v-space-md);
-    border-radius: var(--v-radius-md);
-  }
 
-  .post-action-btn span {
-    display: none;
-  }
-}
 
 /* ──────────────────────────────────────────────────────────
    Post Images — single image

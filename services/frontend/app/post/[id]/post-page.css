@@ -1,0 +1,109 @@
+.post-page-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.post-page-main {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 var(--v-space-md) 60px;
+}
+
+.post-page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-md);
+  padding: var(--v-space-md) 0;
+  position: sticky;
+  top: 0;
+  background: var(--v-bg-page, var(--v-bg-body));
+  z-index: 5;
+}
+
+.post-page-back-btn {
+  background: none;
+  border: none;
+  color: var(--v-text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--v-radius-full);
+  transition: background var(--v-transition);
+  line-height: 1;
+}
+
+.post-page-back-btn:hover {
+  background: var(--v-signal-green-bg);
+}
+
+.post-page-title {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--v-text-primary);
+}
+
+.post-page-copy-link-btn {
+  background: none;
+  border: 1px solid var(--v-border);
+  color: var(--v-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--v-radius-full);
+  cursor: pointer;
+  transition: all var(--v-transition);
+}
+
+.post-page-copy-link-btn:hover {
+  border-color: var(--v-signal-green);
+  color: var(--v-signal-green);
+}
+
+.post-page-skeleton {
+  height: 260px;
+  border-radius: var(--v-radius-lg);
+  background: linear-gradient(
+    90deg,
+    var(--v-bg-card) 25%,
+    rgba(255, 255, 255, 0.06) 37%,
+    var(--v-bg-card) 63%
+  );
+  background-size: 400% 100%;
+  animation: post-page-shimmer 1.4s ease infinite;
+}
+
+@keyframes post-page-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.post-page-not-found {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--v-text-muted);
+}
+
+.post-page-not-found-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--v-space-md);
+}
+
+.post-page-not-found-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--v-text-primary);
+  margin-bottom: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post-page-skeleton {
+    animation: none;
+  }
+}

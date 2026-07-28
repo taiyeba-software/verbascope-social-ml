@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
+import SavedPost from '../models/savedPost.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { uploadToImageKit } from '../utils/imagekit.js';
@@ -18,11 +19,17 @@ const extractTags = (text = '') =>
 const countWords = (text = '') =>
   (text.match(/\S+/g) ?? []).length;
 
-const addStateFlags = (posts, userId) =>
+// `savedPostIds` is a Set of post-id strings the current user has bookmarked
+// (looked up from the SavedPost join collection — saves are NOT stored on
+// the Post doc itself, unlike likedBy/sharedBy). Defaults to an empty Set so
+// any existing caller that doesn't pass one just gets bookmarkedByMe: false
+// instead of throwing.
+const addStateFlags = (posts, userId, savedPostIds = new Set()) =>
   posts.map((post) => ({
     ...post,
-    likedByMe:  post.likedBy?.some((id) => id.toString() === userId) || false,
-    sharedByMe: post.sharedBy?.some((id) => id.toString() === userId) || false,
+    likedByMe:      post.likedBy?.some((id) => id.toString() === userId) || false,
+    sharedByMe:     post.sharedBy?.some((id) => id.toString() === userId) || false,
+    bookmarkedByMe: savedPostIds.has(post._id.toString()),
     isOwner:
       post.author?._id?.toString() === userId ||
       post.author?.toString() === userId,
@@ -101,9 +108,21 @@ export const getFeed = async (req, res) => {
       usersRes.data.users.map((u) => [u._id.toString(), u])
     );
 
-    const enriched     = posts.map((p) => ({ ...p, author: userMap[p.author.toString()] || null }));
-    const postsWithState = addStateFlags(enriched, userId);
-    const total          = await Post.countDocuments();
+    // Which of THIS page's posts has the current user already saved?
+    // Scoped to `posts` (not a global "all my saves" query) since that's
+    // all addStateFlags needs, and it keeps this cheap even for users
+    // with a large saved-posts history.
+    const savedDocs = await SavedPost.find({
+      user: userId,
+      post: { $in: posts.map((p) => p._id) },
+    })
+      .select('post')
+      .lean();
+    const savedPostIds = new Set(savedDocs.map((d) => d.post.toString()));
+
+    const enriched        = posts.map((p) => ({ ...p, author: userMap[p.author.toString()] || null }));
+    const postsWithState  = addStateFlags(enriched, userId, savedPostIds);
+    const total            = await Post.countDocuments();
 
     return res.status(200).json({
       success: true,
@@ -136,7 +155,11 @@ export const getPost = async (req, res) => {
     });
     post.author = usersRes.data.users?.[0] || null;
 
-    const [postWithState] = addStateFlags([post], req.user.id);
+    // Single-post version of the same saved-lookup used in getFeed.
+    const isSaved      = await SavedPost.exists({ user: req.user.id, post: post._id });
+    const savedPostIds = isSaved ? new Set([post._id.toString()]) : new Set();
+
+    const [postWithState] = addStateFlags([post], req.user.id, savedPostIds);
     return res.status(200).json({ success: true, post: postWithState });
   } catch (err) {
     console.error('getPost error:', err);

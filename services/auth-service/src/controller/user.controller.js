@@ -10,11 +10,22 @@ export const getUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.isValidObjectId(id)) {
+    // Frontend contract (see userService.getUserProfile in api.ts): id can
+    // be a real ObjectId, or the literal "me" for the logged-in user's own
+    // profile. This route always runs behind authenticateToken, so
+    // req.user is guaranteed to exist here.
+    const targetId = id === 'me' ? req.user.id : id;
+
+    if (!mongoose.isValidObjectId(targetId)) {
       return res.status(400).json({ success: false, message: 'Invalid user id' });
     }
 
-    const user = await userModel.findById(id).select('-password');
+    // Only pull the fields the public profile response actually needs.
+    // Excludes password (as before) plus email/role/googleID/interests,
+    // none of which belong in a public-facing profile payload.
+    const user = await userModel
+      .findById(targetId)
+      .select('fullname avatar headline bio followers following createdAt');
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -22,14 +33,34 @@ export const getUserProfile = async (req, res) => {
 
     const followersCount = user.followers ? user.followers.length : 0;
     const followingCount = user.following ? user.following.length : 0;
-    const isFollowing = req.user ? user.followers.includes(req.user.id) : false;
 
+    // BUG FIX: `followers` is an array of Mongoose ObjectId instances,
+    // while req.user.id is a string. Array.prototype.includes() does a
+    // strict equality check, so ObjectId.includes(string) is always
+    // false — isFollowing never returned true for anyone. Compare via
+    // .toString() on each element instead.
+    let isFollowing = false;
+    if (req.user) {
+      isFollowing = user.followers.some(
+        (followerId) => followerId.toString() === req.user.id.toString()
+      );
+    }
+
+    // Return only the whitelisted shape — not the full followers/following
+    // ObjectId arrays (those are what followersCount/followingCount are
+    // derived from, not something the profile response should expose
+    // directly), and map createdAt -> joinedAt.
     return res.status(200).json({
       success: true,
       user: {
-        ...user.toObject(),
+        _id: user._id,
+        fullname: user.fullname,
+        avatar: user.avatar,
+        headline: user.headline,
+        bio: user.bio,
         followersCount,
         followingCount,
+        joinedAt: user.createdAt,
         isFollowing,
       },
     });

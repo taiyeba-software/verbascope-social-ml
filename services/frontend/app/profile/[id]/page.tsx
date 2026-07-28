@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileTabs from '@/components/profile/ProfileTabs';
 import ProfilePosts from '@/components/profile/ProfilePosts';
@@ -19,6 +19,23 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const myId = currentUser?._id ?? currentUser?.id;
   const isOwnProfile = !!myId && (id === 'me' || myId === id);
   const targetUserId = id === 'me' ? myId : id;
+
+  // BUG FIX: /profile/[id] is one route pattern reused for every profile,
+  // so navigating from your own profile to someone else's (or vice versa)
+  // via client-side Link does NOT remount ProfilePage — activeTab state
+  // survives the navigation. Without this reset, viewing your own "Saved"
+  // tab and then clicking through to another user's profile left
+  // activeTab stuck on "saved": ProfileTabs correctly hides the Saved
+  // button (isOwnProfile is now false), but ProfilePosts was still being
+  // called with activeTab="saved", which calls getSavedPosts() — an
+  // endpoint that always returns the logged-in viewer's own bookmarks
+  // regardless of whose profile is showing. That silently displayed your
+  // saved posts under a stranger's profile header. Resetting to "posts"
+  // on every id change also matches the expected UX (Instagram/X-style:
+  // visiting any profile always starts on its Posts tab).
+  useEffect(() => {
+    setActiveTab('posts');
+  }, [id]);
 
   return (
     <div className="profile-page-shell">

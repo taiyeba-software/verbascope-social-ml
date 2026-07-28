@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { SendIcon } from './icons';
 import {
   safeAuthorName,
@@ -135,26 +136,51 @@ export function CommentThread({
   const authorId = (comment.author as { _id?: string } | undefined)?._id;
   const isOwnComment = !!currentUserId && !!authorId && currentUserId === authorId;
 
+  // Same as PostCard's authorHref: only render a profile link when there's
+  // a real id to link to (comment.author can be missing for deleted users).
+  const authorHref = authorId ? `/profile/${authorId}` : undefined;
+
   // Same avatar/initials fallback logic PostCard already uses — reused
   // via getAuthorAvatarUrl() rather than duplicated here.
   const avatarUrl = getAuthorAvatarUrl(comment.author);
 
+  const avatarEl = (
+    <div
+      className="thread-avatar"
+      style={avatarUrl ? undefined : { background: getAvatarColor(getAvatarSeed(comment.author)) }}
+    >
+      {avatarUrl ? (
+        <img src={avatarUrl} alt={safeAuthorName(comment.author)} />
+      ) : (
+        safeAuthorInitials(comment.author)
+      )}
+    </div>
+  );
+
   return (
     <div className={`thread-item${depth === 0 ? ' thread-item--top' : ''}`}>
-      <div
-        className="thread-avatar"
-        style={avatarUrl ? undefined : { background: getAvatarColor(getAvatarSeed(comment.author)) }}
-      >
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={safeAuthorName(comment.author)} />
-        ) : (
-          safeAuthorInitials(comment.author)
-        )}
-      </div>
+      {authorHref ? (
+        <Link
+          href={authorHref}
+          className="thread-avatar-link"
+          style={{ display: 'contents' }}
+          aria-label={`View ${safeAuthorName(comment.author)}'s profile`}
+        >
+          {avatarEl}
+        </Link>
+      ) : (
+        avatarEl
+      )}
 
       <div className="thread-content">
         <div className="thread-header">
-          <span className="thread-author">{safeAuthorName(comment.author)}</span>
+          {authorHref ? (
+            <Link href={authorHref} className="thread-author-link" style={{ color: 'inherit', textDecoration: 'none' }}>
+              <span className="thread-author">{safeAuthorName(comment.author)}</span>
+            </Link>
+          ) : (
+            <span className="thread-author">{safeAuthorName(comment.author)}</span>
+          )}
 
           <ThreadSentimentBadge sentiment={comment.sentiment} />
 

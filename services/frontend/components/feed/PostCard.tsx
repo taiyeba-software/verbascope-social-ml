@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type Ref } from 'react';
+import Link from 'next/link';
 import type { Post } from '@/types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon, GlobeIcon } from './icons';
 import { PostMoreMenu } from './PostMoreMenu';
@@ -20,7 +21,7 @@ import './PostCard.css';
 
 export type FeedPost = Post & {
   bookmarkedByMe?: boolean;
-  commentsCount: number;
+  commentsCount: number;   
   sharesCount?: number;
   tags?: string[];
   createdAt?: string;
@@ -159,6 +160,13 @@ export function PostCard({
   const dwellRef = useDwellTracker(post._id);
   const authorAvatarUrl = getAuthorAvatarUrl(post.author);
 
+  // Post authors can be null/undefined for deleted-user edge cases (same
+  // reasoning as safeAuthorName/safeAuthorInitials already handling that
+  // gracefully) — only render a profile link when there's a real id to
+  // link to, otherwise fall back to the old, non-clickable rendering.
+  const authorId = post.author && typeof post.author === 'object' ? (post.author as { _id?: string })._id : undefined;
+  const authorHref = authorId ? `/profile/${authorId}` : undefined;
+
   const handleLikeClick = () => {
     const wasLiked = post.likedByMe ?? false;
     onLike(post._id, wasLiked);
@@ -173,22 +181,43 @@ export function PostCard({
     }
   };
 
+  const avatarEl = (
+    <div
+      className="post-avatar"
+      style={authorAvatarUrl ? undefined : { background: getAvatarColor(getAvatarSeed(post.author)) }}
+    >
+      {authorAvatarUrl ? (
+        <img src={authorAvatarUrl} alt={safeAuthorName(post.author)} />
+      ) : (
+        safeAuthorInitials(post.author)
+      )}
+    </div>
+  );
+
   return (
     <article className="post-card" ref={dwellRef as Ref<HTMLElement>}>
       <div className="post-header">
         <div className="post-author-info">
-          <div
-            className="post-avatar"
-            style={authorAvatarUrl ? undefined : { background: getAvatarColor(getAvatarSeed(post.author)) }}
-          >
-            {authorAvatarUrl ? (
-              <img src={authorAvatarUrl} alt={safeAuthorName(post.author)} />
-            ) : (
-              safeAuthorInitials(post.author)
-            )}
-          </div>
+          {authorHref ? (
+            <Link
+              href={authorHref}
+              className="post-author-avatar-link"
+              style={{ display: 'contents' }}
+              aria-label={`View ${safeAuthorName(post.author)}'s profile`}
+            >
+              {avatarEl}
+            </Link>
+          ) : (
+            avatarEl
+          )}
           <div>
-            <span className="post-author-name">{safeAuthorName(post.author)}</span>
+            {authorHref ? (
+              <Link href={authorHref} className="post-author-name-link" style={{ color: 'inherit', textDecoration: 'none' }}>
+                <span className="post-author-name">{safeAuthorName(post.author)}</span>
+              </Link>
+            ) : (
+              <span className="post-author-name">{safeAuthorName(post.author)}</span>
+            )}
             <div className="post-meta">
               <span className="post-time">{timeAgo(post.createdAt)}</span>
               <span className="post-visibility">

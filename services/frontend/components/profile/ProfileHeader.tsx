@@ -5,7 +5,7 @@ import { Users, UserPlus, UserCheck, Pencil, Check, X, Camera, Loader2 } from 'l
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthContext } from '@/components/auth-provider';
 import { userService } from '@/lib/api';
-import type { User, FollowerRef } from '@/types';
+import type { User } from '@/types';
 import './ProfileHeader.css';
 
 interface ProfileHeaderProps {
@@ -19,21 +19,28 @@ const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gi
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 /* ── Helpers ─────────────────────────────────────────────── */
-function getId(ref: string | FollowerRef): string {
-  return typeof ref === 'string' ? ref : ref._id;
-}
-
 function initialsOf(user: User): string {
   const f = user.fullname?.firstName?.[0] ?? '';
   const l = user.fullname?.lastName?.[0] ?? '';
   return (f + l).toUpperCase() || 'U';
 }
 
+// Shape returned by GET /api/users/:id — see auth-service's getUserProfile.
+// Deliberately does NOT carry the raw followers/following ObjectId arrays;
+// only the derived counts and isFollowing flag, per the public-profile
+// response contract.
+type PublicProfile = User & {
+  followersCount?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
+  joinedAt?: string;
+};
+
 export default function ProfileHeader({ userId }: ProfileHeaderProps) {
   const { user: currentUser } = useAuth();
   const { updateUser } = useAuthContext();
 
-  const [profile, setProfile] = useState<User | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -64,10 +71,14 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
       .getUserProfile(userId)
       .then((res: any) => {
         if (cancelled) return;
-        const fetched: User = res.data.user;
+        const fetched: PublicProfile = res.data.user;
         setProfile(fetched);
         setEditHeadline(fetched.headline ?? '');
         setEditBio(fetched.bio ?? '');
+        // GET /api/users/:id already computes isFollowing server-side
+        // (comparing the target's followers list against req.user.id) —
+        // no need to recompute it from a raw array on the client.
+        setIsFollowing(fetched.isFollowing ?? false);
       })
       .catch(() => {
         if (!cancelled) setNotFound(true);
@@ -80,14 +91,6 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
       cancelled = true;
     };
   }, [userId]);
-
-  /* ── Derive follow state once both profile and currentUser are known ── */
-  useEffect(() => {
-    if (!profile || !currentUser) return;
-    const myId = currentUser._id ?? currentUser.id;
-    const followers = profile.followers ?? [];
-    setIsFollowing(followers.some((f) => getId(f) === myId));
-  }, [profile, currentUser]);
 
   // Revoke the local object URL whenever it's replaced or the component
   // unmounts, so we don't leak blob URLs across repeated avatar changes.
@@ -108,6 +111,15 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
     const wasFollowing = isFollowing;
     setFollowBusy(true);
     setIsFollowing(!wasFollowing); // optimistic
+    // Keep the displayed follower count in sync with the optimistic toggle.
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            followersCount: Math.max(0, (prev.followersCount ?? 0) + (wasFollowing ? -1 : 1)),
+          }
+        : prev
+    );
 
     try {
       if (wasFollowing) {
@@ -118,6 +130,14 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
     } catch (err) {
       console.error('follow toggle failed, reverting:', err);
       setIsFollowing(wasFollowing); // rollback
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              followersCount: Math.max(0, (prev.followersCount ?? 0) + (wasFollowing ? 1 : -1)),
+            }
+          : prev
+      );
     } finally {
       setFollowBusy(false);
     }
@@ -139,7 +159,17 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
         headline: editHeadline,
       });
       const updated: User = res.data.user;
-      setProfile(updated);
+
+      // NOTE: PATCH /api/users/profile returns the full user document
+      // (auth-service's own shape), not the trimmed public-profile shape
+      // from GET /api/users/:id — it has no followersCount/followingCount/
+      // isFollowing fields. Merge in only the fields this endpoint
+      // actually changes, so we don't clobber the counts we already have.
+      setProfile((prev) =>
+        prev
+          ? { ...prev, bio: updated.bio, headline: updated.headline, fullname: updated.fullname, avatar: updated.avatar }
+          : prev
+      );
 
       // Only own-profile edits should overwrite the shared auth-context user —
       // viewing someone else's profile never reaches this branch anyway
@@ -199,7 +229,9 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
       const res: any = await userService.updateAvatar(formData);
       const updated: User = res.data.user;
 
-      setProfile(updated);
+      // Same reasoning as saveEdit above: only merge the field this
+      // endpoint actually changes, keep the counts we already fetched.
+      setProfile((prev) => (prev ? { ...prev, avatar: updated.avatar } : prev));
       setAvatarPreview(null); // real CDN url from `updated.avatar` takes over
 
       // This is the "sync everywhere" step: pushing the updated user into
@@ -245,8 +277,11 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
     );
   }
 
-  const followerCount = profile.followers?.length ?? 0;
-  const followingCount = profile.following?.length ?? 0;
+  // Both now come straight from the API response instead of being
+  // derived from raw followers/following arrays, which GET /api/users/:id
+  // no longer returns.
+  const followerCount = profile.followersCount ?? 0;
+  const followingCount = profile.followingCount ?? 0;
   const fullName = `${profile.fullname?.firstName ?? ''} ${profile.fullname?.lastName ?? ''}`.trim();
   const displayedAvatar = avatarPreview ?? profile.avatar;
 

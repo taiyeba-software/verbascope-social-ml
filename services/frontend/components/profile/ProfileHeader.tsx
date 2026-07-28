@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Users, UserPlus, UserCheck, Pencil, Check, X, Camera, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthContext } from '@/components/auth-provider';
-import { userService } from '@/lib/api';
+import { userService, postService } from '@/lib/api';
 import type { User } from '@/types';
 import './ProfileHeader.css';
 
@@ -194,6 +194,31 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
   }
 
   /* ── Avatar upload ── */
+
+  // Facebook-style "Updated profile photo" post — best-effort only. This
+  // reuses the exact File the user just picked (already validated for
+  // type/size above) rather than trying to pass the freshly-uploaded
+  // ImageKit avatar URL through, since createPost's /api/posts endpoint
+  // takes a file upload, not an arbitrary external URL. That does mean
+  // the same image gets uploaded to ImageKit twice — once for the avatar,
+  // once as a normal post image — which is a small storage/bandwidth
+  // tradeoff for not needing any backend changes.
+  //
+  // Deliberately does NOT block or roll back the avatar update itself on
+  // failure — same "cleanup/side-effect failures are logged, never
+  // surfaced" principle used elsewhere in this codebase for avatar
+  // cleanup and RabbitMQ publishes.
+  async function announceAvatarUpdate(file: File) {
+    try {
+      const formData = new FormData();
+      formData.append('content', 'Updated profile photo');
+      formData.append('images', file);
+      await postService.createPost(formData);
+    } catch (err) {
+      console.error('Failed to create avatar-update announcement post:', err);
+    }
+  }
+
   function handleAvatarClick() {
     if (!isOwnProfile || avatarUploading) return;
     fileInputRef.current?.click();
@@ -242,6 +267,11 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
       if (isOwnProfile) {
         updateUser(updated);
       }
+
+      // Fire-and-forget: the avatar update has already fully succeeded
+      // and been reflected in the UI above, so this runs after and never
+      // blocks on it.
+      announceAvatarUpdate(file);
     } catch (err) {
       console.error('Avatar upload failed:', err);
       setAvatarError('Upload failed. Please try again.');

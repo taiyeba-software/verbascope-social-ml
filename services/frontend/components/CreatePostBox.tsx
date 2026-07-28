@@ -81,12 +81,21 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
     ? `${user?.fullname?.firstName?.[0] ?? ''}${user?.fullname?.lastName?.[0] ?? ''}`.toUpperCase() || 'U'
     : 'U';
 
+  // Same "" vs undefined guard as PostCard's getAuthorAvatarUrl — a user
+  // with no avatar yet has avatar: "" from the API, not a missing key, so
+  // a plain `user?.avatar` truthiness check alone would have been enough
+  // here, but the explicit trim() keeps this consistent with the same
+  // check everywhere else avatars are rendered.
+  const avatarUrl = user?.avatar && user.avatar.trim() !== '' ? user.avatar : undefined;
+
   const firstName = user?.fullname?.firstName ?? 'there';
 
   return (
     <form className="create-post-box" onSubmit={handleSubmit}>
       <div className="create-post-header">
-        <div className="create-post-avatar">{initials}</div>
+        <div className="create-post-avatar">
+          {avatarUrl ? <img src={avatarUrl} alt={firstName} /> : initials}
+        </div>
         <input
           type="text"
           className="create-post-input"

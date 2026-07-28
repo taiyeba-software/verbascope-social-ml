@@ -225,6 +225,12 @@ export const postService = {
   getBookmarkedPosts: (page = 1, limit = 10) =>
     postApi.get(`/api/posts/saved?page=${page}&limit=${limit}`),
 
+  getUserPosts: (userId: string) =>
+    postApi.get(`/api/posts/user/${userId}`),
+
+  getSavedPosts: () =>
+    postApi.get('/api/posts/saved'),
+
   recordDwell: (postId: string, duration: number) =>
     postApi.post('/api/posts/dwell', { postId, duration }),
 

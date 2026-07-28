@@ -1,17 +1,43 @@
+'use client';
+
+import React, { useState, use } from 'react';
 import ProfileHeader from '@/components/profile/ProfileHeader';
+import ProfileTabs from '@/components/profile/ProfileTabs';
+import ProfilePosts from '@/components/profile/ProfilePosts';
+import { useAuth } from '@/hooks/useAuth';
+import './profile-page.css';
 
 interface ProfilePageProps {
-  // Next.js 16: params is a Promise and must be awaited before use.
   params: Promise<{ id: string }>;
 }
 
-export default async function ProfilePage({ params }: ProfilePageProps) {
-  const { id } = await params;
+export default function ProfilePage({ params }: ProfilePageProps) {
+  const { id } = use(params);
+  const { user: currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
+
+  const myId = currentUser?._id ?? currentUser?.id;
+  const isOwnProfile = !!myId && (id === 'me' || myId === id);
+  const targetUserId = id === 'me' ? myId : id;
 
   return (
-    <div className="profile-page">
-      <ProfileHeader userId={id} />
-      {/* ProfileTabs, ProfilePosts, SuggestedConnections land in later phases */}
+    <div className="profile-page-shell">
+      {/* Sticky on desktop (>=1024px) so the profile card stays in view
+          while the post list scrolls; a normal block on tablet/phone. */}
+      <div className="profile-page-sidebar">
+        <ProfileHeader userId={id} />
+      </div>
+
+      {targetUserId && (
+        <div className="profile-page-main">
+          <ProfileTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            isOwnProfile={isOwnProfile}
+          />
+          <ProfilePosts userId={targetUserId} activeTab={activeTab} />
+        </div>
+      )}
     </div>
   );
 }

@@ -126,7 +126,7 @@ export const addComment = async (req, res) => {
 			}
 		}).catch(() => {});
 
-		const populated = await comment.populate('user', 'fullname');
+		const populated = await comment.populate('user', 'fullname avatar');
 		return res.status(201).json({
 			success: true,
 			comment: { ...populated.toObject(), author: populated.user },
@@ -149,7 +149,7 @@ export const getComments = async (req, res) => {
 			parentComment: null,
 		})
 			.sort({ createdAt: -1 })
-			.populate('user', 'fullname')
+			.populate('user', 'fullname avatar')
 			.lean();
 
 		const mapped = comments.map((c) => ({
@@ -177,7 +177,7 @@ export const getReplies = async (req, res) => {
 
 		const replies = await Comment.find({ parentComment: req.params.commentId })
 			.sort({ createdAt: 1 })
-			.populate('user', 'fullname')
+			.populate('user', 'fullname avatar')
 			.lean();
 
 		const mapped = replies.map((c) => ({

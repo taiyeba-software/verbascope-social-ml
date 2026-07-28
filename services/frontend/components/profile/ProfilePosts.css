@@ -1,0 +1,80 @@
+/* ──────────────────────────────────────────────────────────
+   ProfilePosts — list layout + empty/error states.
+   Was inline style objects before; moved here so spacing tracks
+   the same responsive rhythm as the rest of the page instead of
+   fixed rem values that stayed identical on phones and desktop.
+   ────────────────────────────────────────────────────────── */
+
+.profile-posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-lg);
+}
+
+.profile-posts-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 3rem 1.25rem;
+  background: var(--v-bg-card);
+  border-radius: var(--v-radius-lg);
+  border: 1px solid var(--v-border);
+  color: var(--v-text-muted);
+}
+
+.profile-posts-state-icon {
+  color: var(--v-text-muted);
+  opacity: 0.6;
+  margin-bottom: 0.25rem;
+}
+
+.profile-posts-state-text {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.profile-posts-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.4rem;
+  padding: 7px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--v-font-sans);
+  color: var(--v-text-primary);
+  background: transparent;
+  border: 1.5px solid var(--v-border-strong);
+  border-radius: var(--v-radius-full);
+  cursor: pointer;
+  transition: all var(--v-transition);
+}
+
+.profile-posts-retry:hover {
+  border-color: var(--v-signal-green);
+  color: var(--v-signal-green);
+}
+
+.profile-posts-retry:focus-visible {
+  outline: 2px solid var(--v-signal-green);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-posts-retry {
+    transition: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-posts-list {
+    gap: var(--v-space-md);
+  }
+
+  .profile-posts-state {
+    padding: 2.25rem 1rem;
+  }
+}

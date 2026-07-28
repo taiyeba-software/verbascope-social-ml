@@ -306,3 +306,17 @@
   color: var(--vs-text-secondary);
   background: transparent;
 }
+
+.create-post-avatar {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.create-post-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}

@@ -10,11 +10,13 @@ import { useDwellTracker } from '@/hooks/useDwellTracker';
 import {
   safeAuthorName,
   safeAuthorInitials,
+  getAuthorAvatarUrl,
   getAvatarColor,
   getAvatarSeed,
   timeAgo,
   extractTags,
 } from './feedHelpers';
+import './PostCard.css';
 
 export type FeedPost = Post & {
   bookmarkedByMe?: boolean;
@@ -155,6 +157,7 @@ export function PostCard({
   const tags = post.tags ?? extractTags(post.content);
   const images = post.images ?? [];
   const dwellRef = useDwellTracker(post._id);
+  const authorAvatarUrl = getAuthorAvatarUrl(post.author);
 
   const handleLikeClick = () => {
     const wasLiked = post.likedByMe ?? false;
@@ -174,8 +177,15 @@ export function PostCard({
     <article className="post-card" ref={dwellRef as Ref<HTMLElement>}>
       <div className="post-header">
         <div className="post-author-info">
-          <div className="post-avatar" style={{ background: getAvatarColor(getAvatarSeed(post.author)) }}>
-            {safeAuthorInitials(post.author)}
+          <div
+            className="post-avatar"
+            style={authorAvatarUrl ? undefined : { background: getAvatarColor(getAvatarSeed(post.author)) }}
+          >
+            {authorAvatarUrl ? (
+              <img src={authorAvatarUrl} alt={safeAuthorName(post.author)} />
+            ) : (
+              safeAuthorInitials(post.author)
+            )}
           </div>
           <div>
             <span className="post-author-name">{safeAuthorName(post.author)}</span>
@@ -274,4 +284,4 @@ export function PostCard({
       )}
     </article>
   );
-}      
+}

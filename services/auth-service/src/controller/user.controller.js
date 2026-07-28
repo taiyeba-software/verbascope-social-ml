@@ -1,12 +1,18 @@
 // services/auth-service/src/controller/user.controller.js
+import mongoose from 'mongoose';
 import userModel from '../model/user.model.js';
-import { uploadToImageKit } from '../utils/imagekit.js';
+import { uploadToImageKit, deleteOldAvatars } from '../utils/imagekit.js';
 import { generateAvatarFileName } from '../middlewares/avatarUpload.middleware.js';
 
 // GET /api/users/:id - Public Profile Info
 export const getUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid user id' });
+    }
+
     const user = await userModel.findById(id).select('-password');
 
     if (!user) {
@@ -31,7 +37,11 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
-// PATCH /api/users/profile - Update Bio, Headline, Name, etc.
+// PATCH /api/users/profile - Update Bio, Headline, Name, and (optionally) Avatar together
+//
+// Accepts multipart/form-data so the frontend can send text fields and an
+// optional avatar file in one request — see updateAvatar below for the
+// avatar-only endpoint, which stays for backwards compatibility.
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -42,6 +52,23 @@ export const updateProfile = async (req, res) => {
     if (headline !== undefined) updateFields.headline = headline;
     if (firstName) updateFields['fullname.firstName'] = firstName;
     if (lastName) updateFields['fullname.lastName'] = lastName;
+
+    // Optional: this route can also carry an avatar file (field name
+    // "avatar") when the frontend uses one combined "Save profile" action
+    // instead of a separate avatar upload step. Wire avatarUpload
+    // middleware onto this route only if you want that combined UX —
+    // see routes file comment.
+    if (req.file) {
+      const fileName = generateAvatarFileName(userId, req.file.originalname);
+      const { url, fileId } = await uploadToImageKit(req.file.buffer, fileName, '/avatars');
+      updateFields.avatar = url;
+      // Fire-and-forget: don't block the response on cleanup.
+      deleteOldAvatars(userId, fileId);
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
 
     const updatedUser = await userModel
       .findByIdAndUpdate(userId, { $set: updateFields }, { new: true })
@@ -57,7 +84,7 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// PATCH /api/users/avatar - Upload & Update Profile Avatar
+// PATCH /api/users/avatar - Upload & Update Profile Avatar (avatar-only)
 export const updateAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -67,11 +94,36 @@ export const updateAvatar = async (req, res) => {
     }
 
     const fileName = generateAvatarFileName(userId, req.file.originalname);
-    const avatarUrl = await uploadToImageKit(req.file.buffer, fileName, '/avatars');
+
+    let uploadResult;
+    try {
+      uploadResult = await uploadToImageKit(req.file.buffer, fileName, '/avatars');
+    } catch (uploadErr) {
+      // Distinguish "ImageKit is down / rejected the file" from a generic
+      // 500 so the frontend can show "try again" instead of a vague error.
+      console.error('Avatar upload to ImageKit failed:', uploadErr);
+      return res.status(502).json({
+        success: false,
+        message: 'Failed to upload avatar image. Please try again.',
+      });
+    }
+
+    const { url: avatarUrl, fileId } = uploadResult;
 
     const updatedUser = await userModel
       .findByIdAndUpdate(userId, { $set: { avatar: avatarUrl } }, { new: true })
       .select('-password');
+
+    if (!updatedUser) {
+      // Extremely unlikely (authenticateToken already verified the user
+      // exists), but if it happens, don't leave an orphaned ImageKit file
+      // with nothing pointing to it.
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // New avatar is already saved and will be returned below — cleanup
+    // runs after the response-critical work is done and never blocks it.
+    deleteOldAvatars(userId, fileId);
 
     return res.status(200).json({
       success: true,

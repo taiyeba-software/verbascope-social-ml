@@ -1,0 +1,44 @@
+/* ──────────────────────────────────────────────────────────
+   Profile page shell.
+
+   Below 1024px: single column, exactly the layout that already
+   works on tablet/phone (header card on top, tabs + posts below).
+
+   At 1024px+: two-column layout. The profile card becomes a
+   sticky sidebar (stays in view while the post list scrolls,
+   same pattern as Twitter/LinkedIn profiles) instead of sitting
+   in a narrow centered column with empty space on both sides.
+   ────────────────────────────────────────────────────────── */
+
+.profile-page-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(0.75rem, 4vw, 1.5rem);
+}
+
+.profile-page-main {
+  min-width: 0; /* prevents grid blowout from long unbreakable content */
+}
+
+@media (min-width: 1024px) {
+  .profile-page-shell {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: 336px minmax(0, 1fr);
+    align-items: start;
+    gap: var(--v-space-xl, 2rem);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  .profile-page-sidebar {
+    position: sticky;
+    top: 24px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .profile-page-shell {
+    max-width: 1200px;
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+}

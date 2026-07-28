@@ -70,12 +70,18 @@ export async function getSavedPosts(req, res) {
       .filter((doc) => doc.post)
       .map((doc) => ({ ...doc.post, savedAt: doc.createdAt, isSaved: true }));
 
-    const authorIds = [...new Set(posts.map((p) => String(p.user)))];
+    // NOTE: a Post document's owner field is `author`, not `user` — `user`
+    // belongs to the SavedPost join document (which user saved it), and is
+    // no longer in scope once we've spread `doc.post` above. Reading
+    // `p.user` here was always `undefined`, so every author lookup missed
+    // and silently fell back to `null` -> the frontend rendered "Anonymous"
+    // for every saved post regardless of who actually wrote it.
+    const authorIds = [...new Set(posts.map((p) => String(p.author)))];
     const authors = authorIds.length ? await getUsersByIds(authorIds) : {};
 
     const enriched = posts.map((p) => ({
       ...p,
-      author: authors[String(p.user)] || null,
+      author: authors[String(p.author)] || null,
     }));
 
     const total = await SavedPost.countDocuments({ user: userId });

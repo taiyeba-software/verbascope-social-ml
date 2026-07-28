@@ -25,6 +25,17 @@ export function safeAuthorInitials(author: Post['author'] | Comment['author']): 
   return (f + l).toUpperCase() || 'A';
 }
 
+// Posts/comments coming back from the API have an `avatar` field on the
+// author object once the user has uploaded a profile photo — but it can
+// also be `undefined` (never set) or `""` (explicitly cleared / user with
+// no avatar yet), so both need to fall through to the initials avatar
+// rather than rendering a broken <img src="">.
+export function getAuthorAvatarUrl(author: Post['author'] | Comment['author']): string | undefined {
+  if (!author || typeof author === 'string') return undefined;
+  const avatar = (author as { avatar?: string }).avatar;
+  return avatar && avatar.trim() !== '' ? avatar : undefined;
+}
+
 const AVATAR_COLORS = [
   'linear-gradient(135deg, #0e9fab, #17b0bc)',
   'linear-gradient(135deg, #8b5cf6, #a78bfa)',

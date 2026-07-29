@@ -1,45 +1,112 @@
 # Auth Service
 
-This service handles authentication, user profile management, and basic social account operations for the VerbaScope social platform.
+This service is the authentication and user-profile backbone for the VerbaScope platform. It handles user sign-up, login, JWT-based session management, Google OAuth authentication, avatar uploads, follow relationships, and user-profile syncing to downstream services through RabbitMQ.
 
-## Overview
+## What this service does
 
-The auth service is an Express-based backend service built with MongoDB, JWT-based authentication, Google OAuth, RabbitMQ event publishing, and ImageKit avatar uploads. It powers user registration/login flows and supports profile-related actions for the frontend.
+- Registers and authenticates users using email/password
+- Issues JWT tokens stored in an HTTP-only cookie
+- Supports Google OAuth login and account linking
+- Returns the authenticated user profile and manages protected profile updates
+- Supports follow/unfollow actions and social graph lookups
+- Uploads user avatars to ImageKit and cleans up old avatars
+- Publishes user events such as user_created and user_updated for other services
 
-## Features
-
-- Email/password registration and login
-- JWT authentication stored in an HTTP-only cookie
-- Google OAuth sign-in flow
-- Protected user profile retrieval and updates
-- Follow/unfollow support for the social graph
-- Avatar upload integration with ImageKit
-- RabbitMQ event publishing for new user creation
-
-## Tech Stack
+## Tech stack
 
 - Node.js + Express
 - MongoDB + Mongoose
-- JSON Web Tokens (JWT)
-- Passport.js with Google OAuth 2.0
-- RabbitMQ (amqplib)
-- Multer + ImageKit for avatar uploads
-- dotenv + CORS + cookie-parser
+- JWT + Passport.js
+- RabbitMQ via amqplib
+- Multer + ImageKit for avatar handling
+- dotenv, cookie-parser, cors, morgan
 
-## Project Structure
+## Project files and their purpose
 
-- server.js - Starts the service and mounts routes
-- src/app.js - Express app setup and middleware
-- src/routes/ - Auth and user route definitions
-- src/controller/ - Request handlers for auth and user actions
-- src/middlewares/ - Auth, validation, and avatar upload middleware
-- src/model/ - Mongoose user model
-- src/config/ - Environment and passport configuration
-- src/db/ - MongoDB connection setup
-- src/broker/ - RabbitMQ connection and queue publishing
-- src/utils/ - Helper utilities such as ImageKit integration
+### Root files
 
-## Environment Variables
+- package.json: Defines the service metadata, dependencies, and scripts such as npm run dev and npm start.
+- server.js: Bootstraps the service, connects to MongoDB and RabbitMQ, mounts authentication and user routes, and starts the Express server on port 3000.
+- README.md: Service documentation and module overview.
+
+### Application setup
+
+- src/app.js: Creates the Express app, enables CORS, JSON parsing, cookie parsing, request logging, and Passport initialization.
+
+### Configuration and environment
+
+- src/config/config.js: Loads environment variables and exposes configuration values for MongoDB, JWT, Google OAuth, RabbitMQ, and ImageKit.
+- src/config/passport.js: Configures the Google OAuth strategy, creates or links users from Google sign-in, and returns authentication info to the controller.
+
+### Database and messaging
+
+- src/db/db.js: Connects the service to MongoDB using Mongoose and returns a success/failure boolean.
+- src/broker/rabbit.js: Opens a RabbitMQ connection/channel and exposes publishing helpers for sending events such as user_created and user_updated.
+
+### Routes
+
+- src/routes/auth.routes.js: Defines the public authentication endpoints for register, login, Google OAuth, user profile retrieval, and logout.
+- src/routes/user.routes.js: Defines protected routes for profile viewing, profile editing, avatar updates, follow/unfollow actions, and bulk user lookup.
+
+### Controllers
+
+- src/controller/auth.controller.js: Implements login, registration, Google OAuth callback handling, session/profile retrieval, and logout logic.
+- src/controller/user.controller.js: Implements public profile lookup, profile updates, avatar uploading, follow/unfollow actions, following-list retrieval, and bulk user fetching.
+- src/controller/auth.controller.js.bak: Backup copy of an earlier authentication controller version kept for reference.
+
+### Middleware
+
+- src/middlewares/auth.middleware.js: Verifies the JWT from the auth cookie and attaches the decoded user information to req.user.
+- src/middlewares/validation.middleware.js: Validates login and registration payloads using express-validator before controller execution.
+- src/middlewares/avatarUpload.middleware.js: Handles multipart avatar uploads, restricts allowed file types, enforces size limits, and formats upload errors into friendly responses.
+
+### Data model
+
+- src/model/user.model.js: Defines the Mongoose user schema with fields for email, fullname, password, Google ID, role, bio, headline, avatar, followers, following, and interests.
+
+### Utilities
+
+- src/utils/imagekit.js: Uploads avatar images to ImageKit and removes previously uploaded avatars for the same user to keep storage clean.
+
+### Scripts
+
+- src/scripts/backfillUserUpdated.js: One-off maintenance script that re-publishes user_updated events for all existing users so downstream services can sync profile changes.
+
+## API overview
+
+### Authentication endpoints
+
+- POST /api/auth/register
+  - Registers a new user and issues an auth cookie
+- POST /api/auth/login
+  - Authenticates an existing user and issues an auth cookie
+- GET /api/auth/google
+  - Starts the Google OAuth sign-in flow
+- GET /api/auth/google/callback
+  - Completes Google OAuth authentication and redirects to the client
+- GET /api/auth/me
+  - Returns the currently authenticated user profile
+- POST /api/auth/logout
+  - Clears the auth token cookie
+
+### User endpoints
+
+- GET /api/users/:id
+  - Returns a public profile for a user, or the current user when id is me
+- PATCH /api/users/profile
+  - Updates profile fields such as bio, headline, and names; optionally uploads an avatar in the same request
+- PATCH /api/users/avatar
+  - Uploads a new avatar image for the current user
+- POST /api/users/follow/:id
+  - Follows another user
+- POST /api/users/unfollow/:id
+  - Unfollows another user
+- GET /api/users/me/following
+  - Returns the list of users the current user is following
+- GET /api/users/bulk and POST /api/users/bulk
+  - Return user summaries for a provided list of IDs
+
+## Environment variables
 
 Create a .env file in the service root with the following variables:
 
@@ -56,21 +123,14 @@ IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_instance
 CLIENT_URL=http://localhost:3002
 ```
 
-## Installation
+## Installation and run
 
 ```bash
 npm install
-```
-
-## Running the Service
-
-Development mode:
-
-```bash
 npm run dev
 ```
 
-Production mode:
+For production:
 
 ```bash
 npm start
@@ -78,45 +138,9 @@ npm start
 
 The service runs on port 3000 by default.
 
-## API Endpoints
-
-### Authentication
-
-- POST /api/auth/register
-  - Registers a new user
-  - Expects email, password, and fullname.firstName/fullname.lastName
-- POST /api/auth/login
-  - Authenticates a user and returns a JWT in a cookie
-- GET /api/auth/google
-  - Starts Google OAuth login
-- GET /api/auth/google/callback
-  - Handles the Google OAuth redirect
-- GET /api/auth/me
-  - Returns the authenticated user profile
-- POST /api/auth/logout
-  - Clears the auth cookie
-
-### User Management
-
-- POST /api/users/bulk
-- GET /api/users/bulk
-  - Fetches users by ID list
-- GET /api/users/me/following
-  - Returns the currently authenticated user’s following list
-- PATCH /api/users/profile
-  - Updates bio/headline for the authenticated user
-- PATCH /api/users/avatar
-  - Uploads an avatar using multipart/form-data with field name avatar
-- POST /api/users/follow/:id
-  - Follows a user
-- POST /api/users/unfollow/:id
-  - Unfollows a user
-- GET /api/users/:id
-  - Returns a user profile by ID, or /api/users/me for the current user
-
 ## Notes
 
-- Authentication is cookie-based and protected by a JWT middleware.
-- Google OAuth users are created automatically if they do not already exist.
-- New users publish a RabbitMQ event named user_created to support downstream services.
-- Avatar uploads are stored in ImageKit rather than locally on disk.
+- Authentication is cookie-based and protected by the JWT middleware.
+- Google OAuth users are created automatically when no matching account exists.
+- User creation and profile updates publish events to RabbitMQ so other services can stay in sync.
+- Avatar uploads are stored in ImageKit rather than on local disk.

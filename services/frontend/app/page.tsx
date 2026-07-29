@@ -1,8 +1,23 @@
+'use client';
+
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Sparkles, Brain, Radar } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import './home.css';
 
 export default function Home() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
+
+  // If user is already authenticated, automatically take them straight to /feed
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace('/feed');
+    }
+  }, [user, isLoading, router]);
+
   return (
     <main className="home-layout">
       {/* Hero Section */}
@@ -11,7 +26,7 @@ export default function Home() {
         <div className="dot-triangle large top-right landing-hero"></div>
         <div className="dot-triangle medium top-left landing-hero"></div>
         <div className="dot-triangle small bottom-left landing-hero"></div>
-        
+
         <div className="hero-content">
           <div className="hero-text">
             <h1>Decode Emotions Behind Every Post</h1>
@@ -21,12 +36,18 @@ export default function Home() {
             </p>
 
             <div className="hero-cta">
-              <Link href="/auth/login" className="btn btn-primary btn-lg">
-                Sign In
+              <Link
+                href={user ? '/feed' : '/auth/login'}
+                className="btn btn-primary btn-lg"
+              >
+                {user ? 'Go to Feed' : 'Sign In'}
               </Link>
-              <Link href="/auth/register" className="btn btn-ghost btn-lg">
-                Create Account
-              </Link>
+              
+              {!user && (
+                <Link href="/auth/register" className="btn btn-ghost btn-lg">
+                  Create Account
+                </Link>
+              )}
             </div>
 
             {/* Features List */}
@@ -40,6 +61,7 @@ export default function Home() {
                   <p>Understand when people aren&apos;t saying what they mean.</p>
                 </div>
               </div>
+
               <div className="feature-item">
                 <div className="feature-icon">
                   <Radar size={28} strokeWidth={1.5} />
@@ -49,6 +71,7 @@ export default function Home() {
                   <p>Decode the emotional tone in real-time.</p>
                 </div>
               </div>
+
               <div className="feature-item">
                 <div className="feature-icon">
                   <Brain size={28} strokeWidth={1.5} />
@@ -89,9 +112,15 @@ export default function Home() {
             {/* Floating decoration */}
             <div className="floating-orbs">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="orb" style={{
-                  '--delay': `${i * 0.3}s`,
-                } as React.CSSProperties}></div>
+                <div
+                  key={i}
+                  className="orb"
+                  style={
+                    {
+                      '--delay': `${i * 0.3}s`,
+                    } as React.CSSProperties
+                  }
+                ></div>
               ))}
             </div>
           </div>

@@ -296,6 +296,9 @@
 
 /* ══════════════════════════════════════════════════════════
    Notification Dropdown
+   Uses position: fixed, anchored to the VIEWPORT (not the bell
+   button), so it can never render partially off-screen regardless
+   of where the bell sits in the navbar at any breakpoint.
    ══════════════════════════════════════════════════════════ */
 
 .navbar-notification-wrapper {
@@ -303,12 +306,13 @@
 }
 
 .notification-dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  left: auto;
   width: 400px;
   max-width: calc(100vw - 32px);
-  max-height: 70vh;
+  max-height: calc(100vh - 96px);
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.98);
@@ -695,8 +699,12 @@
   }
 
   .notification-dropdown {
+    top: 64px;
+    right: 12px;
     width: calc(100vw - 24px);
-    right: -8px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 80px);
+    border-radius: 12px;
   }
 }
 

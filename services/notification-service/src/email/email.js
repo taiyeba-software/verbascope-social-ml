@@ -2,19 +2,15 @@ import nodemailer from 'nodemailer';
 import config from '../config/config.js';
 
 // ─── Transporter ────────────────────────────────────────────────
-// createTransport connects our app (web server) to Gmail's
-// SMTP server using basic authentication.
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: config.EMAIL_USER,
+        pass: config.EMAIL_PASS,
     },
 });
 
-// ─── Verify ─────────────────────────────────────────────────────
-// Checks whether the SMTP connection to Gmail is alive and
-// the OAuth2 credentials are accepted before any email is sent.
+// ─── Verify Connection ─────────────────────────────────────────
 transporter.verify((error, success) => {
     if (error) {
         console.error('❌ Email server connection failed:', error.message);
@@ -23,30 +19,24 @@ transporter.verify((error, success) => {
     }
 });
 
-// ─── sendEmail ──────────────────────────────────────────────────
-/**
- * Sends an email from VerbaScope's official address.
- *
- * @param {string} to      - Recipient email address
- * @param {string} subject - Email subject line
- * @param {string} text    - Plain-text fallback body
- * @param {string} html    - HTML body (shown in modern email clients)
- */
+// ─── sendEmail Function ────────────────────────────────────────
 const sendEmail = async (to, subject, text, html) => {
     try {
         const info = await transporter.sendMail({
-            from:    `"VerbaScope" <${config.EMAIL_USER}>`,
+            from: `"VerbaScope" <${config.EMAIL_USER}>`,
             to,
             subject,
             text,
             html,
         });
 
-        console.log('📧 Message sent:', info.messageId);
+        console.log('📧 Message sent to', to, '| ID:', info.messageId);
+        return info;
     } catch (error) {
         console.error('❌ Failed to send email:', error.message);
-        throw error; // re-throw so the caller can handle it
+        throw error;
     }
 };
 
+// Ensure default export is present so app.js and listener.js work seamlessly
 export default sendEmail;

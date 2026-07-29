@@ -1,199 +1,232 @@
-
-import userModel from '../model/user.model.js';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import config from '../config/config.js';
-import { publishToQueue } from '../broker/rabbit.js';  // ← add this
+import jwt from 'jsonwebtoken';
+import { validationResult } from 'express-validator';
+import userModel from '../model/user.model.js';
 
-const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const COOKIE_NAME = 'token';
+const isProd = process.env.NODE_ENV === 'production';
 
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password',
-            });
-        }
+// Updated default fallback port from 3000 to 3002 (Next.js frontend)
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3002';
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password',
-            });
-        }
+/* ──────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────── */
 
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            config.JWT_SECRET,
-            { expiresIn: '2d' }
-        );
+function signToken(userId) {
+  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
 
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 2 * 24 * 60 * 60 * 1000,
-        });
+function setAuthCookie(res, token) {
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+}
 
-        const userData = user.toObject();
-        delete userData.password;
+function sanitizeUser(user) {
+  const obj = user.toObject ? user.toObject() : user;
+  delete obj.password;
+  return obj;
+}
 
-        return res.status(200).json({
-            success: true,
-            message: 'Login successful',
-            user: userData,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
-    }
-};
-
-const getMe = async (req, res) => {
-    try {
-        const user = await userModel.findById(req.user.id).select('-password');
-
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'User no longer exists.',
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            user,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
-    }
-};
+/* ──────────────────────────────────────────────────────────
+   POST /api/auth/register
+   ────────────────────────────────────────────────────────── */
 
 const register = async (req, res) => {
-    try {
-        const { email, password, fullname } = req.body;
-
-        const existingUser = await userModel.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: 'User already exists',
-            });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const user = await userModel.create({
-            email,
-            password: hashedPassword,
-            fullname: {
-                firstName: fullname?.firstName,
-                lastName:  fullname?.lastName,
-            },
-        });
-
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            config.JWT_SECRET,
-            { expiresIn: '2d' }
-        );
-
-        // ── publish to queue after JWT is signed ─────────────────
-        await publishToQueue('user_created', {
-            id:       user._id,
-            email:    user.email,
-            fullname: user.fullname,
-            role:     user.role,
-        });
-        // ─────────────────────────────────────────────────────────
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 2 * 24 * 60 * 60 * 1000,
-        });
-
-        const userData = user.toObject();
-        delete userData.password;
-
-        return res.status(201).json({
-            success: true,
-            message: 'User registered successfully',
-            user: userData,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0]?.msg || 'Invalid input.',
+        errors: errors.array(),
+      });
     }
+
+    const { email, password, fullname } = req.body;
+
+    const existingUser = await userModel.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists.',
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await userModel.create({
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      fullname: {
+        firstName: fullname.firstName,
+        lastName: fullname.lastName,
+      },
+    });
+
+    const token = signToken(user._id);
+    setAuthCookie(res, token);
+
+    return res.status(201).json({
+      success: true,
+      user: sanitizeUser(user),
+    });
+  } catch (err) {
+    console.error('[auth.controller] register error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Registration failed. Please try again.',
+    });
+  }
 };
+
+/* ──────────────────────────────────────────────────────────
+   POST /api/auth/login
+   ────────────────────────────────────────────────────────── */
+
+const login = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0]?.msg || 'Invalid input.',
+        errors: errors.array(),
+      });
+    }
+
+    const { email, password } = req.body;
+
+    const user = await userModel.findOne({ email: email.toLowerCase() });
+    if (!user || !user.password) {
+      // no user, or account was created via Google (no password set)
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      });
+    }
+
+    const token = signToken(user._id);
+    setAuthCookie(res, token);
+
+    return res.status(200).json({
+      success: true,
+      user: sanitizeUser(user),
+    });
+  } catch (err) {
+    console.error('[auth.controller] login error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Login failed. Please try again.',
+    });
+  }
+};
+
+/* ──────────────────────────────────────────────────────────
+   GET /api/auth/google/callback
+   Runs after Passport's GoogleStrategy has already verified
+   the user and attached the Mongoose doc to req.user.
+   ────────────────────────────────────────────────────────── */
 
 const googleCallback = async (req, res) => {
-    try {
-        const user = req.user;
-        const isNewUser = req.authInfo?.isNewUser === true;
+  try {
+    const user = req.user;
 
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            config.JWT_SECRET,
-            { expiresIn: '2d' }
-        );
-
-        // Only publish when Google OAuth created a brand-new user.
-        if (isNewUser) {
-            await publishToQueue('user_created', {
-                id:       user._id,
-                email:    user.email,
-                fullname: user.fullname,
-                role:     user.role,
-            });
-        }
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            sameSite: 'lax',
-            maxAge: 2 * 24 * 60 * 60 * 1000,
-        });
-
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3002';
-        return res.redirect(`${clientUrl}/feed`);
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+    if (!user) {
+      return res.redirect(`${CLIENT_URL}/login?error=google_auth_failed`);
     }
+
+    const token = signToken(user._id);
+    setAuthCookie(res, token);
+
+    return res.redirect(`${CLIENT_URL}/feed`);
+  } catch (err) {
+    console.error('[auth.controller] googleCallback error:', err);
+    return res.redirect(`${CLIENT_URL}/login?error=google_auth_failed`);
+  }
 };
+
+/* ──────────────────────────────────────────────────────────
+   GET /api/auth/me
+   Requires authenticateToken middleware to have run first
+   and attached req.userId (or req.user.id).
+   ────────────────────────────────────────────────────────── */
+
+const getMe = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authenticated.',
+      });
+    }
+
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: sanitizeUser(user),
+    });
+  } catch (err) {
+    console.error('[auth.controller] getMe error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch current user.',
+    });
+  }
+};
+
+/* ──────────────────────────────────────────────────────────
+   POST /api/auth/logout
+   ────────────────────────────────────────────────────────── */
 
 const logout = async (req, res) => {
-    try {
-        res.clearCookie('token', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        });
+  try {
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+    });
 
-        return res.status(200).json({
-            success: true,
-            message: 'Logged out successfully',
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
-    }
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully.',
+    });
+  } catch (err) {
+    console.error('[auth.controller] logout error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Logout failed.',
+    });
+  }
 };
 
-const authController = { register, login, googleCallback, getMe, logout };
-export default authController;
+export default {
+  register,
+  login,
+  googleCallback,
+  getMe,
+  logout,
+};

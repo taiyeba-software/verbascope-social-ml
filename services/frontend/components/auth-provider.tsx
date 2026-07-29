@@ -45,8 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const status = (err as any)?.status;
       const message = (err as any)?.message || 'Unknown error';
 
-      if (status === 401) {
-        console.log('ℹ️ No active session');
+      if (status === 401 || status === 404) {
+        console.log('ℹ️ No active session or user no longer exists');
       } else {
         console.error('[API Error]', message);
       }
@@ -150,8 +150,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  /* ── Called by any component (e.g. ProfileHeader after a save) to push a
-     fresh user object into the shared auth state ── */
   const updateUser = useCallback((updated: User) => {
     setUser(updated);
   }, []);

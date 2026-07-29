@@ -29,21 +29,30 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Create a clean, readable error object instead of throwing raw axios error
+        // Safe extraction to prevent empty error objects `{}`
+        const status = error.response?.status ?? null;
+        const statusText = error.response?.statusText ?? '';
+        const message =
+          error.response?.data?.message ||
+          error.message ||
+          'An unexpected network or API error occurred.';
+        const code = error.code ?? null;
+        const data = error.response?.data ?? null;
+
         const cleanError = {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          message: error.response?.data?.message || error.message,
-          code: error.code, // CORS, ECONNABORTED, etc.
-          data: error.response?.data,
+          status,
+          statusText,
+          message,
+          code,
+          data,
         };
 
-        // Only log actual server errors (not 401, not network errors)
-        if (error.response?.status && error.response.status !== 401) {
-          console.error('[API Error]', cleanError);
+        // Only log actual server/network errors (excluding 401 unauthenticated)
+        if (status !== 401) {
+          console.error('[API Error]', message, cleanError);
         }
 
-        // Throw the clean object, not the raw axios error
+        // Return a rejected promise with structured error data
         return Promise.reject(cleanError);
       }
     );
@@ -198,7 +207,7 @@ export const postService = {
   getComments: (id: string) =>
     postApi.get(`/api/posts/${id}/comments`),
 
-  // NEW: fetch direct replies to a single comment (one level, not the whole subtree)
+  // FETCH direct replies to a single comment (one level, not the whole subtree)
   getReplies: (commentId: string) =>
     postApi.get(`/api/posts/comments/${commentId}/replies`),
 

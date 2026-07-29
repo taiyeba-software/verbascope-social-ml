@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RefreshCw, ImageOff, Bookmark } from 'lucide-react';
 import { PostCard } from '@/components/feed/PostCard';
 import BookmarkSkeleton from '@/app/bookmarks/BookmarkSkeleton';
@@ -33,6 +33,15 @@ export default function ProfilePosts({ userId, activeTab }: ProfilePostsProps) {
   // Local state for handling post comments on profile page
   const [commentStates, setCommentStates] = useState<CommentStateMap>({});
 
+  // Tracks which posts currently have an in-flight like/unlike request.
+  const pendingLikesRef = useRef<Set<string>>(new Set());
+
+  // Always-current snapshot of `posts` for optimistic operations
+  const postsRef = useRef<any[]>(posts);
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -49,7 +58,8 @@ export default function ProfilePosts({ userId, activeTab }: ProfilePostsProps) {
       })
       .catch((err: any) => {
         if (!cancelled) {
-          console.error(`Failed to load ${activeTab}:`, err);
+          const readableError = err?.message || err;
+          console.error(`Failed to load ${activeTab}:`, readableError, err);
           setError(`Failed to load ${activeTab}. Please try again.`);
         }
       })
@@ -64,14 +74,21 @@ export default function ProfilePosts({ userId, activeTab }: ProfilePostsProps) {
 
   /* ── Interaction Handlers ── */
   const handleLike = async (postId: string, currentIsLiked: boolean) => {
+    if (pendingLikesRef.current.has(postId)) return;
+
+    const latestPost = postsRef.current.find((p) => (p._id || p.id) === postId);
+    const actualIsLiked = latestPost ? !!latestPost.likedByMe : currentIsLiked;
+
+    pendingLikesRef.current.add(postId);
+
     // Optimistic UI Update
     setPosts((prev) =>
       prev.map((p) => {
         if ((p._id || p.id) === postId) {
           return {
             ...p,
-            likedByMe: !currentIsLiked,
-            likesCount: currentIsLiked ? (p.likesCount || 1) - 1 : (p.likesCount || 0) + 1,
+            likedByMe: !actualIsLiked,
+            likesCount: actualIsLiked ? (p.likesCount || 1) - 1 : (p.likesCount || 0) + 1,
           };
         }
         return p;
@@ -79,26 +96,44 @@ export default function ProfilePosts({ userId, activeTab }: ProfilePostsProps) {
     );
 
     try {
-      if (currentIsLiked) {
+      if (actualIsLiked) {
         await postService.unlikePost(postId);
       } else {
         await postService.likePost(postId);
       }
-    } catch (err) {
-      console.error('Failed to toggle like:', err);
-      // Revert on error
-      setPosts((prev) =>
-        prev.map((p) => {
-          if ((p._id || p.id) === postId) {
-            return {
-              ...p,
-              likedByMe: currentIsLiked,
-              likesCount: currentIsLiked ? p.likesCount : (p.likesCount || 1) - 1,
-            };
-          }
-          return p;
-        })
-      );
+    } catch (err: any) {
+      const status = err?.status;
+      const serverMessage: string = (err?.data?.message || err?.message || '').toLowerCase();
+
+      if (status === 409 && serverMessage.includes('already liked')) {
+        setPosts((prev) =>
+          prev.map((p) => ((p._id || p.id) === postId ? { ...p, likedByMe: true } : p))
+        );
+      } else if (
+        status === 409 &&
+        (serverMessage.includes('not liked') || serverMessage.includes("haven't liked"))
+      ) {
+        setPosts((prev) =>
+          prev.map((p) => ((p._id || p.id) === postId ? { ...p, likedByMe: false } : p))
+        );
+      } else {
+        console.error('Failed to toggle like:', err?.message || err);
+        // Genuine failure — revert optimistic update
+        setPosts((prev) =>
+          prev.map((p) => {
+            if ((p._id || p.id) === postId) {
+              return {
+                ...p,
+                likedByMe: actualIsLiked,
+                likesCount: actualIsLiked ? p.likesCount : (p.likesCount || 1) - 1,
+              };
+            }
+            return p;
+          })
+        );
+      }
+    } finally {
+      pendingLikesRef.current.delete(postId);
     }
   };
 
@@ -125,8 +160,8 @@ export default function ProfilePosts({ userId, activeTab }: ProfilePostsProps) {
           ...prev,
           [postId]: { ...prev[postId], comments: fetchedComments, loading: false },
         }));
-      } catch (err) {
-        console.error('Failed to fetch comments:', err);
+      } catch (err: any) {
+        console.error('Failed to fetch comments:', err?.message || err);
         setCommentStates((prev) => ({
           ...prev,
           [postId]: { ...prev[postId], loading: false },
@@ -172,8 +207,8 @@ export default function ProfilePosts({ userId, activeTab }: ProfilePostsProps) {
       setPosts((prev) =>
         prev.map((p) => ((p._id || p.id) === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p))
       );
-    } catch (err) {
-      console.error('Failed to submit comment:', err);
+    } catch (err: any) {
+      console.error('Failed to submit comment:', err?.message || err);
       setCommentStates((prev) => ({
         ...prev,
         [postId]: { ...prev[postId], submitting: false },

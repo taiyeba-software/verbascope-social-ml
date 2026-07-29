@@ -24,7 +24,15 @@ const countWords = (text = '') =>
 // the Post doc itself, unlike likedBy/sharedBy). Defaults to an empty Set so
 // any existing caller that doesn't pass one just gets bookmarkedByMe: false
 // instead of throwing.
-const addStateFlags = (posts, userId, savedPostIds = new Set()) =>
+//
+// EXPORTED so savedPost.controller.js's getSavedPosts() can run its results
+// through the exact same enrichment logic as getFeed/getPost/getPostsByUser.
+// Previously getSavedPosts() built its own plain post objects and never set
+// likedByMe/sharedByMe/isOwner at all, so every post on the Saved tab always
+// showed likedByMe: undefined (falsy) regardless of the real state — that
+// was the root cause of the "You already liked this post." 409s coming from
+// the Saved tab.
+export const addStateFlags = (posts, userId, savedPostIds = new Set()) =>
   posts.map((post) => ({
     ...post,
     likedByMe:      post.likedBy?.some((id) => id.toString() === userId) || false,

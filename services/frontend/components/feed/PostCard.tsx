@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type Ref } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { Post } from '@/types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon, GlobeIcon } from './icons';
 import { PostMoreMenu } from './PostMoreMenu';
@@ -21,7 +22,7 @@ import './PostCard.css';
 
 export type FeedPost = Post & {
   bookmarkedByMe?: boolean;
-  commentsCount: number;   
+  commentsCount: number;
   sharesCount?: number;
   tags?: string[];
   createdAt?: string;
@@ -36,8 +37,16 @@ function ImageCarousel({ images }: { images: string[] }) {
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
-  const next = () => setIndex((i) => (i + 1) % images.length);
+  // stopPropagation on all these — the carousel now sits inside a
+  // click-to-navigate wrapper, and these controls shouldn't trigger it.
+  const prev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIndex((i) => (i - 1 + images.length) % images.length);
+  };
+  const next = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIndex((i) => (i + 1) % images.length);
+  };
 
   // Auto-advance: runs only when there's more than one image and it's not paused
   useEffect(() => {
@@ -114,7 +123,10 @@ function ImageCarousel({ images }: { images: string[] }) {
             key={i}
             type="button"
             className={`post-carousel-dot${i === index ? ' active' : ''}`}
-            onClick={() => setIndex(i)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIndex(i);
+            }}
             aria-label={`Go to image ${i + 1}`}
           />
         ))}
@@ -138,6 +150,7 @@ export function PostCard({
   onCommentInput,
   onSubmitComment,
   onDeleteComment,
+  disableCardLink = false,
 }: {
   post: FeedPost;
   commentState: CommentState;
@@ -150,7 +163,11 @@ export function PostCard({
   onCommentInput: (postId: string, value: string) => void;
   onSubmitComment: (postId: string) => void;
   onDeleteComment: (postId: string, commentId: string) => void;
+  // Set this true when the card is rendered on its own /post/[id] page,
+  // so clicking the content doesn't try to navigate to itself.
+  disableCardLink?: boolean;
 }) {
+  const router = useRouter();
   const [likeBurst, setLikeBurst] = useState(0);
   const [anchorPoint, setAnchorPoint] = useState<AnchorPoint | null>(null);
   const likeBtnRef = useRef<HTMLButtonElement>(null);
@@ -166,6 +183,11 @@ export function PostCard({
   // link to, otherwise fall back to the old, non-clickable rendering.
   const authorId = post.author && typeof post.author === 'object' ? (post.author as { _id?: string })._id : undefined;
   const authorHref = authorId ? `/profile/${authorId}` : undefined;
+
+  const goToPost = () => {
+    if (disableCardLink) return;
+    router.push(`/post/${post._id}`);
+  };
 
   const handleLikeClick = () => {
     const wasLiked = post.likedByMe ?? false;
@@ -219,7 +241,13 @@ export function PostCard({
               <span className="post-author-name">{safeAuthorName(post.author)}</span>
             )}
             <div className="post-meta">
-              <span className="post-time">{timeAgo(post.createdAt)}</span>
+              <span
+                className="post-time"
+                onClick={goToPost}
+                style={{ cursor: disableCardLink ? undefined : 'pointer' }}
+              >
+                {timeAgo(post.createdAt)}
+              </span>
               <span className="post-visibility">
                 <GlobeIcon />
               </span>
@@ -230,13 +258,21 @@ export function PostCard({
       </div>
 
       {post.content && (
-        <p className="post-content" style={{ whiteSpace: 'pre-wrap' }}>
+        <p
+          className="post-content"
+          style={{ whiteSpace: 'pre-wrap', cursor: disableCardLink ? undefined : 'pointer' }}
+          onClick={goToPost}
+        >
           {post.content}
         </p>
       )}
 
       {/* Carousel — only renders when the post has images */}
-      {images.length > 0 && <ImageCarousel images={images} />}
+      {images.length > 0 && (
+        <div onClick={goToPost} style={{ cursor: disableCardLink ? undefined : 'pointer' }}>
+          <ImageCarousel images={images} />
+        </div>
+      )}
 
       {tags.length > 0 && (
         <div className="post-tags">

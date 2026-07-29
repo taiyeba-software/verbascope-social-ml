@@ -174,11 +174,13 @@ export const getPostsByUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid user ID.' });
     }
 
+    const viewerId = req.user.id; // the logged-in viewer, NOT the profile owner
+
     const posts = await Post.find({ author: req.params.userId })
       .sort({ createdAt: -1 })
       .lean();
 
-    // Single bulk call for all posts' author (same user)
+    // Single bulk call for all posts' author (same user, profile owner)
     const usersRes = await authClient.post('/api/users/bulk', {
       ids: [req.params.userId],
     });
@@ -186,7 +188,20 @@ export const getPostsByUser = async (req, res) => {
 
     const enrichedPosts = posts.map((post) => ({ ...post, author }));
 
-    return res.status(200).json({ success: true, posts: enrichedPosts });
+    // Same saved-lookup pattern as getFeed — scoped to viewerId (the
+    // logged-in user), not the profile owner, and to just this page's
+    // posts.
+    const savedDocs = await SavedPost.find({
+      user: viewerId,
+      post: { $in: posts.map((p) => p._id) },
+    })
+      .select('post')
+      .lean();
+    const savedPostIds = new Set(savedDocs.map((d) => d.post.toString()));
+
+    const postsWithState = addStateFlags(enrichedPosts, viewerId, savedPostIds);
+
+    return res.status(200).json({ success: true, posts: postsWithState });
   } catch (err) {
     console.error('getPostsByUser error:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });

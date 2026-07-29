@@ -66,6 +66,27 @@ app.patch('/api/notifications/read', protect, async (req, res) => {
     }
 });
 
+// ── PATCH /api/notifications/:id/read ────────────────────────────────
+// Marks a single notification as read for the logged-in user
+app.patch('/api/notifications/:id/read', protect, async (req, res) => {
+    try {
+        const notification = await Notification.findOneAndUpdate(
+            { _id: req.params.id, recipientId: req.user.id },
+            { $set: { isRead: true } },
+            { new: true }
+        );
+
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found.' });
+        }
+
+        return res.status(200).json({ success: true, notification });
+    } catch (err) {
+        console.error('markSingleRead error:', err);
+        return res.status(500).json({ success: false, message: 'Server error.' });
+    }
+});
+
 // ── POST /api/notification/test-email ────────────────────────────────
 app.post('/api/notification/test-email', async (req, res) => {
     const { to, subject } = req.body;

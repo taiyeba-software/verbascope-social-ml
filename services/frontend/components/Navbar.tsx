@@ -17,6 +17,7 @@ import {
   Compass,
   Bookmark,
   LogOut,
+  BellOff,
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,13 +54,13 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 function notificationLabel(n: Notification): string {
-  if (n.type === 'like')    return `${n.actorName} liked your post`;
-  if (n.type === 'comment') return `${n.actorName} commented on your post`;
+  if (n.type === 'like')    return `liked your post`;
+  if (n.type === 'comment') return `commented on your post`;
   if (n.type === 'share') {
     const reasonText = n.reason ? ` ${REASON_LABELS[n.reason as string] ?? ''}` : '';
-    return `${n.actorName} passed your post forward${reasonText}`;
+    return `passed your post forward${reasonText}`;
   }
-  return 'New notification';
+  return 'sent you a notification';
 }
 
 function notificationIcon(type: Notification['type']) {
@@ -74,11 +75,13 @@ function timeAgo(dateStr: string): string {
   const sec = Math.floor(diffMs / 1000);
   if (sec < 60) return 'just now';
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return `${min}m`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return `${hr}h`;
   const day = Math.floor(hr / 24);
-  return `${day}d ago`;
+  if (day < 7) return `${day}d`;
+  const week = Math.floor(day / 7);
+  return `${week}w`;
 }
 
 /* ── Backend sends `isRead`, frontend uses `read` — normalize at the boundary
@@ -88,6 +91,31 @@ function normalizeNotification(raw: any): Notification {
     ...raw,
     read: raw.read ?? raw.isRead ?? false,
   };
+}
+
+/* ── Tiny synthetic "ping" — no audio asset required.
+   Only ever called from the live socket handler, never on initial history
+   fetch, so opening the app with 10 unread items doesn't blast 10 beeps. ── */
+function playNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.25);
+    osc.onended = () => ctx.close();
+  } catch {
+    // Autoplay can be blocked before any user interaction — fail silently.
+  }
 }
 
 /* ── Component ───────────────────────────────────────────── */
@@ -101,6 +129,7 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen]   = useState(false);
   const [menuOpen, setMenuOpen]           = useState(false);
   const [searchValue, setSearchValue]     = useState('');
+  const [markingAll, setMarkingAll]       = useState(false);
 
   const socketRef  = useRef<Socket | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -133,6 +162,7 @@ export default function Navbar() {
     socket.on('notification:new', (notification: Notification) => {
       setNotifications((prev) => [normalizeNotification(notification), ...prev]);
       setUnreadCount((prev) => prev + 1);
+      playNotificationSound();
     });
 
     return () => {
@@ -160,25 +190,54 @@ export default function Navbar() {
     setMenuOpen(false);
   }, [pathname]);
 
-  /* ── Bell click: open dropdown + mark all read ── */
-  async function handleBellClick() {
+  /* ── Bell click: just toggles the dropdown. Reading no longer marks
+     everything read automatically — that happens per-item on click, or via
+     the explicit "Mark all read" button. ── */
+  function handleBellClick() {
     setDropdownOpen((prev) => !prev);
+  }
 
-    if (!dropdownOpen && unreadCount > 0) {
-      const previousNotifications = notifications;
-      const previousUnreadCount = unreadCount;
+  /* ── Mark everything read (explicit button) ── */
+  async function handleMarkAllRead() {
+    if (unreadCount === 0 || markingAll) return;
 
-      setUnreadCount(0);
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
+
+    setMarkingAll(true);
+    setUnreadCount(0);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    try {
+      await notificationService.markAllRead();
+    } catch (err) {
+      console.error('markAllRead failed, reverting:', err);
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnreadCount);
+    } finally {
+      setMarkingAll(false);
+    }
+  }
+
+  /* ── Click a single notification: navigate to the post, mark it read ── */
+  async function handleNotificationClick(n: Notification) {
+    setDropdownOpen(false);
+
+    if (!n.read) {
+      setNotifications((prev) =>
+        prev.map((item) => (item._id === n._id ? { ...item, read: true } : item))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
 
       try {
-        await notificationService.markAllRead();
+        await notificationService.markRead(n._id);
       } catch (err) {
-        // Persist failed — roll back so the UI doesn't lie about server state
-        console.error('markAllRead failed, reverting:', err);
-        setNotifications(previousNotifications);
-        setUnreadCount(previousUnreadCount);
+        console.error('markRead failed:', err);
       }
+    }
+
+    if (n.postId) {
+      router.push(`/post/${n.postId}`);
     }
   }
 
@@ -208,30 +267,69 @@ export default function Navbar() {
     return pathname?.startsWith(href) ?? false;
   }
 
-  /* ── Shared notification panel markup ── */
+  /* ── Notification panel ── */
   const notificationPanel = (
     <>
       <div className="notification-dropdown-header">
-        <span>Notifications</span>
+        <span className="notification-header-title">
+          Notifications
+          {unreadCount > 0 && <span className="notification-header-count">{unreadCount}</span>}
+        </span>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            className="notification-mark-all-btn"
+            onClick={handleMarkAllRead}
+            disabled={markingAll}
+          >
+            Mark all read
+          </button>
+        )}
       </div>
 
       {notifications.length === 0 ? (
-        <div className="notification-empty">No notifications yet</div>
+        <div className="notification-empty">
+          <BellOff size={26} strokeWidth={1.5} className="notification-empty-icon" />
+          <span className="notification-empty-title">You&apos;re all caught up</span>
+          <span className="notification-empty-sub">New activity on your posts will show up here</span>
+        </div>
       ) : (
-        <ul className="notification-list">
-          {notifications.map((n) => (
-            <li key={n._id} className={`notification-item${n.read ? '' : ' unread'}`}>
-              <span className={`notif-icon-wrap notif-icon-wrap-${n.type}`}>
-                {notificationIcon(n.type)}
-              </span>
-              <div className="notification-body">
-                <span className="notification-text">{notificationLabel(n)}</span>
-                <span className="notification-time">{timeAgo(n.createdAt)}</span>
-              </div>
-              {!n.read && <span className="notification-dot" />}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="notification-list">
+            {notifications.map((n) => (
+              <li
+                key={n._id}
+                className={`notification-item${n.read ? '' : ' unread'}`}
+                onClick={() => handleNotificationClick(n)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleNotificationClick(n);
+                  }
+                }}
+              >
+                <span className={`notif-icon-wrap notif-icon-wrap-${n.type}`}>
+                  {notificationIcon(n.type)}
+                </span>
+
+                <div className="notification-body">
+                  <span className="notification-text">
+                    <strong>{n.actorName}</strong> {notificationLabel(n)}
+                  </span>
+                  <span className="notification-time">{timeAgo(n.createdAt)} ago</span>
+                </div>
+
+                {!n.read && <span className="notification-dot" />}
+              </li>
+            ))}
+          </ul>
+
+          <div className="notification-dropdown-footer">
+            <span className="notification-footer-hint">Showing latest {notifications.length}</span>
+          </div>
+        </>
       )}
     </>
   );

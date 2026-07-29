@@ -266,6 +266,7 @@ export default function PostPage({ params }: PostPageProps) {
             onCommentInput={handleCommentInput}
             onSubmitComment={handleSubmitComment}
             onDeleteComment={handleDeleteComment}
+            disableCardLink
           />
         )}
       </main>

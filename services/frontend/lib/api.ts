@@ -161,6 +161,9 @@ export const notificationService = {
 
   // Mark all notifications as read
   markAllRead: () => notificationApi.patch('/api/notifications/read'),
+
+  // Mark a single notification as read
+  markRead: (id: string) => notificationApi.patch(`/api/notifications/${id}/read`),
 };
 
 /* ──────────────────────────────────────────────────────────

@@ -132,18 +132,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await authApi.post('/api/auth/logout');
-    } catch {
-      // continue even if backend call fails
+    } catch (err) {
+      console.error('Logout request failed:', err);
+    } finally {
+      // Safely disconnect global socket if attached to window
+      if (typeof window !== 'undefined' && (window as any).socket) {
+        try {
+          (window as any).socket.disconnect();
+        } catch {
+          // ignore socket cleanup errors
+        }
+      }
+
+      setUser(null);
+      setError(null);
+      router.replace('/');
     }
-    setUser(null);
-    setError(null);
-    router.replace('/auth/login');
   }, [router]);
 
   /* ── Called by any component (e.g. ProfileHeader after a save) to push a
-     fresh user object into the shared auth state, so the navbar and any
-     other consumer re-render immediately instead of showing stale data
-     until the next hydrateSession(). ── */
+     fresh user object into the shared auth state ── */
   const updateUser = useCallback((updated: User) => {
     setUser(updated);
   }, []);

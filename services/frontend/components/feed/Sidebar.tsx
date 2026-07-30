@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 interface RecommendedUser {
   _id: string;
   fullname: { firstName: string; lastName: string };
+  avatar?: string;
+  headline?: string;
   sharedInterests: string[];
 }
 
@@ -52,7 +54,14 @@ export function Sidebar({
         const recRes  = await postService.getRecommendedUsers();
         const recData = recRes.data as {
           success: boolean;
-          recommendations: { userId: string; sharedInterests: string[] }[];
+          recommendations: {
+            _id: string;
+            userId: string;
+            fullname: { firstName: string; lastName: string };
+            avatar?: string;
+            headline?: string;
+            sharedInterests: string[];
+          }[];
         };
 
         if (!recData.success || recData.recommendations.length === 0) {
@@ -60,26 +69,17 @@ export function Sidebar({
           return;
         }
 
-        const ids      = recData.recommendations.map((r) => r.userId);
-        const usersRes = await userService.getUsersBulk(ids);
-        const usersData = usersRes.data as {
-          success: boolean;
-          users: { _id: string; fullname: { firstName: string; lastName: string } }[];
-        };
-
-        const interestMap = Object.fromEntries(
-          recData.recommendations.map((r) => [r.userId, r.sharedInterests])
-        );
-
-        const rawUsers = Array.isArray(usersData?.users)
-          ? usersData.users
-          : Array.isArray(usersData)
-            ? usersData
-            : [];
-
-        const merged: RecommendedUser[] = rawUsers
-          .filter((u) => u && user && u._id !== user._id)
-          .map((u) => ({ ...u, sharedInterests: interestMap[u._id] ?? [] }));
+        // The recommendations endpoint already returns fullname/avatar/headline
+        // populated server-side — no need for a second getUsersBulk round trip.
+        const merged: RecommendedUser[] = recData.recommendations
+          .filter((r) => user && r.userId !== user._id)
+          .map((r) => ({
+            _id: r.userId,
+            fullname: r.fullname,
+            avatar: r.avatar,
+            headline: r.headline,
+            sharedInterests: r.sharedInterests ?? [],
+          }));
 
         setRecommendations(merged);
 
@@ -171,16 +171,37 @@ export function Sidebar({
           {!loading && displayed.map((person) => {
             const isFollowing = followingIds.has(person._id);
             const busy        = loadingFollow === person._id;
+            const hasAvatar   = Boolean(person.avatar && person.avatar.trim() !== '');
             return (
               <div key={person._id} className={`follow-item${isFollowing ? ' follow-item--following' : ''}`}>
-                <div className="follow-avatar" style={{ background: avatarColor(person._id) }}>
-                  <span style={{
-                    color: 'white', fontWeight: 700, fontSize: '0.8rem',
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', width: '100%', height: '100%',
-                  }}>
-                    {initials(person.fullname)}
-                  </span>
+                <div
+                  className="follow-avatar"
+                  style={{
+                    background: hasAvatar ? 'transparent' : avatarColor(person._id),
+                    overflow: 'hidden',
+                    position: 'relative',
+                    width: '70px',
+                    height: '70px',
+                    minWidth: '44px',
+                    borderRadius: '50%',
+                    flexShrink: 0,
+                  }}
+                >
+                  {hasAvatar ? (
+                    <img
+                      src={person.avatar}
+                      alt={`${person.fullname.firstName} ${person.fullname.lastName}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    <span style={{
+                      color: 'white', fontWeight: 700, fontSize: '1rem',
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', width: '100%', height: '100%',
+                    }}>
+                      {initials(person.fullname)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="follow-info">

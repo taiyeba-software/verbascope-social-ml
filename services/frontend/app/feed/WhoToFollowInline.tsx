@@ -1,13 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { postService, userService } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { FollowerRef } from '@/types';
 
 interface RecommendedUser {
   _id: string;
   fullname: { firstName: string; lastName: string };
+  avatar?: string;
+  headline?: string;
   sharedInterests: string[];
+}
+
+interface RecommendationsApiResponse {
+  success: boolean;
+  recommendations?: {
+    _id: string;
+    userId: string;
+    fullname: { firstName: string; lastName: string };
+    avatar?: string;
+    headline?: string;
+    sharedInterests: string[];
+  }[];
+}
+
+interface FollowingApiResponse {
+  success: boolean;
+  following?: (string | FollowerRef)[];
 }
 
 const AVATAR_COLORS = [
@@ -22,73 +43,101 @@ const avatarColor = (id: string) =>
   AVATAR_COLORS[id.charCodeAt(id.length - 1) % AVATAR_COLORS.length];
 
 const initials = (fullname: { firstName: string; lastName: string }) =>
-  `${fullname.firstName[0] ?? ''}${fullname.lastName[0] ?? ''}`.toUpperCase();
+  `${fullname.firstName?.[0] ?? ''}${fullname.lastName?.[0] ?? ''}`.toUpperCase();
 
 export function WhoToFollowInline() {
   const { user } = useAuth();
-  const [people, setPeople]           = useState<RecommendedUser[]>([]);
+  const [people, setPeople] = useState<RecommendedUser[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [loadingFollow, setLoadingFollow] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+
+    let isMounted = true;
+
     const load = async () => {
       try {
-        const recRes  = await postService.getRecommendedUsers();
-        const recData = recRes.data as {
-          success: boolean;
-          recommendations: { userId: string; sharedInterests: string[] }[];
-        };
-        if (!recData.success || recData.recommendations.length === 0) return;
+        // Concurrently fetch recommendations and current following list
+        const [recRes, followRes] = await Promise.all([
+          postService.getRecommendedUsers().catch(() => null),
+          userService.getMyFollowing().catch(() => null),
+        ]);
 
-        const ids       = recData.recommendations.map((r) => r.userId);
-        const usersRes  = await userService.getUsersBulk(ids);
-        const usersData = usersRes.data as {
-          success: boolean;
-          users: { _id: string; fullname: { firstName: string; lastName: string } }[];
-        };
+        if (!isMounted) return;
 
-        const interestMap = Object.fromEntries(
-          recData.recommendations.map((r) => [r.userId, r.sharedInterests])
-        );
+        // Safely extract and type check the 'following' response
+        if (followRes?.data) {
+          const followData = followRes.data as FollowingApiResponse;
+          if (followData.success && Array.isArray(followData.following)) {
+            const extractedIds = followData.following.map((item) => {
+              if (typeof item === 'object' && item !== null && '_id' in item) {
+                return String(item._id);
+              }
+              return String(item);
+            });
+            setFollowingIds(new Set(extractedIds));
+          }
+        }
 
-        const merged = usersData.users
-          .filter((u) => u._id !== user._id)
-          .map((u) => ({ ...u, sharedInterests: interestMap[u._id] ?? [] }));
+        // Safely extract and type check the 'recommendations' response.
+        // The recommendations endpoint already returns fullname/avatar/headline
+        // populated server-side (post-service resolves them via auth-service
+        // bulk lookup + local fallback) — no need for a second bulk fetch here.
+        if (!recRes?.data) return;
+        const recData = recRes.data as RecommendationsApiResponse;
 
-        setPeople(merged.slice(0, 3)); // show max 3 inline
+        if (!recData.success || !recData.recommendations || recData.recommendations.length === 0) return;
 
-        const followRes  = await userService.getMyFollowing();
-        const followData = followRes.data as { success: boolean; following: string[] };
-        setFollowingIds(new Set(followData.following.map(String)));
+        const merged = recData.recommendations
+          .filter((r) => r.userId !== user._id)
+          .map((r) => ({
+            _id: r.userId,
+            fullname: r.fullname,
+            avatar: r.avatar,
+            headline: r.headline,
+            sharedInterests: r.sharedInterests ?? [],
+          }));
+
+        setPeople(merged.slice(0, 3)); // Show max 3 inline
       } catch {
-        // non-critical
+        // Non-critical background fetch failure
       }
     };
+
     load();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   const handleToggleFollow = async (targetId: string) => {
     if (loadingFollow) return;
     setLoadingFollow(targetId);
     const isFollowing = followingIds.has(targetId);
+
     try {
       if (isFollowing) {
         await userService.unfollow(targetId);
-        setFollowingIds((prev) => { const n = new Set(prev); n.delete(targetId); return n; });
+        setFollowingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetId);
+          return next;
+        });
       } else {
         await userService.follow(targetId);
         setFollowingIds((prev) => new Set(prev).add(targetId));
       }
     } catch {
-      // silently fail
+      // Fail silently for seamless UI toggle
     } finally {
       setLoadingFollow(null);
     }
   };
 
   const visible = people.filter((p) => !followingIds.has(p._id));
-  if (visible.length === 0) return null; // hide card entirely if nothing to show
+  if (visible.length === 0) return null;
 
   return (
     <div className="inline-card">
@@ -100,25 +149,76 @@ export function WhoToFollowInline() {
       <div className="inline-card-list">
         {visible.map((person) => {
           const isFollowing = followingIds.has(person._id);
-          const busy        = loadingFollow === person._id;
+          const busy = loadingFollow === person._id;
+          const hasAvatar = Boolean(person.avatar && person.avatar.trim() !== '');
+          const profileLink = person._id ? `/profile/${person._id}` : null;
+
           return (
             <div key={person._id} className="inline-follow-item">
-              <div
-                className="inline-follow-avatar"
-                style={{ background: avatarColor(person._id) }}
-              >
-                {initials(person.fullname)}
-              </div>
+              {/* Avatar Column */}
+              {profileLink ? (
+                <Link href={profileLink} style={{ display: 'contents' }}>
+                  <div
+                    className="inline-follow-avatar"
+                    style={{
+                      background: hasAvatar ? 'transparent' : avatarColor(person._id),
+                      overflow: 'hidden',
+                      position: 'relative',
+                    }}
+                  >
+                    {hasAvatar ? (
+                      <img
+                        src={person.avatar}
+                        alt={`${person.fullname.firstName} ${person.fullname.lastName}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      initials(person.fullname)
+                    )}
+                  </div>
+                </Link>
+              ) : (
+                <div
+                  className="inline-follow-avatar"
+                  style={{
+                    background: hasAvatar ? 'transparent' : avatarColor(person._id),
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
+                >
+                  {hasAvatar ? (
+                    <img
+                      src={person.avatar}
+                      alt={`${person.fullname.firstName} ${person.fullname.lastName}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    initials(person.fullname)
+                  )}
+                </div>
+              )}
+
+              {/* User Info Column */}
               <div className="inline-follow-info">
-                <span className="inline-follow-name">
-                  {person.fullname.firstName} {person.fullname.lastName}
-                </span>
+                {profileLink ? (
+                  <Link href={profileLink} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <span className="inline-follow-name">
+                      {person.fullname.firstName} {person.fullname.lastName}
+                    </span>
+                  </Link>
+                ) : (
+                  <span className="inline-follow-name">
+                    {person.fullname.firstName} {person.fullname.lastName}
+                  </span>
+                )}
                 {person.sharedInterests.length > 0 && (
                   <span className="inline-follow-interests">
                     {person.sharedInterests.map((t) => `#${t}`).join(' ')}
                   </span>
                 )}
               </div>
+
+              {/* Action Button */}
               <button
                 type="button"
                 className={`follow-btn${isFollowing ? ' following' : ''}`}

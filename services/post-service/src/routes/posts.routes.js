@@ -11,6 +11,7 @@ import { addComment, getComments, getReplies, deleteComment, getCommentMood } fr
 import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
 import { savePost, unsavePost, getSavedPosts } from '../controllers/savedPost.controller.js';
+import { getSearchHealth } from '../search/searchHealth.js';
 
 const router = Router();
 
@@ -25,6 +26,13 @@ router.get('/pulse/signal', (req, res) => {
 // ── Milestone 4: per-post comment mood — computed live from the DB, so
 // old threads are accurate immediately, not just newly-arriving comments. ──
 router.get('/:id/pulse/mood', protect, getCommentMood);
+
+// ── Search routes ────────────────────────────────────────────────────
+router.get('/search/health', async (req, res) => {
+	const health = await getSearchHealth();
+	const statusCode = health.status === 'ok' ? 200 : 503;
+	res.status(statusCode).json(health);
+});
 
 // ── Post routes ──────────────────────────────────────────────────────
 router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);

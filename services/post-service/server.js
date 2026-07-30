@@ -5,6 +5,7 @@ import connectDB from './src/db/db.js';
 import { connect as connectRabbit, consumePulseEvents } from './src/broker/rabbit.js';
 import { pulse } from './src/pulse/pulse.js';
 import Post from './src/models/post.model.js';
+import { initMeilisearch } from './src/search/meiliClient.js';
 
 const seedPulseFromDB = async () => {
     try {
@@ -30,6 +31,10 @@ io.on('connection', (socket) => {
 
 await connectDB();
 await seedPulseFromDB();
+
+// Meilisearch is non-critical — if it's down, log a warning and keep going.
+await initMeilisearch();
+
 try {
     await connectRabbit();
     await consumePulseEvents((event) => {

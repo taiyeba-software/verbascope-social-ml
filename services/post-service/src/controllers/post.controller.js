@@ -9,6 +9,7 @@ import { detectLanguage } from '../utils/detectLanguage.js';
 import { normalizeText } from '../utils/normalizeText.js';
 import authClient from '../utils/authClient.js';
 import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted ──
+import { indexPost, deleteIndexedPost } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing ──
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -88,6 +89,13 @@ export const createPost = async (req, res) => {
     const author = usersRes.data.users?.[0] || null;
 
     const populatedPost = { ...newPost.toObject(), author };
+
+    // ── NEW: Phase 1 search indexing ──
+    // Fire-and-forget — search is non-critical, so we never make the
+    // response wait on Meilisearch, and any failure here is only logged.
+    indexPost(newPost, author).catch((err) =>
+      console.error('indexPost error:', err.message)
+    );
 
     return res.status(201).json({ success: true, post: populatedPost });
   } catch (err) {
@@ -236,6 +244,13 @@ export const deletePost = async (req, res) => {
     }
 
     await post.deleteOne();
+
+    // ── NEW: Phase 1 search indexing ──
+    // Fire-and-forget, same rationale as createPost — a Meilisearch
+    // hiccup should never block or fail a delete.
+    deleteIndexedPost(req.params.id).catch((err) =>
+      console.error('deleteIndexedPost error:', err.message)
+    );
 
     // ── NEW: tell every connected browser this post is gone, so it
     // disappears from everyone's feed instantly instead of only after

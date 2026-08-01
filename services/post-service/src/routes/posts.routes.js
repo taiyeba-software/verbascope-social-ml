@@ -12,6 +12,7 @@ import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
 import { savePost, unsavePost, getSavedPosts } from '../controllers/savedPost.controller.js';
 import { getSearchHealth } from '../search/searchHealth.js';
+import { search } from '../controllers/search.controller.js';
 
 const router = Router();
 
@@ -33,6 +34,11 @@ router.get('/search/health', async (req, res) => {
 	const statusCode = health.status === 'ok' ? 200 : 503;
 	res.status(statusCode).json(health);
 });
+
+// NOTE: '/search' MUST be registered before the generic '/:id' route
+// below, same reasoning as '/saved' — otherwise GET /api/posts/search
+// matches '/:id' with id="search" and gets routed into getPost.
+router.get('/search',                         protect,                  search);
 
 // ── Post routes ──────────────────────────────────────────────────────
 router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);

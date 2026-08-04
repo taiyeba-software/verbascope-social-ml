@@ -16,6 +16,13 @@ const pickAuthorName = (author) => {
   return author?.username || author?.name || author?.displayName || 'Unknown';
 };
 
+// Same truthy/empty-string convention used everywhere else the avatar
+// gets read (feedHelpers.ts's getAuthorAvatarUrl, PostCard, CreatePostBox):
+// treat a missing `avatar` key AND "" (what users with no avatar yet
+// actually have in the auth-service response) both as "no avatar", so the
+// frontend always gets a clean null instead of having to re-check for "".
+const pickAuthorAvatar = (author) => author?.avatar || null;
+
 const toSearchDoc = (post, author) => ({
   _id: post._id.toString(),
   content: post.content || '',
@@ -23,6 +30,7 @@ const toSearchDoc = (post, author) => ({
   tags: post.tags || [],
   authorId: (post.author?._id ?? post.author)?.toString?.() || String(post.author),
   authorName: pickAuthorName(author),
+  authorAvatar: pickAuthorAvatar(author), // ← NEW: ImageKit URL or null
   contentLanguage: post.contentLanguage,
   wordCount: post.wordCount || 0,
   imagesCount: post.images?.length || 0,

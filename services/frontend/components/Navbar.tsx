@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
-  Search,
-  SlidersHorizontal,
   Bell,
   ChevronDown,
   Heart,
@@ -22,6 +20,7 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService } from '@/lib/api';
+import SearchBar from './search/SearchBar';
 import './Navbar.css';
 import ThemeToggle from './ThemeToggle';
 
@@ -128,7 +127,6 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount]     = useState(0);
   const [dropdownOpen, setDropdownOpen]   = useState(false);
   const [menuOpen, setMenuOpen]           = useState(false);
-  const [searchValue, setSearchValue]     = useState('');
   const [markingAll, setMarkingAll]       = useState(false);
 
   const socketRef  = useRef<Socket | null>(null);
@@ -239,13 +237,6 @@ export default function Navbar() {
     if (n.postId) {
       router.push(`/post/${n.postId}`);
     }
-  }
-
-  /* ── Search submit — routes to /search once the search page exists ── */
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const q = searchValue.trim();
-    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
   }
 
   /* ── Avatar / display name ── */
@@ -368,20 +359,7 @@ export default function Navbar() {
           ))}
         </ul>
 
-        <form className="navbar-search" onSubmit={handleSearchSubmit} role="search">
-          <Search size={16} className="navbar-search-icon" strokeWidth={1.9} />
-          <input
-            type="text"
-            className="navbar-search-input"
-            placeholder="Search posts, people, tags..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            aria-label="Search posts, people, tags"
-          />
-          <button type="button" className="navbar-search-filter" aria-label="Search filters">
-            <SlidersHorizontal size={15} strokeWidth={1.9} />
-          </button>
-        </form>
+        <SearchBar />
 
         <div className="navbar-end">
           <ThemeToggle />
@@ -476,4 +454,4 @@ export default function Navbar() {
       )}
     </>
   );
-} 
+}

@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import type { SearchResponse } from '@/types/search';
 
 /* ──────────────────────────────────────────────────────────
    API Client Configuration
@@ -249,4 +250,18 @@ export const postService = {
   // Post Service — recommendations
   getRecommendedUsers: () =>
     postApi.get('/api/posts/recommendations/users'),
+
+  // ── Search (Phase 2/2.5 backend, Phase 3 frontend) ──
+  // Matches GET /api/posts/search?q=&limit=&offset= — withCredentials on
+  // postApi already sends the `token` cookie, so no manual auth header needed.
+  // Typed with SearchResponse so callers get `res.data` as the real shape
+  // instead of `unknown`.
+  search: (
+    query: string,
+    opts: { limit?: number; offset?: number; signal?: AbortSignal } = {}
+  ) =>
+    postApi.get<SearchResponse>('/api/posts/search', {
+      params: { q: query, limit: opts.limit ?? 6, offset: opts.offset ?? 0 },
+      signal: opts.signal,
+    }),
 };

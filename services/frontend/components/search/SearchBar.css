@@ -1,0 +1,271 @@
+/* ──────────────────────────────────────────────────────────
+   SearchBar Component — Light Theme
+   Visual language matches .notification-dropdown in Navbar.css:
+   same radius, shadow, border, and teal accent tokens.
+   ────────────────────────────────────────────────────────── */
+
+.navbar-search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 420px;
+}
+
+/* .navbar-search itself (icon/input/filter) keeps its original styling
+   from Navbar.css — it's no longer the direct flex child of <nav>, the
+   wrapper above is, so it just needs to fill the wrapper. */
+.navbar-search-wrapper .navbar-search {
+  max-width: none;
+  width: 100%;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 26rem;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(14, 159, 171, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 80, 120, 0.14), 0 2px 8px rgba(0, 80, 120, 0.06);
+  overflow: hidden;
+  z-index: 200;
+}
+
+/* ── Loading ── */
+.search-dropdown-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 0.83rem;
+  color: rgba(13, 45, 58, 0.55);
+}
+
+.search-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(14, 159, 171, 0.25);
+  border-top-color: #0e9fab;
+  animation: search-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes search-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error ── */
+.search-dropdown-error {
+  padding: 16px;
+  font-size: 0.83rem;
+  color: #ef4444;
+}
+
+/* ── Empty state ── */
+.search-dropdown-empty {
+  padding: 16px;
+  font-size: 0.83rem;
+  color: rgba(13, 45, 58, 0.55);
+}
+
+.search-dropdown-empty strong {
+  color: #0d2d3a;
+  font-weight: 600;
+}
+
+/* ── Results list ── */
+.search-result-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 22rem;
+}
+
+.search-result-list::-webkit-scrollbar {
+  width: 6px;
+}
+.search-result-list::-webkit-scrollbar-thumb {
+  background: rgba(13, 45, 58, 0.15);
+  border-radius: 999px;
+}
+.search-result-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+  background: rgba(14, 159, 171, 0.08);
+}
+
+.search-result-item + .search-result-item {
+  border-top: 1px solid rgba(14, 159, 171, 0.07);
+}
+
+.search-result-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0e9fab, #17b0bc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.search-result-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.search-result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.search-result-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.search-result-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0d2d3a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-time {
+  font-size: 0.7rem;
+  color: rgba(13, 45, 58, 0.4);
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
+
+.search-result-content {
+  margin: 0;
+  font-size: 0.83rem;
+  color: rgba(13, 45, 58, 0.68);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── View all footer ── */
+.search-view-all {
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  border-top: 1px solid rgba(14, 159, 171, 0.1);
+  background: none;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0e9fab;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-view-all:hover,
+.search-view-all.active {
+  background: rgba(14, 159, 171, 0.08);
+}
+
+/* ──────────────────────────────────────────────────────────
+   SearchBar Component — Dark Theme Overrides
+   ────────────────────────────────────────────────────────── */
+
+html[data-theme='dark'] .search-dropdown {
+  background: rgba(30, 41, 59, 0.98) !important;
+  border-color: rgba(148, 197, 210, 0.18) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-theme='dark'] .search-dropdown-loading,
+html[data-theme='dark'] .search-dropdown-empty {
+  color: rgba(248, 250, 252, 0.5) !important;
+}
+
+html[data-theme='dark'] .search-dropdown-empty strong {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .search-spinner {
+  border-color: rgba(20, 184, 166, 0.25) !important;
+  border-top-color: #2dd4bf !important;
+}
+
+html[data-theme='dark'] .search-result-item:hover,
+html[data-theme='dark'] .search-result-item.active {
+  background: rgba(20, 184, 166, 0.12) !important;
+}
+
+html[data-theme='dark'] .search-result-item + .search-result-item {
+  border-top-color: rgba(148, 197, 210, 0.08) !important;
+}
+
+html[data-theme='dark'] .search-result-name {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .search-result-time {
+  color: rgba(248, 250, 252, 0.4) !important;
+}
+
+html[data-theme='dark'] .search-result-content {
+  color: rgba(248, 250, 252, 0.6) !important;
+}
+
+html[data-theme='dark'] .search-view-all {
+  color: #2dd4bf !important;
+  border-top-color: rgba(148, 197, 210, 0.12) !important;
+}
+
+html[data-theme='dark'] .search-view-all:hover,
+html[data-theme='dark'] .search-view-all.active {
+  background: rgba(20, 184, 166, 0.12) !important;
+}
+
+html[data-theme='dark'] .search-result-list::-webkit-scrollbar-thumb {
+  background: rgba(248, 250, 252, 0.15) !important;
+}
+
+/* ── Mobile: dropdown should span the compact search bar's full width,
+   same breakpoint Navbar.css already uses for .navbar-search { max-width: none } ── */
+@media (max-width: 767px) {
+  .navbar-search-wrapper {
+    max-width: none;
+  }
+}

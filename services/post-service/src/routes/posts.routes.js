@@ -12,7 +12,8 @@ import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
 import { savePost, unsavePost, getSavedPosts } from '../controllers/savedPost.controller.js';
 import { getSearchHealth } from '../search/searchHealth.js';
-import { search } from '../controllers/search.controller.js';
+import { search, searchTags, getPostsByTag } from '../controllers/search.controller.js';
+
 
 const router = Router();
 
@@ -39,6 +40,19 @@ router.get('/search/health', async (req, res) => {
 // below, same reasoning as '/saved' — otherwise GET /api/posts/search
 // matches '/:id' with id="search" and gets routed into getPost.
 router.get('/search',                         protect,                  search);
+
+// ── Tag search ──────────────────────────────────────────────────────
+// '/search/tags' is a more specific sibling of '/search' above — Express
+// matches these by exact path so there's no ordering conflict between the
+// two, but keeping tag routes grouped here for discoverability.
+router.get('/search/tags',                    protect,                  searchTags);
+
+// '/tag/:tagName' is a two-segment path, so it can't collide with the
+// single-segment '/:id' route below regardless of order — Express routes
+// by segment count/shape, not just prefix. Kept here anyway, next to the
+// other search routes, rather than relying on that safety margin being
+// obvious to the next person editing this file.
+router.get('/tag/:tagName',                   protect,                  getPostsByTag);
 
 // ── Post routes ──────────────────────────────────────────────────────
 router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);

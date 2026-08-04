@@ -5,25 +5,21 @@ import { useRouter } from 'next/navigation';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { useSearch } from '@/hooks/useSearch';
 import { SearchDropdown } from './SearchDropdown';
-import type { SearchPost } from '@/types/search';
+import type { SearchPost, SearchTag } from '@/types/search';
 import './SearchBar.css';
 
-/* ── This replaces the old inline <form className="navbar-search"> block
-   in Navbar.tsx. Same markup/classes, so it looks identical — it just now
-   also owns debounce, request-cancellation, and the results dropdown. ── */
 export default function SearchBar() {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { query, setQuery, results, total, loading, error, open, setOpen, close } = useSearch();
+  const { query, setQuery, results, total, tags, loading, error, open, setOpen, close } =
+    useSearch();
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  /* Reset keyboard selection whenever the result set changes */
-  useEffect(() => setActiveIndex(-1), [results]);
+  /* Reset keyboard selection whenever either result set changes */
+  useEffect(() => setActiveIndex(-1), [results, tags]);
 
-  /* Close on outside click — same pattern Navbar already uses for the
-     notification dropdown and mobile menu. */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -36,6 +32,11 @@ export default function SearchBar() {
 
   function goToPost(post: SearchPost) {
     router.push(`/post/${post._id}`);
+    close();
+  }
+
+  function goToTag(tag: SearchTag) {
+    router.push(`/tag/${encodeURIComponent(tag.tag)}`);
     close();
   }
 
@@ -52,7 +53,8 @@ export default function SearchBar() {
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    const selectableCount = results.length + (total > 0 ? 1 : 0);
+    // Single flattened order: posts, then tags, then the "view all" row.
+    const selectableCount = results.length + tags.length + (total > 0 ? 1 : 0);
 
     if (!open || selectableCount === 0) return;
 
@@ -67,10 +69,14 @@ export default function SearchBar() {
         break;
       case 'Enter':
         e.preventDefault();
-        if (activeIndex === -1 || activeIndex === results.length) {
+        if (activeIndex === -1) {
           goToFullResults();
-        } else {
+        } else if (activeIndex < results.length) {
           goToPost(results[activeIndex]);
+        } else if (activeIndex < results.length + tags.length) {
+          goToTag(tags[activeIndex - results.length]);
+        } else {
+          goToFullResults();
         }
         break;
       case 'Escape':
@@ -110,10 +116,12 @@ export default function SearchBar() {
           query={query.trim()}
           results={results}
           total={total}
+          tags={tags}
           loading={loading}
           error={error}
           activeIndex={activeIndex}
           onSelectPost={goToPost}
+          onSelectTag={goToTag}
           onViewAll={goToFullResults}
         />
       )}

@@ -2,16 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { postService } from '@/lib/api';
-import type { SearchPost } from '@/types/search';
+import { searchTags as searchTagsApi } from '@/lib/api/search';
+import type { SearchPost, SearchTag } from '@/types/search';
 
 const DEBOUNCE_MS = 300;
 const DROPDOWN_RESULT_LIMIT = 6;
+const DROPDOWN_TAG_LIMIT = 5;
 
 interface UseSearchReturn {
   query: string;
   setQuery: (value: string) => void;
   results: SearchPost[];
   total: number;
+  tags: SearchTag[];
   loading: boolean;
   error: string | null;
   open: boolean;
@@ -23,6 +26,7 @@ export function useSearch(): UseSearchReturn {
   const [query, setQueryState] = useState('');
   const [results, setResults] = useState<SearchPost[]>([]);
   const [total, setTotal] = useState(0);
+  const [tags, setTags] = useState<SearchTag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -43,24 +47,27 @@ export function useSearch(): UseSearchReturn {
     setLoading(true);
     setError(null);
 
-    postService
-      .search(term, { limit: DROPDOWN_RESULT_LIMIT, signal: controller.signal })
-      .then((res) => {
-        setResults(res.data.results);
-        setTotal(res.data.total);
+    Promise.all([
+      postService.search(term, { limit: DROPDOWN_RESULT_LIMIT, signal: controller.signal }),
+      searchTagsApi(term, { limit: DROPDOWN_TAG_LIMIT, signal: controller.signal }),
+    ])
+      .then(([postsRes, tagsRes]) => {
+        setResults(postsRes.data.results);
+        setTotal(postsRes.data.total);
+        setTags(tagsRes.results);
         setOpen(true);
       })
       .catch((err) => {
-        // ApiClient's response interceptor rewrites every error into a
-        // plain { status, statusText, message, code, data } object before
-        // it reaches here — so a cancelled request shows up as
-        // code 'ERR_CANCELED' (axios's cancellation code), not a real
-        // Error with name 'AbortError'. Ignore it: it's just superseded
-        // by a newer keystroke, not a real failure.
-        if (err?.code === 'ERR_CANCELED') return;
+        // postService.search (axios) reports cancellation as
+        // code 'ERR_CANCELED'; searchTagsApi (plain fetch) reports it as
+        // a DOMException with name 'AbortError'. Either can be the one
+        // that rejects first inside Promise.all — ignore both, they're
+        // just superseded by a newer keystroke, not a real failure.
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
         setError('Something went wrong. Try again.');
         setResults([]);
         setTotal(0);
+        setTags([]);
         setOpen(true);
       })
       .finally(() => {
@@ -79,10 +86,10 @@ export function useSearch(): UseSearchReturn {
       const trimmed = value.trim();
 
       if (!trimmed) {
-        // empty query: cancel everything, clear results, close dropdown
         abortRef.current?.abort();
         setResults([]);
         setTotal(0);
+        setTags([]);
         setError(null);
         setLoading(false);
         setOpen(false);
@@ -94,7 +101,6 @@ export function useSearch(): UseSearchReturn {
     [runSearch]
   );
 
-  // clean up on unmount — don't let a stray timer or request outlive the component
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -102,5 +108,5 @@ export function useSearch(): UseSearchReturn {
     };
   }, []);
 
-  return { query, setQuery, results, total, loading, error, open, setOpen, close };
+  return { query, setQuery, results, total, tags, loading, error, open, setOpen, close };
 }

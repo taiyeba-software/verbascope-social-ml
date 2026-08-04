@@ -30,7 +30,7 @@ const toSearchDoc = (post, author) => ({
   tags: post.tags || [],
   authorId: (post.author?._id ?? post.author)?.toString?.() || String(post.author),
   authorName: pickAuthorName(author),
-  authorAvatar: pickAuthorAvatar(author), // ← NEW: ImageKit URL or null
+  authorAvatar: pickAuthorAvatar(author), // ImageKit URL or null
   contentLanguage: post.contentLanguage,
   wordCount: post.wordCount || 0,
   imagesCount: post.images?.length || 0,
@@ -68,8 +68,51 @@ export async function deleteIndexedPost(postId) {
   }
 }
 
-// Used by Phase 2's GET /api/posts/search route.
+// Used by GET /api/posts/search.
 export async function searchPosts(query, opts = {}) {
   const { limit = 20, offset = 0 } = opts;
   return postsIndex().search(query, { limit, offset });
+}
+
+// ── Tag search ──────────────────────────────────────────────────────
+
+// Used by GET /api/posts/search/tags. Meilisearch facet search: pull the
+// post-count for EVERY tag in the index (limit: 0 = don't return actual
+// post hits, only facetDistribution), then filter down to tags whose name
+// contains the query. Requires `tags` to be in filterableAttributes in
+// your Meilisearch index settings — it already must be, since the
+// existing tag-detail filter (`tags = "..."`) depends on the same thing.
+export async function searchTagFacets(query, opts = {}) {
+  const { limit = 8 } = opts;
+  const q = query.toLowerCase();
+
+  const { facetDistribution } = await postsIndex().search('', {
+    facets: ['tags'],
+    limit: 0,
+  });
+
+  const allTags = facetDistribution?.tags || {};
+
+  return Object.entries(allTags)
+    .filter(([tag]) => tag.toLowerCase().includes(q))
+    .sort((a, b) => b[1] - a[1]) // most-used tags first
+    .slice(0, limit)
+    .map(([tag, postsCount]) => ({ tag, postsCount }));
+}
+
+// Used by GET /api/posts/tag/:tagName. Exact match, not fuzzy — a tag
+// either exists on a post or it doesn't — so this filters rather than
+// searching with `q`.
+export async function searchPostsByTag(tagName, opts = {}) {
+  const { limit = 20, offset = 0 } = opts;
+  // Meilisearch filter expressions use double-quoted string values —
+  // escape any literal double quotes in the tag itself so a tag like
+  // `foo"bar` can't break out of the filter expression.
+  const safeTag = tagName.replace(/"/g, '\\"');
+
+  return postsIndex().search('', {
+    filter: `tags = "${safeTag}"`,
+    limit,
+    offset,
+  });
 }

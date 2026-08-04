@@ -1,8 +1,3 @@
-/* Matches the flat document shape actually sent to Meilisearch
-   (`toSearchDoc()` in postIndex.js) — NOT a nested author object.
-   authorAvatar was added alongside authorName/authorId — the search
-   index now carries the same ImageKit URL (or null) that PostCard and
-   CreatePostBox already render elsewhere in the app. */
 export interface SearchPost {
   _id: string;
   content: string;
@@ -10,11 +5,11 @@ export interface SearchPost {
   tags?: string[];
   authorId: string;
   authorName: string;
-  authorAvatar: string | null; // ImageKit URL, or null if the user has no avatar
+  authorAvatar: string | null;
   contentLanguage?: string;
   wordCount?: number;
   imagesCount?: number;
-  createdAt: number; // epoch ms — Meilisearch has no native Date type
+  createdAt: number;
 }
 
 export interface SearchResponse {
@@ -24,5 +19,28 @@ export interface SearchResponse {
   limit: number;
   offset: number;
   processingTimeMs?: number;
+  results: SearchPost[];
+}
+
+// ── NEW: Tag search ──
+export interface SearchTag {
+  tag: string;
+  postsCount: number;
+}
+
+export interface TagSearchResponse {
+  success: boolean;
+  query: string;
+  results: SearchTag[];
+}
+
+export interface TagPostsResponse {
+  success: boolean;
+  tag: string;
+  total: number;
+  limit: number;
+  offset: number;
+  // Meilisearch-shaped results (same flat shape as SearchPost), NOT the
+  // full Mongo post — no likedByMe/bookmarkedByMe/images[] here yet.
   results: SearchPost[];
 }

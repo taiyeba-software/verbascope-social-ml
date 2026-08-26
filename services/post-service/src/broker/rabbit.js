@@ -5,6 +5,8 @@ import User from '../models/user.model.js';
 let connection = null;
 let channel = null;
 const pulseQueue = 'pulse_events';
+const mlAnalyzeQueue = 'ml_analyze';
+const mlResultQueue = 'ml_results';
 
 const upsertUser = async (payload) => {
 	if (!payload?.id) return;
@@ -61,16 +63,34 @@ const consumeQueue = async (queueName, handler) => {
 };
 
 export const publish = (eventType, data) => {
-	if (!channel) return;
-	const payload = JSON.stringify({ type: eventType, ...data });
+        if (!channel) return;
 
-	if (eventType === 'notification_created') {
-		channel.sendToQueue('notification_created', Buffer.from(payload));
-	} else {
-		// pulse events (post.liked, post.commented, etc.) keep going to pulseQueue
-		channel.sendToQueue(pulseQueue, Buffer.from(payload));
-	}
+        const payload = JSON.stringify({
+                type: eventType,
+                ...data,
+        });
+
+        if (eventType === 'notification_created') {
+                channel.sendToQueue(
+                        'notification_created',
+                        Buffer.from(payload)
+                );
+        } else if (eventType === 'ml.analyze') {
+                channel.sendToQueue(
+                        mlAnalyzeQueue,
+                        Buffer.from(payload),
+                        { persistent: true }
+                );
+        } else {
+                // Existing pulse events
+                channel.sendToQueue(
+                        pulseQueue,
+                        Buffer.from(payload)
+                );
+        }
 };
+
+
 
 export const consumePulseEvents = async (onEvent) => {
 	if (!channel) return;
@@ -82,6 +102,24 @@ export const consumePulseEvents = async (onEvent) => {
 		const event = JSON.parse(message.content.toString());
 		onEvent(event);
 		channel.ack(message);
+	});
+};
+
+export const consumeMLResults = async (onResult) => {
+	if (!channel) return;
+
+	await channel.assertQueue(mlResultQueue, { durable: true });
+	await channel.consume(mlResultQueue, async (message) => {
+		if (!message) return;
+
+		try {
+			const result = JSON.parse(message.content.toString());
+			await onResult(result);
+			channel.ack(message);
+		} catch (error) {
+			console.error('Failed to process ML result:', error.message);
+			channel.nack(message, false, false);
+		}
 	});
 };
 
@@ -105,6 +143,8 @@ export const connect = async () => {
 
 		await channel.assertQueue(pulseQueue, { durable: false });
 		await channel.assertQueue('notification_created', { durable: true });
+		await channel.assertQueue(mlAnalyzeQueue, { durable: true });
+		await channel.assertQueue(mlResultQueue, { durable: true });
 
 		await consumeQueue('user_created', upsertUser);
 		await consumeQueue('user_updated', applyUserUpdate);

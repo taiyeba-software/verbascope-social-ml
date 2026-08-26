@@ -8,6 +8,7 @@ import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon, GlobeIcon } from './ic
 import { PostMoreMenu } from './PostMoreMenu';
 import { CommentSection, type CommentState } from './CommentSection';
 import { LikeAnimation, type AnchorPoint } from './LikeAnimation';
+import { AISignalCard, type MLAnalysis } from './AISignalCard';
 import { useDwellTracker } from '@/hooks/useDwellTracker';
 import {
   safeAuthorName,
@@ -27,6 +28,10 @@ export type FeedPost = Post & {
   tags?: string[];
   createdAt?: string;
   images?: string[];
+  // ── NEW: VerbaScope AI Signal feature ──
+  // Populated by post.controller.js's handleMLResult() once the ML Brain
+  // finishes analyzing the post's text. Absent/null until then.
+  mlAnalysis?: MLAnalysis | null;
 };
 
 // ── Carousel ─────────────────────────────────────────────────────────
@@ -176,6 +181,7 @@ export function PostCard({
   const images = post.images ?? [];
   const dwellRef = useDwellTracker(post._id);
   const authorAvatarUrl = getAuthorAvatarUrl(post.author);
+  const hasText = !!post.content?.trim();
 
   // Post authors can be null/undefined for deleted-user edge cases (same
   // reasoning as safeAuthorName/safeAuthorInitials already handling that
@@ -218,6 +224,9 @@ export function PostCard({
 
   return (
     <article className="post-card" ref={dwellRef as Ref<HTMLElement>}>
+      {/* ── NEW: VerbaScope AI Signal — first thing inside the post ── */}
+      <AISignalCard mlAnalysis={post.mlAnalysis} hasText={hasText} />
+
       <div className="post-header">
         <div className="post-author-info">
           {authorHref ? (

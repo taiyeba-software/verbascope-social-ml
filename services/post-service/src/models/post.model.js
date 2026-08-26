@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 
 const postSchema = new mongoose.Schema(
@@ -25,6 +24,46 @@ const postSchema = new mongoose.Schema(
     wordCount: {
       type: Number,
       default: 0,
+    },
+    mlAnalysis: {
+      sentiment: {
+        type: String,
+        default: null,
+      },
+      sarcasm: {
+        type: Boolean,
+        default: null,
+      },
+      sarcasmProbability: {
+        type: Number,
+        default: null,
+      },
+      toxicity: {
+        type: Number,
+        default: null,
+      },
+      riskFlag: {
+        type: String,
+        enum: ['green', 'yellow', 'red', null],
+        default: null,
+      },
+      // ── NEW: VerbaScope AI Signal feature ──
+      // Derived from riskFlag via signalMapper.js's getAISignal().
+      // These are what the frontend renders by default (the feed card);
+      // sentiment/sarcasm/toxicity above stay available for the
+      // "Why this signal?" expandable detail view.
+      signal: {
+        type: String,
+        default: null,
+      },
+      signalMessage: {
+        type: String,
+        default: null,
+      },
+      analyzedAt: {
+        type: Date,
+        default: null,
+      },
     },
     tags: {
       type: [String],

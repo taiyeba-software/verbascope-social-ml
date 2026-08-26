@@ -10,6 +10,8 @@ import { normalizeText } from '../utils/normalizeText.js';
 import authClient from '../utils/authClient.js';
 import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted ──
 import { indexPost, deleteIndexedPost } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing ──
+import { getAISignal } from '../ml/signalMapper.js'; // ── NEW: VerbaScope AI Signal feature ──
+
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -81,6 +83,14 @@ export const createPost = async (req, res) => {
 
     pulse.onPostCreated(newPost, req.user.id);
     publish('post.created', { post: newPost });
+
+    // Send post text to ML Brain asynchronously
+    if (rawContent) {
+      publish('ml.analyze', {
+        postId: newPost._id.toString(),
+        text: rawContent,
+      });
+    }
 
     // Fetch author from auth-service instead of populate()
     const usersRes = await authClient.post('/api/users/bulk', {
@@ -261,5 +271,96 @@ export const deletePost = async (req, res) => {
   } catch (err) {
     console.error('deletePost error:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// ── POST /api/posts/admin/reanalyze ──────────────────────────────────
+// One-time backfill for posts created before the AI Signal feature
+// existed — they have text but were never sent to ml.analyze, so their
+// mlAnalysis.riskFlag is stuck at null forever. This finds those posts
+// and republishes them to the ML Brain via the same queue createPost()
+// already uses, so handleMLResult() picks up the results normally.
+//
+// Safe to call more than once — it only ever selects posts still missing
+// a riskFlag, so already-analyzed posts are never re-queued.
+export const reanalyzeStalePosts = async (req, res) => {
+  try {
+    const stalePosts = await Post.find({
+      content: { $exists: true, $ne: '' },
+      'mlAnalysis.riskFlag': null,
+    })
+      .select('_id content')
+      .lean();
+
+    let queued = 0;
+    for (const post of stalePosts) {
+      if (!post.content?.trim()) continue;
+      publish('ml.analyze', {
+        postId: post._id.toString(),
+        text: post.content,
+      });
+      queued++;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Queued ${queued} post(s) for re-analysis.`,
+      queued,
+      totalFound: stalePosts.length,
+    });
+  } catch (err) {
+    console.error('reanalyzeStalePosts error:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+export const handleMLResult = async (result) => {
+  try {
+    if (!result?.postId) {
+      console.warn('ML result missing postId');
+      return;
+    }
+
+    // ── NEW: VerbaScope AI Signal feature ──
+    // Derive the user-friendly signal + message from risk_flag.
+    // The backend decides this, not the frontend — see signalMapper.js.
+    const aiSignal = getAISignal(result.risk_flag);
+
+    const updatedPost = await Post.findByIdAndUpdate(
+      result.postId,
+      {
+        $set: {
+          'mlAnalysis.sentiment': result.sentiment,
+          'mlAnalysis.sarcasm': result.sarcasm,
+          'mlAnalysis.sarcasmProbability': result.sarcasm_probability,
+          'mlAnalysis.toxicity': result.toxicity,
+          'mlAnalysis.riskFlag': result.risk_flag,
+          'mlAnalysis.signal': aiSignal.signal,
+          'mlAnalysis.signalMessage': aiSignal.message,
+          'mlAnalysis.analyzedAt': new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedPost) {
+      console.warn(`ML result received for missing post: ${result.postId}`);
+      return;
+    }
+
+    console.log(`ML analysis saved: ${result.postId} -> ${result.risk_flag} (${aiSignal.signal})`);
+    io.emit('post:ml-analysis', {
+      postId: result.postId,
+      sentiment: result.sentiment,
+      sarcasm: result.sarcasm,
+      sarcasm_probability: result.sarcasm_probability,
+      toxicity: result.toxicity,
+      risk_flag: result.risk_flag,
+      signal: aiSignal.signal,
+      message: aiSignal.message,
+    });
+  } catch (error) {
+    console.error('Failed to save ML result:', error.message);
+    throw error;
   }
 };

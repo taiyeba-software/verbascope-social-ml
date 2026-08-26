@@ -2,10 +2,15 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import app from './src/app.js';
 import connectDB from './src/db/db.js';
-import { connect as connectRabbit, consumePulseEvents } from './src/broker/rabbit.js';
+import {
+    connect as connectRabbit,
+    consumePulseEvents,
+    consumeMLResults,
+} from './src/broker/rabbit.js';
 import { pulse } from './src/pulse/pulse.js';
 import Post from './src/models/post.model.js';
 import { initMeilisearch } from './src/search/meiliClient.js';
+import { handleMLResult } from './src/controllers/post.controller.js';
 
 const seedPulseFromDB = async () => {
     try {
@@ -55,6 +60,7 @@ try {
             io.emit('pulse:update', pulse.getSignal());
         }
     });
+    await consumeMLResults(handleMLResult);
 } catch (err) {
     console.warn('⚠️  RabbitMQ unavailable, continuing without it.');
 }

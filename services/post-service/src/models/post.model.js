@@ -26,6 +26,22 @@ const postSchema = new mongoose.Schema(
       default: 0,
     },
     mlAnalysis: {
+      // ── NEW: ML Brain "v2" fields ──
+      // language / languageConfidence are the ML Brain's own language
+      // detection on the analyzed text. Deliberately named differently
+      // from the top-level `contentLanguage` field above (which is set
+      // synchronously at createPost time via detectLanguage.js) so the
+      // two never collide or get confused — contentLanguage is "our
+      // quick guess at write time", this is "the ML Brain's verdict
+      // after analysis".
+      language: {
+        type: String,
+        default: null,
+      },
+      languageConfidence: {
+        type: Number,
+        default: null,
+      },
       sentiment: {
         type: String,
         default: null,
@@ -42,15 +58,24 @@ const postSchema = new mongoose.Schema(
         type: Number,
         default: null,
       },
+      // ── NEW: human-readable toxicity bucket from ML Brain v2 (e.g. "low"/"medium"/"high") ──
+      toxicityLevel: {
+        type: String,
+        default: null,
+      },
       riskFlag: {
         type: String,
         enum: ['green', 'yellow', 'red', null],
         default: null,
       },
-      // ── NEW: VerbaScope AI Signal feature ──
+      // ── NEW: ML Brain's own free-text explanation for the risk flag ──
+      explanation: {
+        type: String,
+        default: null,
+      },
       // Derived from riskFlag via signalMapper.js's getAISignal().
       // These are what the frontend renders by default (the feed card);
-      // sentiment/sarcasm/toxicity above stay available for the
+      // the raw fields above stay available for the
       // "Why this signal?" expandable detail view.
       signal: {
         type: String,

@@ -146,6 +146,9 @@ export const getFeed = async (req, res) => {
       .lean();
     const savedPostIds = new Set(savedDocs.map((d) => d.post.toString()));
 
+    // Note: `mlAnalysis` is a plain field on the Post document, so it's
+    // already present on every item in `posts` (via .lean()) — nothing
+    // extra needed here to include it in the feed response.
     const enriched        = posts.map((p) => ({ ...p, author: userMap[p.author.toString()] || null }));
     const postsWithState  = addStateFlags(enriched, userId, savedPostIds);
     const total            = await Post.countDocuments();
@@ -314,6 +317,17 @@ export const reanalyzeStalePosts = async (req, res) => {
   }
 };
 
+// ── ML Brain result handler ──────────────────────────────────────────
+// Called by consumeMLResults() (src/broker/rabbit.js) for every message
+// on the ml_results queue. This is the ONLY place that writes ML output
+// onto a Post, and the ONLY place that emits post:ml-analysis over
+// Socket.IO — no changes needed in rabbit.js itself, it just forwards
+// the parsed payload here.
+//
+// Saves the full "v2" ML Brain payload (language / toxicityLevel /
+// explanation included, alongside the original sentiment/sarcasm/
+// toxicity/riskFlag fields), then derives the frontend-facing
+// signal/signalMessage via getAISignal(), same as before.
 export const handleMLResult = async (result) => {
   try {
     if (!result?.postId) {
@@ -321,7 +335,6 @@ export const handleMLResult = async (result) => {
       return;
     }
 
-    // ── NEW: VerbaScope AI Signal feature ──
     // Derive the user-friendly signal + message from risk_flag.
     // The backend decides this, not the frontend — see signalMapper.js.
     const aiSignal = getAISignal(result.risk_flag);
@@ -330,18 +343,22 @@ export const handleMLResult = async (result) => {
       result.postId,
       {
         $set: {
+          'mlAnalysis.language': result.language,
+          'mlAnalysis.languageConfidence': result.language_confidence,
           'mlAnalysis.sentiment': result.sentiment,
           'mlAnalysis.sarcasm': result.sarcasm,
           'mlAnalysis.sarcasmProbability': result.sarcasm_probability,
           'mlAnalysis.toxicity': result.toxicity,
+          'mlAnalysis.toxicityLevel': result.toxicity_level,
           'mlAnalysis.riskFlag': result.risk_flag,
+          'mlAnalysis.explanation': result.explanation,
           'mlAnalysis.signal': aiSignal.signal,
           'mlAnalysis.signalMessage': aiSignal.message,
           'mlAnalysis.analyzedAt': new Date(),
         },
       },
       { new: true }
-    );
+    ).lean();
 
     if (!updatedPost) {
       console.warn(`ML result received for missing post: ${result.postId}`);
@@ -349,15 +366,13 @@ export const handleMLResult = async (result) => {
     }
 
     console.log(`ML analysis saved: ${result.postId} -> ${result.risk_flag} (${aiSignal.signal})`);
+
+    // Emit the whole saved mlAnalysis object rather than hand-picking
+    // fields, so any new field added to the schema later automatically
+    // reaches the frontend without another edit here.
     io.emit('post:ml-analysis', {
       postId: result.postId,
-      sentiment: result.sentiment,
-      sarcasm: result.sarcasm,
-      sarcasm_probability: result.sarcasm_probability,
-      toxicity: result.toxicity,
-      risk_flag: result.risk_flag,
-      signal: aiSignal.signal,
-      message: aiSignal.message,
+      mlAnalysis: updatedPost.mlAnalysis,
     });
   } catch (error) {
     console.error('Failed to save ML result:', error.message);

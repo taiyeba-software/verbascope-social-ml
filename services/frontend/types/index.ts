@@ -63,13 +63,11 @@ export interface LoginFormData {
 /* ─────────────────────────────────────────────────────────
    ML Brain Signal Types
    ───────────────────────────────────────────────────────── */
-
-export interface MLSignal {
-  sentiment: 'positive' | 'negative' | 'neutral';
-  toxicity_score: number;
-  sarcasm: boolean;
-  risk_flag: 'green' | 'yellow' | 'red';
-}
+// The canonical shape of what post.controller.js's handleMLResult() saves
+// and emits lives in components/feed/AISignalCard.tsx as `MLAnalysis` —
+// import it from there rather than duplicating it here, so there's only
+// one source of truth for the field names (they're camelCase, matching
+// the Post schema in post-service, not the snake_case ML Brain payload).
 
 export interface Post {
   _id: string;
@@ -83,6 +81,14 @@ export interface Post {
   isOwner: boolean;
   createdAt: string;
   updatedAt: string;
+
+  // ── VerbaScope AI Signal feature ──
+  // Populated asynchronously by post.controller.js's handleMLResult()
+  // once the ML Brain finishes analyzing the post's text. Absent/null
+  // until then, and always absent for image-only posts with no content.
+  // Typed as `unknown` here to avoid a circular import with AISignalCard;
+  // FeedPost in PostCard.tsx narrows it to the real MLAnalysis type.
+  mlAnalysis?: unknown;
 }
 
 /* ─────────────────────────────────────────────────────────

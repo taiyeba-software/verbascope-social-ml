@@ -86,6 +86,8 @@ frontend/
 
 There is currently no `app/explore/page.tsx`; any navigation link to `/explore` therefore does not have a matching App Router page.
 
+The landing page is public. `/feed` is guarded by `ProtectedRoute`; bookmarks and post details perform their own redirect checks. Profile, search, and tag pages currently fetch independently and are not covered by the central route guard.
+
 ## Shared Components
 
 | Path | Purpose |
@@ -115,6 +117,7 @@ There is currently no `app/explore/page.tsx`; any navigation link to `/explore` 
 | `CommentThread.css` | Thread indentation, reply controls, avatar, and sentiment styles. |
 | `ShareSheet.tsx` | Share-reason modal sheet. |
 | `PostMoreMenu.tsx` | Owner-only post deletion menu. |
+| `AISignalCard.tsx` | Displays asynchronous sentiment, sarcasm, toxicity, risk, and user-facing AI signal information. |
 | `Sidebar.tsx` | Trending tags, pulse signal, recommendations, and follow/unfollow controls. |
 | `LikeAnimation.tsx` | Portal-based remote DotLottie like animation with a timeout fallback. |
 | `icons.tsx` | Inline SVG heart, comment, share, bookmark, globe, send, and chevron icons. |
@@ -219,9 +222,9 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 
 | Path | Purpose |
 | --- | --- |
-| `lib/api.ts` | Axios client abstraction plus auth, user, notification, post, recommendation, bookmark, comment, dwell, and search services. |
+| `lib/api.ts` | Axios client abstraction plus auth, user, notification, post, recommendation, bookmark, comment, dwell, and post-search services. Requests include credentials for cookie-based sessions. |
 | `lib/api/posts.ts` | Re-exports `postApi` and `postService`. |
-| `lib/api/search.ts` | Fetch-based post search, tag search, and tag-post requests; consumes `NEXT_PUBLIC_API_URL`. |
+| `lib/api/search.ts` | Separate fetch-based post search, tag search, and tag-post client; consumes `NEXT_PUBLIC_API_URL`. Navbar search uses the Axios client instead, so search behavior has two frontend implementations. |
 | `lib/utils.ts` | `cn` helper built with `clsx` and `tailwind-merge`. |
 | `types/index.ts` | User, auth, form, ML signal, post, follower, and API error types. |
 | `types/search.ts` | Search post, tag, and response types. |
@@ -253,7 +256,7 @@ The frontend source or local environment references these names:
 | `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` | ImageKit browser upload configuration. |
 | `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` | ImageKit public URL endpoint. |
 
-Socket.IO URLs are currently hardcoded to ports `3001` and `3003` in frontend code rather than being environment-configurable. Keep `.env.local` private.
+Defaults used by the API clients are auth `http://localhost:3000`, notification `http://localhost:3001`, post `http://localhost:3003`, and generic search `http://localhost:3003`. Socket.IO URLs are currently hardcoded to `http://localhost:3001` and `http://localhost:3003` rather than being environment-configurable. Keep `.env.local` private.
 
 ## Running The Frontend
 
@@ -285,11 +288,17 @@ The UI primitives additionally import packages that are not all declared in `pac
 
 ## Authentication And Runtime Behavior
 
-Authentication is provided by `AuthProvider`, which hydrates the current user from the auth API and exposes account operations. `ProtectedRoute` centrally guards the feed route, while other pages also perform their own authenticated fetches or redirects. Protection is not uniformly centralized for profile, bookmark, post-detail, search, and tag routes.
+Authentication is provided by `AuthProvider`, which hydrates the current user from `GET /api/auth/me` and exposes login, registration, Google OAuth, logout, and profile update operations. Axios requests use `withCredentials`, so the auth service's HTTP-only cookies carry the session; the frontend does not store a token in localStorage. Login, registration, and logout call `POST /api/auth/login`, `POST /api/auth/register`, and `POST /api/auth/logout`; successful authentication redirects to `/feed`, while logout redirects to `/`.
+
+The login form collects `rememberMe`, but the current auth client sends only email and password, so the control has no backend effect.
+
+`ProtectedRoute` centrally guards the feed route, while bookmarks and post detail perform their own redirect checks. Profile, search, and tag pages are not uniformly protected and may issue their own API requests before authentication is resolved.
 
 The theme is synchronized between React state, localStorage, the `vs-theme` cookie, and the document attribute. The root layout resolves the cookie server-side, with a dark fallback on first visit when no theme cookie exists.
 
 The application uses Socket.IO for post-service pulse/trending/count/deletion events and notification updates. It also uses browser visibility and timing to send dwell activity after the configured threshold.
+
+Post text analysis is asynchronous. Feed cards show an analyzing state until the post service receives ML results, then render the mapped risk signal, sentiment, sarcasm, toxicity, and explanation. Image-only posts do not have text analysis.
 
 ## Testing And Diagnostics
 
@@ -301,6 +310,12 @@ No authored automated test files or test scripts were found in this folder. `tsc
 - The lockfiles may resolve different dependency versions.
 - Some UI primitive imports are not declared in `package.json`.
 - `/explore` has no matching App Router page.
+- The login “Forgot?” link points to `#` and has no password-reset flow.
+- The navbar search advertises people search, but the implementation returns posts and tags only.
+- The search filter control has no handler, and mobile trending chips do not navigate.
+- `ProfilePosts` passes no-op handlers for some sharing, bookmarking, and comment-deletion actions, so profile posts do not expose the full feed interaction set.
+- Tag pages do not render the shared navbar.
+- The login `rememberMe` value is collected but not sent to the auth service.
 - Socket.IO endpoints use hardcoded ports.
 - The root favicon metadata declares the wrong MIME type for `favicon.jpg`.
 - There is no authored frontend test suite.

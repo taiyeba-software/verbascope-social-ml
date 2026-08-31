@@ -162,7 +162,7 @@ For a reproducible install from the lockfile:
 npm ci
 ```
 
-The service expects MongoDB, RabbitMQ, and optionally Meilisearch, ImageKit, and the auth-service to be reachable. MongoDB and RabbitMQ are required for the normal startup flow; Meilisearch failures are handled as non-fatal.
+The service expects MongoDB, RabbitMQ, and optionally Meilisearch, ImageKit, and the auth-service to be reachable. MongoDB is required for normal request handling. RabbitMQ is required for notifications, pulse events, and asynchronous ML analysis, but the HTTP server can start while the broker is unavailable. Meilisearch is optional and search is degraded or unavailable when it cannot be reached.
 
 ## Environment Variables
 
@@ -174,7 +174,7 @@ The service reads these variable names:
 | `RABBITMQ_URI` | RabbitMQ connection string |
 | `JWT_SECRET` | JWT verification |
 | `PORT` | HTTP server port; defaults to `3003` |
-| `CLIENT_URL` | Express CORS configuration; defaults to `http://localhost:3002` |
+| `CLIENT_URL` | Read by the config module, but not currently used by Express or Socket.IO CORS; origins are hardcoded in `src/app.js` and `server.js` |
 | `AUTH_SERVICE_URL` | Auth-service API base URL; defaults to `http://localhost:3000` |
 | `IMAGEKIT_PUBLIC_KEY` | ImageKit public credential |
 | `IMAGEKIT_PRIVATE_KEY` | ImageKit private credential |
@@ -196,7 +196,7 @@ Development mode uses nodemon:
 npm run dev
 ```
 
-Startup proceeds by connecting to MongoDB, seeding in-memory pulse tags from existing posts, initializing Meilisearch, connecting RabbitMQ and starting consumers, then listening for HTTP and Socket.IO traffic. Meilisearch and RabbitMQ startup failures are logged and retried/handled according to the broker/search implementation.
+Startup attempts to connect to MongoDB, seed in-memory pulse tags from existing posts, initialize Meilisearch, connect RabbitMQ and start consumers, then listen for HTTP and Socket.IO traffic. MongoDB connection errors are logged and startup continues, but database-backed requests will fail until MongoDB is available. Meilisearch is optional. RabbitMQ is also non-fatal at startup and retries its connection every five seconds; notifications, pulse events, and ML analysis are unavailable until the broker reconnects.
 
 ## HTTP API
 
@@ -209,10 +209,10 @@ All routes below are mounted under `/api/posts`. `protect` means the `token` coo
 | `GET` | `/:id/pulse/mood` | Protected | Return comment sentiment mood for a post. |
 | `GET` | `/search/health` | Public | Check Meilisearch health. |
 | `GET` | `/search?q=&limit=&offset=` | Protected | Search indexed posts. Search failures degrade to an empty result. |
-| `GET` | `/search/tags?q=&limit=` | Protected | Search tag facets. |
-| `GET` | `/tag/:tagName?limit=&offset=` | Protected | Search posts with an exact tag. |
+| `GET` | `/search/tags?q=&limit=` | Protected | Search tag facets. Meilisearch failures return an empty successful result. |
+| `GET` | `/tag/:tagName?limit=&offset=` | Protected | Search posts with an exact tag. A Meilisearch failure returns HTTP 500. |
 | `POST` | `/` | Protected | Create a multipart post; image field is `images`, with a maximum of four files. |
-| `GET` | `/feed?page=&limit=` | Protected | Return the authenticated user's paginated feed. |
+| `GET` | `/feed?page=&limit=` | Protected | Return a paginated global feed, sorted newest first. It is not filtered by following relationships; `limit` defaults to 10 and is capped at 50. |
 | `GET` | `/user/:userId` | Protected | Return posts belonging to a user. |
 | `GET` | `/saved?page=&limit=` | Protected | Return paginated saved posts. |
 | `GET` | `/:id` | Protected | Return one post. |
@@ -232,6 +232,13 @@ All routes below are mounted under `/api/posts`. `protect` means the `token` coo
 
 Valid share reasons are `agree`, `funny`, `needs_attention`, `insightful`, `concerning`, and `educational`.
 
+### Request details
+
+- Authenticated routes require a valid JWT in the `token` cookie. The route middleware does not read bearer tokens from the `Authorization` header.
+- Create a post with `multipart/form-data`: send optional `content` and image files under the `images` field. Content is limited to 3,000 characters; a post must contain content or at least one image. Images are limited to JPEG, PNG, WebP, and GIF, 5 MB per file, with at most four files.
+- Create a comment or reply with JSON `{ "content": "...", "parentComment": "<comment-id>" }`. `content` is required and limited to 500 characters; omit `parentComment` for a top-level comment.
+- Like, share, save, comment, and dwell requests update authenticated-user state. Invalid IDs, ownership violations, missing resources, and duplicate actions can return `400`, `403`, `404`, or `409` responses.
+
 ## RabbitMQ Integration
 
 The broker module declares and uses these queues:
@@ -250,6 +257,16 @@ RabbitMQ connection failures schedule reconnect attempts every five seconds. Mes
 ## Search And Pulse Behavior
 
 Meilisearch uses the `posts` index with `_id` as its primary key. Search documents contain normalized content, tags, author metadata, language, word count, image count, and epoch timestamps. Indexing on creation and deletion is non-blocking, and search is intentionally non-fatal to the main post workflow.
+
+The service creates the index but does not configure its filterable attributes. Configure `tags` before using exact tag filtering, for example:
+
+```powershell
+curl.exe -X PATCH http://localhost:7700/indexes/posts/settings `
+	-H "Content-Type: application/json" `
+	--data-raw '{"filterableAttributes":["tags"]}'
+```
+
+Run the reindex script after changing index settings or starting with an empty index.
 
 Pulse state is primarily in memory, so live activity counts and mood data reset after a process restart. Existing posts seed trending tags at startup, but historical activity counts are not rebuilt. User hashtag interests are persisted in MongoDB and receive weights of like `2`, comment `3`, share `4`, and dwell `1`.
 
@@ -294,6 +311,8 @@ There is currently no automated test suite in this folder. Validate changes with
 - Meilisearch availability is useful but not required for the HTTP service to start.
 - `like.model.js` exists as a schema but is not used by the current like controller.
 - The current route set supports post deletion but does not expose a post-update endpoint.
+- Deleting a post removes its `Post` document and search entry asynchronously, but does not cascade-delete comments or saved-post records.
+- `reanalyzeStalePosts` exists in `post.controller.js` for one-time ML backfills, but it is not registered as an HTTP route.
 
 ## Project Status
 

@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from models.toxicity import ToxicityModel
-from risk_engine import calculate_risk
-
-from models.sentiment_sarcasm import SentimentSarcasmModel
 from threading import Thread
 import traceback
 
+from models.sentiment_sarcasm import SentimentSarcasmModel
+from models.english_sarcasm import EnglishSarcasmModel
+from models.toxicity import ToxicityModel
+
+from routing.router import route
+from risk.risk_engine import calculate_signal
 from rabbit_consumer import start_consumer
 
 
@@ -17,31 +19,41 @@ from rabbit_consumer import start_consumer
 app = FastAPI(
     title="VerbaScope ML Brain",
     version="1.0.0",
-    description="Machine Learning service for VerbaScope"
+    description="Machine Learning service for VerbaScope",
 )
 
 
 # --------------------------------------------------
-# Load ML model once when the service starts
+# Load models once at startup
 # --------------------------------------------------
 
 print("Starting VerbaScope ML Brain...")
-print("Loading ML model...")
 
-ml_model = SentimentSarcasmModel()
+print("Loading Bangla sentiment/sarcasm model...")
+bangla_model = SentimentSarcasmModel()
+
+print("Loading English sarcasm model...")
+english_model = EnglishSarcasmModel()
+
+print("Loading toxicity model...")
 toxicity_model = ToxicityModel()
 
 print("ML Brain ready.")
 
 
+# --------------------------------------------------
+# RabbitMQ
+# --------------------------------------------------
+
 def start_rabbitmq_consumer():
     try:
-        start_consumer(ml_model, toxicity_model)
+        start_consumer(
+            bangla_model,
+            english_model,
+            toxicity_model,
+        )
     except Exception:
         traceback.print_exc()
-
-
-        
 
 
 rabbit_thread = Thread(
@@ -66,11 +78,19 @@ class AnalyzeRequest(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     text: str
+
+    language: str
+    language_confidence: float
+
     sentiment: str
     sarcasm: bool
     sarcasm_probability: float
-    toxicity: float | None
-    risk_flag: str | None
+
+    toxicity: float
+
+    risk_flag: str
+    toxicity_level: str
+    explanation: str
 
 
 # --------------------------------------------------
@@ -82,7 +102,7 @@ def health():
     return {
         "status": "ok",
         "service": "verbascope-ml-brain",
-        "model_loaded": True
+        "model_loaded": True,
     }
 
 
@@ -93,30 +113,62 @@ def health():
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
 
-    # Sentiment + sarcasm
-    result = ml_model.predict(request.text)
+    route_decision = route(request.text)
 
-    sentiment = result["sentiment"]
+    # --------------------------------------
+    # Language-aware model routing
+    # --------------------------------------
 
-    sarcasm = result["sarcasm"] == "Sarcastic"
+    if route_decision.language == "Bangla":
 
-    sarcasm_probability = result["sarcasm_probability"]
+        result = bangla_model.predict(request.text)
 
-    # Toxicity
+        sentiment = result["sentiment"]
+        sarcasm = result["sarcasm"] == "Sarcastic"
+        sarcasm_probability = result["sarcasm_probability"]
+
+    elif route_decision.language == "English":
+
+        result = english_model.predict(request.text)
+
+        # No English sentiment model yet
+        sentiment = "Neutral"
+
+        sarcasm = result["sarcasm"]
+        sarcasm_probability = result["sarcasm_probability"]
+
+    else:
+        # Banglish / Mixed / Unknown
+        # No reliable sentiment/sarcasm models yet
+
+        sentiment = "Unknown"
+        sarcasm = False
+        sarcasm_probability = 0.0
+
+    # Toxicity model (currently shared)
     toxicity = toxicity_model.predict(request.text)
 
-    # Explainable risk engine
-    risk_flag = calculate_risk(
+    # Calculate risk
+    risk = calculate_signal(
         sentiment=sentiment,
         sarcasm=sarcasm,
-        toxicity_score=toxicity
+        toxicity_score=toxicity,
+        sarcasm_probability=sarcasm_probability,
     )
 
     return {
         "text": request.text,
+
+        "language": route_decision.language,
+        "language_confidence": route_decision.language_confidence,
+
         "sentiment": sentiment,
         "sarcasm": sarcasm,
         "sarcasm_probability": sarcasm_probability,
+
         "toxicity": toxicity,
-        "risk_flag": risk_flag
+
+        "risk_flag": risk.signal,
+        "toxicity_level": risk.toxicity_level,
+        "explanation": risk.explanation,
     }

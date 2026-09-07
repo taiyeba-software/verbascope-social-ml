@@ -6,9 +6,9 @@ import traceback
 from models.sentiment_sarcasm import SentimentSarcasmModel
 from models.english_sarcasm import EnglishSarcasmModel
 from models.toxicity import ToxicityModel
+from models.english_toxicity import EnglishToxicityModel
 
-from routing.router import route
-from risk.risk_engine import calculate_signal
+from pipelines.analyzer import Analyzer
 from rabbit_consumer import start_consumer
 
 
@@ -38,12 +38,29 @@ english_model = EnglishSarcasmModel()
 print("Loading toxicity model...")
 toxicity_model = ToxicityModel()
 
+print("Loading English toxicity model...")
+english_toxicity_model = EnglishToxicityModel()
+
+# The Analyzer is the only thing that knows how routing decisions map
+# to model calls. main.py just hands it text and returns whatever it
+# gives back — see pipelines/analyzer.py.
+analyzer = Analyzer(
+    bangla_model=bangla_model,
+    english_model=english_model,
+    bangla_toxicity_model=toxicity_model,
+    english_toxicity_model=english_toxicity_model,
+)
+
 print("ML Brain ready.")
 
 
 # --------------------------------------------------
 # RabbitMQ
 # --------------------------------------------------
+# NOTE: the consumer still takes the raw models directly rather than
+# the Analyzer, for now — see pipelines/analyzer.py docstring. Once the
+# consumer is updated to share the same Analyzer, this can be
+# simplified to `start_consumer(analyzer)`.
 
 def start_rabbitmq_consumer():
     try:
@@ -51,6 +68,7 @@ def start_rabbitmq_consumer():
             bangla_model,
             english_model,
             toxicity_model,
+            english_toxicity_model,
         )
     except Exception:
         traceback.print_exc()
@@ -65,28 +83,29 @@ rabbit_thread.start()
 
 
 # --------------------------------------------------
-# Request schema
+# Request / response schemas
 # --------------------------------------------------
 
 class AnalyzeRequest(BaseModel):
     text: str
 
 
-# --------------------------------------------------
-# Response schema
-# --------------------------------------------------
-
 class AnalyzeResponse(BaseModel):
     text: str
 
     language: str
     language_confidence: float
+    routing: str
+    low_confidence_routing: bool
+    routing_note: str
 
     sentiment: str
     sarcasm: bool
     sarcasm_probability: float
 
     toxicity: float
+    toxicity_top_label: str | None = None    # only set for the English pipeline
+    toxicity_explanation: str | None = None  # model-level explanation, distinct from risk.explanation
 
     risk_flag: str
     toxicity_level: str
@@ -112,63 +131,4 @@ def health():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-
-    route_decision = route(request.text)
-
-    # --------------------------------------
-    # Language-aware model routing
-    # --------------------------------------
-
-    if route_decision.language == "Bangla":
-
-        result = bangla_model.predict(request.text)
-
-        sentiment = result["sentiment"]
-        sarcasm = result["sarcasm"] == "Sarcastic"
-        sarcasm_probability = result["sarcasm_probability"]
-
-    elif route_decision.language == "English":
-
-        result = english_model.predict(request.text)
-
-        # No English sentiment model yet
-        sentiment = "Neutral"
-
-        sarcasm = result["sarcasm"]
-        sarcasm_probability = result["sarcasm_probability"]
-
-    else:
-        # Banglish / Mixed / Unknown
-        # No reliable sentiment/sarcasm models yet
-
-        sentiment = "Unknown"
-        sarcasm = False
-        sarcasm_probability = 0.0
-
-    # Toxicity model (currently shared)
-    toxicity = toxicity_model.predict(request.text)
-
-    # Calculate risk
-    risk = calculate_signal(
-        sentiment=sentiment,
-        sarcasm=sarcasm,
-        toxicity_score=toxicity,
-        sarcasm_probability=sarcasm_probability,
-    )
-
-    return {
-        "text": request.text,
-
-        "language": route_decision.language,
-        "language_confidence": route_decision.language_confidence,
-
-        "sentiment": sentiment,
-        "sarcasm": sarcasm,
-        "sarcasm_probability": sarcasm_probability,
-
-        "toxicity": toxicity,
-
-        "risk_flag": risk.signal,
-        "toxicity_level": risk.toxicity_level,
-        "explanation": risk.explanation,
-    }
+    return analyzer.analyze(request.text)

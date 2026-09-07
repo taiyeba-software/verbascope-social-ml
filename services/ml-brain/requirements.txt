@@ -7,3 +7,5 @@ scikit-learn
 python-dotenv
 pymongo
 pika
+matplotlib
+

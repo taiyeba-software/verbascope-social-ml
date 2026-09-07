@@ -1,4 +1,4 @@
-"""
+""""
 language_detector.py
 
 Lightweight, dependency-free language detection for VerbaScope's
@@ -13,14 +13,19 @@ romanized Bangla from genuine English.
 
 Returned labels: "Bangla", "English", "Banglish", "Mixed", "Unknown"
 
-Each call returns a (language, confidence) tuple. Confidence is not
-used for routing decisions yet, but recording it lets your evaluation
-table report per-post language confidence (e.g. Bangla / 0.97,
-Mixed / 0.61), which is useful evidence for the MuRIL / Banglish
-discussion in MODEL_SELECTION.md.
+Each call returns a LanguageDecision. Previously this returned a bare
+(language, confidence) tuple, which meant router.py had no way to see
+*why* something was classified as "Mixed" — it never had access to the
+underlying Bangla/Latin character counts, so a "Mixed" post always fell
+back to the Bangla pipeline regardless of which script actually
+dominated. LanguageDecision exposes the raw counts and ratios so the
+router (and the evaluation table in MODEL_SELECTION.md) can make that
+distinction.
 """
 
 import re
+from dataclasses import dataclass
+
 
 # Unicode block for Bangla script (U+0980–U+09FF)
 BANGLA_RANGE = re.compile(r"[\u0980-\u09FF]")
@@ -44,6 +49,42 @@ BANGLISH_WORDS = {
 }
 
 
+# ---------------------------------------------------------------------
+# Decision object returned to callers
+# ---------------------------------------------------------------------
+
+@dataclass
+class LanguageDecision:
+    """
+    Rich language-detection result.
+
+    language        : one of "Bangla", "English", "Banglish", "Mixed",
+                       "Unknown"
+    confidence      : rough heuristic score in [0, 1], not a calibrated
+                       probability (see detect_language docstring)
+    bangla_chars    : count of Bangla-script characters found
+    latin_chars     : count of Latin-script characters found
+    bangla_ratio    : bangla_chars / (bangla_chars + latin_chars),
+                       0.0 when there are no script characters at all
+    banglish_ratio  : fraction of Latin alphabetic tokens that match
+                       the BANGLISH_WORDS list. Computed whenever Latin
+                       tokens are present (not just when the language
+                       ends up "Banglish"), so downstream code can
+                       inspect it even for "English" or "Mixed" text.
+    """
+    language: str
+    confidence: float
+    bangla_chars: int
+    latin_chars: int
+    bangla_ratio: float
+    banglish_ratio: float
+
+    # Kept for backwards compatibility with any code that still does
+    # `language, confidence = detect_language(text)`.
+    def __iter__(self):
+        return iter((self.language, self.confidence))
+
+
 def _banglish_word_ratio(text: str) -> float:
     """Fraction of alphabetic tokens that look like romanized Bangla."""
     tokens = re.findall(r"[A-Za-z']+", text.lower())
@@ -53,9 +94,9 @@ def _banglish_word_ratio(text: str) -> float:
     return hits / len(tokens)
 
 
-def detect_language(text: str) -> tuple[str, float]:
+def detect_language(text: str) -> LanguageDecision:
     """
-    Classify text and return (language, confidence).
+    Classify text and return a LanguageDecision.
 
     language is one of: "Bangla", "English", "Banglish", "Mixed", "Unknown"
 
@@ -81,34 +122,77 @@ def detect_language(text: str) -> tuple[str, float]:
     always confidence 0.0.
     """
     if not text or not text.strip():
-        return "Unknown", 0.0
+        return LanguageDecision(
+            language="Unknown",
+            confidence=0.0,
+            bangla_chars=0,
+            latin_chars=0,
+            bangla_ratio=0.0,
+            banglish_ratio=0.0,
+        )
 
     bangla_chars = len(BANGLA_RANGE.findall(text))
     latin_chars = len(LATIN_RANGE.findall(text))
     total_script_chars = bangla_chars + latin_chars
 
+    banglish_ratio = _banglish_word_ratio(text) if latin_chars else 0.0
+
     if total_script_chars == 0:
         # No Bangla or Latin letters at all (emoji-only, numbers, punctuation)
-        return "Unknown", 0.0
+        return LanguageDecision(
+            language="Unknown",
+            confidence=0.0,
+            bangla_chars=bangla_chars,
+            latin_chars=latin_chars,
+            bangla_ratio=0.0,
+            banglish_ratio=0.0,
+        )
 
     bangla_ratio = bangla_chars / total_script_chars
 
     # Thresholds are deliberately loose — this is a routing heuristic,
     # not a classifier that needs to be evaluated for its own accuracy.
     if bangla_ratio >= 0.85:
-        return "Bangla", round(bangla_ratio, 2)
+        return LanguageDecision(
+            language="Bangla",
+            confidence=round(bangla_ratio, 2),
+            bangla_chars=bangla_chars,
+            latin_chars=latin_chars,
+            bangla_ratio=round(bangla_ratio, 2),
+            banglish_ratio=round(banglish_ratio, 2),
+        )
 
     if bangla_ratio <= 0.15:
         # Almost entirely Latin script — decide English vs. Banglish
-        banglish_ratio = _banglish_word_ratio(text)
         if banglish_ratio >= 0.20:
-            return "Banglish", round(min(1.0, banglish_ratio * 2), 2)
-        return "English", round(1 - bangla_ratio, 2)
+            return LanguageDecision(
+                language="Banglish",
+                confidence=round(min(1.0, banglish_ratio * 2), 2),
+                bangla_chars=bangla_chars,
+                latin_chars=latin_chars,
+                bangla_ratio=round(bangla_ratio, 2),
+                banglish_ratio=round(banglish_ratio, 2),
+            )
+        return LanguageDecision(
+            language="English",
+            confidence=round(1 - bangla_ratio, 2),
+            bangla_chars=bangla_chars,
+            latin_chars=latin_chars,
+            bangla_ratio=round(bangla_ratio, 2),
+            banglish_ratio=round(banglish_ratio, 2),
+        )
 
     # Meaningful presence of both scripts — confidence rises the
     # closer the split is to an even 50/50 mix.
     mixed_confidence = 1 - abs(bangla_ratio - 0.5) * 2
-    return "Mixed", round(mixed_confidence, 2)
+    return LanguageDecision(
+        language="Mixed",
+        confidence=round(mixed_confidence, 2),
+        bangla_chars=bangla_chars,
+        latin_chars=latin_chars,
+        bangla_ratio=round(bangla_ratio, 2),
+        banglish_ratio=round(banglish_ratio, 2),
+    )
 
 
 if __name__ == "__main__":
@@ -118,8 +202,15 @@ if __name__ == "__main__":
         "This is a great day for VerbaScope.",
         "ami ajke onek happy, tumi kmn acho?",
         "আজকে আমি খুব happy কারণ exam ভালো হয়েছে।",
+        "আজ meeting আছে",
+        "আজ I am happy",
         "🎉🔥",
     ]
     for s in samples:
-        lang, conf = detect_language(s)
-        print(f"{lang:10s}  {conf:.2f}  |  {s}")
+        d = detect_language(s)
+        print(
+            f"{d.language:10s} conf={d.confidence:.2f} "
+            f"bangla_chars={d.bangla_chars:3d} latin_chars={d.latin_chars:3d} "
+            f"bangla_ratio={d.bangla_ratio:.2f} banglish_ratio={d.banglish_ratio:.2f} "
+            f"| {s}"
+        )

@@ -5,7 +5,7 @@ import pika
 from dotenv import load_dotenv
 
 from risk.risk_engine import calculate_signal
-from routing.router import route
+from routing.router import route, ENGLISH_TOXICITY_MODEL  # NEW: need this key to branch on
 
 load_dotenv()
 
@@ -21,6 +21,7 @@ def start_consumer(
     bangla_model,
     english_model,
     toxicity_model,
+    english_toxicity_model,  # NEW
 ):
 
     print("Connecting ML Brain to RabbitMQ...")
@@ -51,6 +52,7 @@ def start_consumer(
         },
         "toxicity": {
             "banglabert_toxicity_v1": toxicity_model,
+            ENGLISH_TOXICITY_MODEL: english_toxicity_model,  # NEW: "toxic_bert_v1"
         },
     }
 
@@ -94,8 +96,24 @@ def start_consumer(
             # --------------------------------------------------
             # Toxicity
             # --------------------------------------------------
+            # NEW: EnglishToxicityModel.predict() returns a dict
+            # (score/level/top_label/labels/explanation), while the
+            # Bangla ToxicityModel.predict() returns a bare float.
+            # Normalize to a numeric `toxicity` score either way so
+            # calculate_signal() below doesn't need to know which model
+            # ran, and keep the extra English detail (top_label) around
+            # separately to enrich the explanation text.
 
-            toxicity = toxicity_model_selected.predict(text)
+            toxicity_top_label = None
+            toxicity_top_label_score = None
+
+            if decision.toxicity_model == ENGLISH_TOXICITY_MODEL:
+                toxicity_result = toxicity_model_selected.predict(text)
+                toxicity = toxicity_result["score"]
+                toxicity_top_label = toxicity_result["top_label"]
+                toxicity_top_label_score = toxicity_result["top_label_score"]
+            else:
+                toxicity = toxicity_model_selected.predict(text)
 
             # --------------------------------------------------
             # Sentiment + Sarcasm
@@ -143,6 +161,40 @@ def start_consumer(
                 sarcasm_probability=sarcasm_probability,
             )
 
+            explanation = risk.explanation
+
+            # NEW: when toxic-bert actually drove the signal (Medium/High),
+            # fold its specific top_label into the explanation text instead
+            # of just the generic risk-engine sentence, e.g.
+            # "High toxicity (score=5.00) overrides sentiment (Neutral) and
+            # sarcasm. Top signal: threat (0.91)."
+            # No schema changes needed downstream — this stays a single
+            # string in the same `explanation` field post.controller.js
+            # already reads.
+            if toxicity_top_label and risk.toxicity_level in ("Medium", "High"):
+                explanation = (
+                    f"{explanation} Top signal: {toxicity_top_label} "
+                    f"({toxicity_top_label_score:.2f})."
+                )
+
+            # --------------------------------------------------
+            # Confidence
+            # --------------------------------------------------
+            # NEW: a single 0–1 "how sure is the model" number for the
+            # frontend's AI Analysis dropdown (the "Confidence" row).
+            # Prefer the toxic-bert top-label score — it's the most
+            # specific number we have when toxicity actually drove the
+            # decision (e.g. "threat" at 0.91 confidence). When that
+            # doesn't exist (Bangla posts, or English posts where the
+            # toxicity model wasn't confident enough to surface a top
+            # label), fall back to the language-detection confidence
+            # so the field is never left blank without reason.
+            confidence = (
+                toxicity_top_label_score
+                if toxicity_top_label_score is not None
+                else decision.language_confidence
+            )
+
             # --------------------------------------------------
             # Publish result
             # --------------------------------------------------
@@ -161,7 +213,8 @@ def start_consumer(
                 "toxicity": toxicity,
                 "risk_flag": risk.signal,
                 "toxicity_level": risk.toxicity_level,
-                "explanation": risk.explanation,
+                "explanation": explanation,
+                "confidence": confidence,
             }
 
             ch.basic_publish(

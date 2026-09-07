@@ -1,17 +1,14 @@
-# VerbaScope ML Brain
+﻿# VerbaScope ML Brain
 
-The ML Brain is the Python machine-learning service for VerbaScope. It analyzes Bengali text for sentiment, sarcasm, toxicity, and moderation risk. It provides both a synchronous HTTP API and an asynchronous RabbitMQ consumer.
+The ML Brain is the Python machine-learning service for VerbaScope. It analyzes text for sentiment, sarcasm, toxicity, and risk in Bengali and English. It provides both an HTTP API and a RabbitMQ consumer for asynchronous inference and moderation scoring.
 
 ## Responsibilities
 
-For each piece of text, the service:
-
-- predicts one of four sentiment labels: `Positive`, `Neutral`, `Negative`, or `Mixed`;
-- predicts `Sarcastic` or `Non-Sarcastic` and returns a sarcasm probability;
-- calculates a toxicity score from `1.0` to `5.0`; and
-- combines those signals into a `green`, `yellow`, or `red` risk flag.
-
-The service loads both Hugging Face models during application startup and runs inference on CPU by default.
+- Detect the language of incoming text and route it to the correct model pipeline.
+- Run Bengali and English sentiment and sarcasm inference.
+- Score toxicity and assign a moderation risk signal.
+- Publish ML results back to the post service through RabbitMQ.
+- Expose a lightweight health check and direct analysis endpoint for local debugging and integration tests.
 
 ## Directory And File Guide
 
@@ -19,11 +16,17 @@ The service loads both Hugging Face models during application startup and runs i
 ml-brain/
 ├── main.py
 ├── model_architecture.py
+├── inspect_model.py
 ├── rabbit_consumer.py
 ├── requirements.txt
+├── README.md
 ├── models/
+│   ├── __pycache__/
+│   ├── english_sarcasm.py
+│   ├── english_sentiment.py
 │   ├── sentiment_sarcasm.py
-│   └── toxicity.py
+│   ├── toxicity.py
+│   └── ...
 ├── routing/
 │   ├── language_detector.py
 │   └── router.py
@@ -31,282 +34,244 @@ ml-brain/
 │   └── risk_engine.py
 ├── evaluation/
 │   ├── evaluate.py
-│   ├── evaluation_metrics.py
 │   ├── evaluation_dataset.csv
+│   ├── evaluation_metrics.py
 │   ├── results.csv
-│   ├── confusion_matrix.png
-│   └── __pycache__/      # Generated
+│   └── confusion_matrix.png
 ├── test_model.py
-├── test_risk_engine.py
-├── test_long_bangla.py
 ├── test_sentiment.py
-├── test_sentiment_sarcasm.py
 ├── test_toxicity.py
+├── test_sentiment_sarcasm.py
+├── test_english_sentiment.py
+├── test_english_sarcasm.py
+├── test_long_bangla.py
+├── test_pipeline.py
+├── test_risk_engine.py
 ├── .env                  # Local configuration; do not commit secrets
 ├── .venv/                # Local virtual environment; generated
 ├── __pycache__/          # Python bytecode cache; generated
-└── README.md
+└── ...
 ```
 
-### Root files
+### Root files and folders
 
 | Path | Purpose |
 | --- | --- |
-| `main.py` | Creates the FastAPI application, loads both inference models once, starts the RabbitMQ consumer in a daemon thread, and implements `/health` and `/analyze`. |
-| `model_architecture.py` | Defines `DualHeadModel`: a BanglaBERT encoder followed by a shared linear/ReLU/dropout feature layer and separate sentiment and sarcasm classifier heads. |
-| `rabbit_consumer.py` | Connects to RabbitMQ, consumes JSON jobs from `ml_analyze`, runs both models, publishes results to `ml_results`, acknowledges successful jobs, and rejects failed jobs without requeueing. |
-| `requirements.txt` | Lists dependencies for model inference, the API, environment loading, and RabbitMQ/MongoDB client support. |
-| `test_model.py` | Loads `SentimentSarcasmModel` and runs one Bengali example as a model smoke test. |
-| `test_risk_engine.py` | Runs four printed examples through the weighted risk engine and prints the resulting flags. This is the quickest offline check. |
-| `test_long_bangla.py` | Runs the complete analysis pipeline against a long Bengali sample, printing sentiment, sarcasm, toxicity, and risk results. Useful for observing truncation and long-input behavior. |
-| `test_sentiment.py` | Standalone sentiment/sarcasm experiment. It loads the checkpoint and calibrated thresholds directly, then prints predictions for five Bengali sentences. |
-| `test_sentiment_sarcasm.py` | Standalone implementation of sentiment/sarcasm inference. It duplicates the wrapper logic, loads model assets at import time, and prints predictions for five Bengali sentences, including probability arrays. |
-| `test_toxicity.py` | Standalone toxicity experiment. It loads the toxicity classifier and prints scores for four Bengali sentences. |
-| `.env` | Local configuration loaded by `rabbit_consumer.py`. Keep the RabbitMQ connection URL here and keep this file out of source control. |
-| `.venv/` | Local Python virtual environment containing installed packages. It is machine-specific and should be recreated rather than treated as source code. |
-| `__pycache__/` | Generated Python bytecode cache with no application logic. |
-| `README.md` | This documentation. |
+| `main.py` | Creates the FastAPI app, loads the text-analysis models, starts the RabbitMQ consumer in a background thread, and defines `/health` and `/analyze`. |
+| `model_architecture.py` | Defines the multilingual model architecture and shared feature layers used by the Bengali sentiment/sarcasm pipeline. |
+| `rabbit_consumer.py` | Connects to RabbitMQ, consumes `ml_analyze` jobs, runs inference, publishes `ml_results`, and handles job acknowledgements. |
+| `inspect_model.py` | Utility script for debugging model structure and outputs during development. |
+| `requirements.txt` | Lists Python dependencies for FastAPI, transformers, PyTorch, dotenv, and RabbitMQ integration. |
+| `README.md` | This file. |
 
 ### `models/`
 
-The `models/` folder contains reusable inference wrappers used by `main.py` and the smoke test.
-
 | Path | Purpose |
 | --- | --- |
-| `models/sentiment_sarcasm.py` | Defines the reusable `SentimentSarcasmModel` wrapper. It downloads the tokenizer, `model.pth`, `sent_thresholds.npy`, and `sarc_thresholds.npy` from `ahs95/sentiment-sarcasm-detection-BanglaBERT`, then exposes `predict(text, max_len=512)`. |
-| `models/toxicity.py` | Defines the reusable `ToxicityModel` wrapper. It loads `Polygl0t/bengali-banglabert-toxicity-classifier`, performs regression inference, adds `1` to the model's documented `0`-to-`4` result, and clamps the returned value to `1.0`-`5.0`. |
-| `models/__pycache__/` | Generated bytecode cache for the model modules. |
+| `models/sentiment_sarcasm.py` | Bengali sentiment and sarcasm wrapper using a BanglaBERT-based pipeline. |
+| `models/english_sentiment.py` | English sentiment wrapper. |
+| `models/english_sarcasm.py` | English sarcasm wrapper. |
+| `models/toxicity.py` | Toxicity regression model used to estimate harmful or risky content. |
 
 ### `routing/`
 
-The `routing/` folder handles language detection and request routing to ensure Bengali text is processed correctly.
-
 | Path | Purpose |
 | --- | --- |
-| `routing/language_detector.py` | Provides language detection functionality to identify and validate Bengali input. |
-| `routing/router.py` | Routes incoming text to the appropriate analysis pipeline based on language detection and confidence scores. |
+| `routing/language_detector.py` | Detects whether input is Bengali, English, or mixed/unknown and returns confidence scores. |
+| `routing/router.py` | Routes incoming text to the correct language-specific analysis flow. |
 
 ### `risk/`
 
-The `risk/` folder contains the risk calculation logic.
-
 | Path | Purpose |
 | --- | --- |
-| `risk/risk_engine.py` | Contains the deterministic `calculate_signal()` function used by both HTTP and RabbitMQ flows to convert sentiment, sarcasm, and toxicity signals into a risk flag. |
+| `risk/risk_engine.py` | Converts model outputs into a moderation risk bucket such as green/yellow/red or equivalent app-level risk signals. |
 
 ### `evaluation/`
 
-The `evaluation/` folder contains tools and datasets for thesis evaluation of the ML Brain models.
-
 | Path | Purpose |
 | --- | --- |
-| `evaluation/evaluate.py` | Loads the evaluation dataset (CSV), runs the complete ML Brain pipeline on each sample, and outputs results to `results.csv` with model predictions and signal calculations. Includes processing progress, error handling, and category/language accuracy breakdowns. |
-| `evaluation/evaluation_metrics.py` | Analyzes the results CSV using scikit-learn, generating classification reports, confusion matrices, and visualizations for thesis evaluation. |
-| `evaluation/evaluation_dataset.csv` | CSV dataset containing Bengali text samples with expected sentiment, sarcasm, toxicity, and AI signal labels for evaluation. Supports Status filtering (Ready/Draft/Excluded). |
-| `evaluation/results.csv` | Output file generated by `evaluate.py` containing full predictions and model outputs for all evaluated samples. |
-| `evaluation/confusion_matrix.png` | Visualization of model prediction accuracy generated by `evaluation_metrics.py`. |
+| `evaluation/evaluate.py` | Runs the full model pipeline across the dataset and writes computed predictions to `results.csv`. |
+| `evaluation/evaluation_metrics.py` | Produces classification reports and confusion-matrix style evaluation metrics for thesis analysis. |
+| `evaluation/evaluation_dataset.csv` | Evaluation dataset with labeled Bengali/English samples and signal metadata. |
+| `evaluation/results.csv` | Output generated by the evaluation pipeline. |
 
 ## Requirements And Setup
 
-- Python 3.10 or newer is recommended because `main.py` uses the `float | None` type-union syntax.
-- Network access is required on the first run so Hugging Face can download tokenizer and model files.
-- A reachable RabbitMQ server is required for the background consumer. The HTTP API model loading does not require MongoDB.
+- Python 3.10+ recommended.
+- Access to the Hugging Face model cache or internet to download model assets on first run.
+- A reachable RabbitMQ broker for the asynchronous job queue.
+- A working virtual environment or local Python environment prepared from `requirements.txt`.
 
-From this directory:
+Install dependencies:
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
+```bash
 python -m pip install -r requirements.txt
 ```
 
-Set the connection URL used by `rabbit_consumer.py` in `.env`:
+## Environment Variables
 
-```env
-RABBITMQ_URL=amqp://username:password@localhost:5672/
-```
+The service reads configuration from `.env` when available, and the RabbitMQ consumer expects a connection string that matches the platform setup.
 
-`rabbit_consumer.py` calls `load_dotenv()` and reads exactly `RABBITMQ_URL`. The service does not currently read the MongoDB, model-name, host, port, or max-length variables sometimes shown in older examples.
+| Variable | Required | Description |
+| --- | --- | --- |
+| `RABBITMQ_URL` | Yes for queue jobs | RabbitMQ broker URL used by the consumer. |
+| `MODEL_PATH` or equivalent runtime config | Depends on the local setup | Used when the environment overrides model loading paths. |
+| `PORT` | No | Optional FastAPI port override when running locally. |
 
 ## Running The Service
 
-Start from `services/ml-brain` so the imports resolve correctly:
+Start the HTTP service:
 
-```powershell
-uvicorn main:app --reload
+```bash
+python main.py
 ```
 
-Startup loads the sentiment/sarcasm model and toxicity model, then starts the RabbitMQ consumer in a daemon thread. If RabbitMQ is unavailable, the consumer thread reports the connection error while FastAPI may still be running; `/health` only reports that the models were initialized and does not verify RabbitMQ connectivity.
+The service initializes the language detector, sentiment/sarcasm models, and toxicity model on startup, then starts a background RabbitMQ consumer.
 
 ### Health check
 
-```http
-GET http://localhost:8000/health
+```bash
+curl http://localhost:8000/health
 ```
 
-Response:
+Typical response:
 
 ```json
 {
   "status": "ok",
-  "service": "verbascope-ml-brain",
   "model_loaded": true
 }
 ```
 
 ### Text analysis endpoint
 
-```http
-POST http://localhost:8000/analyze
-Content-Type: application/json
-
-{"text":"বাংলাদেশ আজ দারুণ খেলেছে!"}
+```bash
+curl -X POST "http://localhost:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "This is a very toxic and sarcastic message."}'
 ```
 
-The response contains the original `text`, a sentiment string, a boolean `sarcasm`, a numeric `sarcasm_probability`, a numeric `toxicity`, and a risk string:
-
-```json
-{
-  "text": "বাংলাদেশ আজ দারুণ খেলেছে!",
-  "sentiment": "Positive",
-  "sarcasm": false,
-  "sarcasm_probability": 0.12,
-  "toxicity": 1.0,
-  "risk_flag": "green"
-}
-```
-
-The HTTP layer converts the model's `Sarcastic`/`Non-Sarcastic` label into the boolean response field. The lower-level `SentimentSarcasmModel.predict()` method returns the original label and also includes `sentiment_probabilities`.
+The endpoint accepts text and returns language detection plus model outputs such as sentiment, sarcasm, toxicity, and risk.
 
 ## RabbitMQ Integration
 
-The consumer declares two durable queues:
+The ML Brain listens on RabbitMQ and consumes jobs from the `ml_analyze` queue.
 
-- `ml_analyze`: input jobs containing `postId` and `text`;
-- `ml_results`: output messages published with persistent delivery mode.
-
-Input example:
-
-```json
-{
-  "postId": "post-123",
-  "text": "এই পোস্টে খুব কটুক্তি আছে।"
-}
-```
-
-Successful output has event type `ml.analysis.completed` and includes `postId`, `text`, `sentiment`, `sarcasm`, `sarcasm_probability`, `toxicity`, and `risk_flag`. Empty text is acknowledged and skipped. Inference or publishing errors are negatively acknowledged with `requeue=false`, so failed messages are not retried by this consumer.
+- It reads job payloads from the queue and processes the submitted text.
+- It detects language automatically and routes to the relevant model.
+- It computes sentiment, sarcasm, toxicity, and risk output.
+- It publishes the result to the `ml_results` queue for downstream services such as post-service.
+- Failed jobs are negatively acknowledged without requeueing.
 
 ## Language Routing
 
-The `routing/` module provides language detection and validation:
-
-- `router.py`: Routes text to the appropriate analysis pipeline based on language detection.
-- `language_detector.py`: Detects the input language and returns confidence scores to ensure only Bengali text is processed by the ML models.
+- The language detector decides whether the input is Bengali, English, or mixed/unknown.
+- The router picks the correct model pipeline for the detected text.
+- Mixed or unknown input is handled conservatively and routed to the best available inference path.
 
 ## Model Pipeline
 
-### Language Detection and Routing
+### Multilingual language detection and routing
 
-Text is first processed through the language detector to identify if it is Bengali and to obtain confidence scores. The router makes routing decisions based on these confidence scores, either proceeding with analysis or flagging low-confidence input.
+Text is first processed by the language detector to decide which model family to use. This supports both Bangla and English inputs while keeping the moderation pipeline consistent across languages.
 
-### Sentiment and sarcasm
+### Sentiment and sarcasm (Bengali)
 
-`DualHeadModel` uses `csebuetnlp/banglabert_small` as its encoder. The first token representation is passed through a 256-unit shared layer, then independent four-class sentiment and two-class sarcasm heads. `SentimentSarcasmModel` loads the trained checkpoint and calibrated NumPy thresholds from `ahs95/sentiment-sarcasm-detection-BanglaBERT`.
+The Bengali pipeline uses a BanglaBERT-based sentiment and sarcasm model. It loads trained weights and threshold files and returns both the class label and probability information.
 
-Input is tokenized with truncation and padding to a maximum of 512 tokens by default. Sentiment uses softmax probabilities and the downloaded per-class thresholds. Sarcasm uses the first sigmoid output and the downloaded sarcasm threshold.
+### Sentiment and sarcasm (English)
+
+The English pipeline loads separate English sentiment and sarcasm models and applies the same high-level risk workflow to English text.
 
 ### Toxicity
 
-`ToxicityModel` uses `Polygl0t/bengali-banglabert-toxicity-classifier` with a maximum input length of 512 tokens. Its regression output is converted with `raw_score + 1`, then clamped to the inclusive range `1.0` to `5.0`.
+The toxicity model performs a regression-based toxicity score and is used as part of the moderation decision. The score is normalized into the app's risk-aware range.
 
 ### Risk rules
 
-`calculate_signal(sentiment, sarcasm, toxicity_score, sarcasm_probability=0.0)` converts the three signals into a normalized weighted score:
-
-| Signal | Contribution |
-| --- | --- |
-| Sentiment | 25%; `Positive=0.0`, `Neutral=0.15`, `Mixed=0.50`, `Negative=1.0` |
-| Sarcasm probability | 15%; clamped to `0.0`-`1.0` |
-| Toxicity | 60%; converts the `1`-`5` score to `0`-`1` and clamps it |
-
-The final score is `red` at `>= 0.65`, `yellow` at `>= 0.35`, and `green` otherwise. The `sarcasm` boolean parameter is accepted for compatibility but is not used in the current weighted calculation; callers that want sarcasm to affect risk must pass `sarcasm_probability`.
-
-The toxicity rules take precedence over the negative-plus-sarcastic rule.
+A risk engine combines the text analysis output into a final moderation signal. The exact bucket depends on the configured thresholds and the scoring logic in `risk/risk_engine.py`.
 
 ## Evaluation Pipeline
 
-The `evaluation/` folder contains thesis evaluation tools for measuring model performance:
+The `evaluation/` folder contains scripts and datasets for model validation and thesis evaluation.
 
-- `evaluate.py`: Runs the complete ML Brain pipeline on the evaluation dataset and generates `results.csv` with full predictions and model outputs.
-- `evaluation_metrics.py`: Analyzes the results using scikit-learn to generate classification reports, confusion matrices, and visualizations.
+- `evaluate.py` runs the full pipeline against the evaluation dataset.
+- `evaluation_metrics.py` summarizes results into classification metrics and confusion-style visuals.
+- `results.csv` stores predictions and supporting analysis output.
 
 To run evaluation:
 
-```powershell
+```bash
 python evaluation/evaluate.py
 python evaluation/evaluation_metrics.py
 ```
 
-The evaluation pipeline outputs:
-- `results.csv`: Complete predictions for all samples
-- `confusion_matrix.png`: Visualization of prediction accuracy
-- Console output with accuracy breakdowns by category and language
-
 ## Running The Checks
 
-These are executable scripts, not a pytest test suite. The model-related scripts download or load Hugging Face assets and require network access on a cold cache.
+These are executable scripts, not a `pytest` suite. They are designed to validate a model run and the pipeline behavior directly.
 
-```powershell
-python test_risk_engine.py
+```bash
 python test_model.py
-python test_long_bangla.py
+python test_pipeline.py
+python test_risk_engine.py
 python test_sentiment.py
-python test_sentiment_sarcasm.py
 python test_toxicity.py
+python test_sentiment_sarcasm.py
+python test_english_sentiment.py
+python test_english_sarcasm.py
+python test_long_bangla.py
 ```
-
-`test_risk_engine.py` is the fastest offline check because it only imports `risk_engine.py`. The other scripts execute inference at module level, download/load Hugging Face assets, and print results rather than asserting expected values. `test_long_bangla.py` passes the model's sarcasm probability into the risk engine, while the HTTP and RabbitMQ paths currently use the default `0.0` risk-engine value.
 
 ## Dependencies
 
-| Package | Used for |
+| Package | Purpose |
 | --- | --- |
-| `fastapi` | HTTP application and route definitions |
-| `uvicorn` | ASGI server |
-| `transformers` | Tokenizers and pretrained model classes |
-| `huggingface_hub` | Downloading the custom checkpoint and thresholds |
-| `torch` | Neural-network inference and the custom dual-head model |
-| `numpy` | Loading calibrated threshold arrays |
-| `pandas` | Included dependency; not imported by current ML Brain source |
-| `scikit-learn` | Included dependency; not imported by current ML Brain source |
-| `python-dotenv` | Loading `.env` for RabbitMQ configuration |
-| `pymongo` | Included dependency for platform integration; not imported by current ML Brain source |
-| `pika` | RabbitMQ connection and message handling |
+| `fastapi` | HTTP interface for local analysis and health checks |
+| `transformers` | Tokenizers and model wrappers |
+| `torch` | Deep-learning inference |
+| `pika` or `amqplib` | RabbitMQ messaging support |
+| `python-dotenv` | Local environment loading |
+| `pandas` / `numpy` | Evaluation and matrix operations |
 
 ## Operational Notes
 
-- Models initialize at import/startup time, so the first start can be slow and memory intensive.
-- Inference is CPU-based because the custom checkpoint uses `map_location="cpu"` and no device selection is implemented.
-- Do not commit `.env`, `.venv/`, or `__pycache__/`.
-- The service currently has no request validation for empty HTTP text, batching, authentication, or explicit shutdown coordination for the consumer thread.
+- The first run can be slow because model checkpoints and tokenizers are fetched from Hugging Face.
+- Inference is CPU-based by default unless a GPU setup is added manually.
+- The service treats model inference as a prediction layer, not as absolute truth.
+- The delivery path is designed for moderation support and downstream platform integration rather than standalone human review.
 
 ## External Models
 
-- [BanglaBERT small](https://huggingface.co/csebuetnlp/banglabert_small)
-- [Sentiment and sarcasm checkpoint](https://huggingface.co/ahs95/sentiment-sarcasm-detection-BanglaBERT)
-- [Bengali toxicity classifier](https://huggingface.co/Polygl0t/bengali-banglabert-toxicity-classifier)
+### Bengali models
+
+- BanglaBERT-based sentiment/sarcasm pipeline
+- Bengali toxicity model used for moderation scoring
+
+### English models
+
+- English sentiment model
+- English sarcasm model
 
 ## Project Status
 
-This service is part of the VerbaScope social platform and is under active development. Model predictions are automated signals for the platform's moderation workflow and should be treated as predictions rather than definitive judgments.
+This service is part of the VerbaScope social platform and is actively used for automated content moderation signals and post analysis. It is designed to support both direct HTTP requests and asynchronous queue-driven inference from the wider backend.
 
 ## TO RUN THE SERVER
 
+```bash
 .\.venv\Scripts\Activate.ps1
 
+then 
+
+
 uvicorn main:app
-OR 
-python -m uvicorn main:app
+```
 
 ## If you really want auto-reload during development
-uvicorn main:app --reload --reload-exclude ".venv/*"
+
+```bash
+pip install watchdog
+```
+
+Then run the app with a watcher or the framework you prefer for local development. The core service still runs through `main.py` and the RabbitMQ consumer is started as part of bootstrapping.
+  

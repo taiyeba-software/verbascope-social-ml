@@ -9,6 +9,17 @@ import { io } from '../../server.js';
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 const VALID_REASONS = ['agree', 'funny', 'needs_attention', 'insightful', 'concerning', 'educational'];
 
+// ── NEW: Weekly Pulse ──
+// Fire-and-forget: a share changes sharesCount and shareReasons, both
+// inputs to getWeeklyPulse()'s score, so re-broadcast after every share/
+// unshare. Never awaited — a slow aggregation must never block the
+// share response itself.
+const broadcastPulseUpdate = () => {
+	pulse.getWeeklyPulse()
+		.then((weeklyPulse) => io.emit('pulse:update', weeklyPulse))
+		.catch((err) => console.error('broadcastPulseUpdate error:', err.message));
+};
+
 // ── POST /api/posts/:id/share ─────────────────────────────────────────
 export const sharePost = async (req, res) => {
 	try {
@@ -43,6 +54,7 @@ export const sharePost = async (req, res) => {
 
 		publish('post.shared', { postId: req.params.id, reason });
 		pulse.onPostShared(req.params.id, reason, req.user.id);
+		broadcastPulseUpdate(); // ── NEW: keep sidebar's weekly pulse live
 		updateUserPulse(req.user.id, req.params.id, 'share');
 
 		// ── live sync ──
@@ -105,6 +117,8 @@ export const unsharePost = async (req, res) => {
 			},
 			{ returnDocument: 'after', select: 'sharesCount' }
 		);
+
+		broadcastPulseUpdate(); // ── NEW: unsharing also changes this week's standings
 
 		// ── live sync ──
 		io.emit('post:update', {

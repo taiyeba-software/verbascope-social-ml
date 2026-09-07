@@ -30,6 +30,35 @@ function timeAgo(epochMs: number): string {
   return `${week}w ago`;
 }
 
+// Same truthy/empty-string convention used in SearchResultItem.tsx's
+// hasAvatar / feedHelpers.ts's getAuthorAvatarUrl: a missing value AND ""
+// both fall through to the initials avatar.
+function hasAvatar(url?: string | null): url is string {
+  return !!url && url.trim() !== '';
+}
+
+// Owns its own `imageError` state so a broken ImageKit URL on one card
+// falls back to initials without affecting any other card in the list.
+function SearchAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
+  const [imageError, setImageError] = useState(false);
+  const showImage = hasAvatar(avatarUrl) && !imageError;
+
+  return (
+    <div className="search-page-card-avatar">
+      {showImage ? (
+        <img
+          src={avatarUrl as string}
+          alt={name}
+          className="search-page-avatar-image"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        initialsFromName(name)
+      )}
+    </div>
+  );
+}
+
 function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -148,9 +177,7 @@ function SearchPageContent() {
                 className="search-page-card"
                 onClick={() => router.push(`/post/${post._id}`)}
               >
-                <div className="search-page-card-avatar">
-                  {initialsFromName(post.authorName || 'Unknown')}
-                </div>
+                <SearchAvatar name={post.authorName || 'Unknown'} avatarUrl={post.authorAvatar} />
                 <div className="search-page-card-body">
                   <div className="search-page-card-top">
                     <span className="search-page-card-name">{post.authorName || 'Unknown'}</span>

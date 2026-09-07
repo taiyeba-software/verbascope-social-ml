@@ -4,7 +4,7 @@ import { validatePost, validateComment } from '../middlewares/validation.middlew
 import { pulse } from '../pulse/pulse.js';
 import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse } from '../controllers/post.controller.js';
+import { createPost, getFeed, getPost, getPostsByUser, deletePost } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
@@ -17,13 +17,9 @@ import { search, searchTags, getPostsByTag } from '../controllers/search.control
 
 const router = Router();
 
-// ── UPDATED: Weekly Pulse feature ──
-// Was: res.json({ trending: pulse.getTrending() }) — the old in-memory
-// tag-leaderboard handler, defined inline right here instead of going
-// through post.controller.js. That's why getWeeklyPulse()'s new
-// aggregation-based response never showed up: this route never called it.
-// Now points at the real controller, matching every other route below.
-router.get('/pulse/trending', protect, getWeeklyPulse);
+router.get('/pulse/trending', (req, res) => {
+	res.json({ trending: pulse.getTrending() });
+});
 
 router.get('/pulse/signal', (req, res) => {
 	res.json(pulse.getSignal());

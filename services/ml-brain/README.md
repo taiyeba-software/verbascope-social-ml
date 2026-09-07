@@ -273,5 +273,8 @@ uvicorn main:app
 pip install watchdog
 ```
 
+```to test models
+python tests/test_pipeline.py
+
 Then run the app with a watcher or the framework you prefer for local development. The core service still runs through `main.py` and the RabbitMQ consumer is started as part of bootstrapping.
   

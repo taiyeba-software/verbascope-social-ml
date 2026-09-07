@@ -21,7 +21,10 @@ from dataclasses import dataclass
 TOXICITY_HIGH_THRESHOLD = 3.5
 TOXICITY_MEDIUM_THRESHOLD = 2.0
 
-# English sarcasm probability threshold
+# NOTE: no longer used in calculate_signal() — the sarcasm decision now
+# comes solely from the `sarcasm` boolean passed in (see the sarcasm
+# check below for why). Left defined in case anything else in the repo
+# (e.g. evaluation scripts) still imports this name.
 SARCASM_PROBABILITY_THRESHOLD = 0.5
 
 
@@ -107,7 +110,19 @@ def calculate_signal(
         )
 
     # Sarcasm with low toxicity
-    if sarcasm or sarcasm_probability >= SARCASM_PROBABILITY_THRESHOLD:
+    #
+    # NOTE: this trusts the `sarcasm` boolean only, not a separate
+    # probability re-check. The boolean already encodes the model's own
+    # threshold decision *and* any false-positive override applied
+    # upstream (e.g. english_sarcasm.py suppresses obvious-positive
+    # statements like "Today is amazing" back to sarcasm=False even
+    # when the raw probability is high). Re-checking the raw
+    # probability against a separate, lower threshold here would
+    # silently undo that override and reintroduce the exact false
+    # positive it was meant to fix — which is what was happening before
+    # this fix (sarcasm=False but risk_flag=yellow with a "sarcasm
+    # detected" explanation).
+    if sarcasm:
         return RiskResult(
             signal="yellow",
             toxicity_level=toxicity_level,

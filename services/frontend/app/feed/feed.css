@@ -1155,3 +1155,115 @@ body {
 .pulse-mood-badge {
   margin-top: 6px;
 }
+
+
+
+/* ── Infinite scroll additions ── */
+
+.feed-loading-more {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .6rem;
+  padding: 1.5rem;
+  color: var(--vs-text-muted);
+  font-size: 0.85rem;
+}
+
+.feed-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vs-border-card, rgba(148, 197, 210, 0.25));
+  border-top-color: var(--vs-teal);
+  border-radius: 50%;
+  animation: feed-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes feed-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.feed-end {
+  text-align: center;
+  padding: 2rem;
+  color: var(--vs-text-muted);
+  font-size: .9rem;
+  opacity: 0.85;
+  animation: feed-fade-in .3s ease;
+}
+
+@keyframes feed-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 0.85;
+    transform: translateY(0);
+  }
+}
+
+.feed-sentinel {
+  height: 1px;
+}
+
+.feed-error,
+.feed-load-more-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  color: var(--vs-text-muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.feed-error button,
+.feed-load-more-error button {
+  background: var(--vs-surface);
+  border: 1.5px solid var(--vs-teal);
+  color: var(--vs-teal);
+  padding: 6px 18px;
+  border-radius: var(--vs-radius-full);
+  cursor: pointer;
+  font-family: var(--vs-font-sans);
+  font-weight: 600;
+  font-size: 0.8rem;
+  transition: all var(--vs-transition);
+}
+
+.feed-error button:hover,
+.feed-load-more-error button:hover {
+  background: var(--vs-teal);
+  color: white;
+}
+
+/* ── Weekly Pulse: "Other Topics" section divider ──
+   Small caps label separating the featured topic from the discovery
+   list below it, in the same restrained style as .sidebar-card-title. */
+.sidebar-section-label {
+  margin: var(--vs-space-xs) var(--vs-space-lg) 0;
+  padding-top: var(--vs-space-sm);
+  border-top: 1px solid var(--vs-border);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--vs-text-muted);
+}
+
+/* ── Weekly Pulse: "why it's trending" line ──
+   Sits under .trending-count, one size down, italic to read as
+   editorial commentary rather than another stat. */
+.trending-explanation {
+  font-size: 16px !important;
+  line-height: 1.4;
+  color: green !important;
+  font-style: italic;
+  margin-top: 8px !important;
+  display: inline-block !important;
+}

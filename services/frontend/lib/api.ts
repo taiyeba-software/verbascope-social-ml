@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import type { SearchResponse } from '@/types/search';
+import type { WeeklyPulse } from '@/components/feed/useFeedSocket';
 
 /* ──────────────────────────────────────────────────────────
    API Client Configuration
@@ -48,8 +49,19 @@ class ApiClient {
           data,
         };
 
-        // Only log actual server/network errors (excluding 401 unauthenticated)
-        if (status !== 401) {
+        // Statuses that represent EXPECTED validation failures rather than
+        // bugs — a 422/400 for an oversized post, or a 401 for "not logged
+        // in yet", is normal user-facing behavior the calling component
+        // already turns into a friendly message. These should never hit
+        // the console, in development or production. Anything else is a
+        // genuine unexpected error and still logs, but only in development,
+        // so production/demo consoles stay clean.
+        const EXPECTED_VALIDATION_STATUSES = [400, 401, 422];
+
+        if (
+          !EXPECTED_VALIDATION_STATUSES.includes(status) &&
+          process.env.NODE_ENV === 'development'
+        ) {
           console.error('[API Error]', message, cleanError);
         }
 
@@ -187,6 +199,13 @@ export const postApi = new ApiClient({
   timeout: 30000, // Increased from 10s to 30s for image uploads to ImageKit
 });
 
+// ── NEW: Weekly Pulse feature ──
+// Shape returned by GET /api/posts/pulse/trending (post.controller.js's
+// getWeeklyPulse), matching the WeeklyPulse type used by the socket hook
+// so the initial fetch and the live pulse:update events are
+// interchangeable in the Sidebar.
+export type WeeklyPulseResponse = { success: boolean } & WeeklyPulse;
+
 export const postService = {
   getFeed: (page = 1, limit = 10) =>
     postApi.get(`/api/posts/feed?page=${page}&limit=${limit}`),
@@ -250,6 +269,14 @@ export const postService = {
   // Post Service — recommendations
   getRecommendedUsers: () =>
     postApi.get('/api/posts/recommendations/users'),
+
+  // ── NEW: Weekly Pulse ──
+  // Initial-load counterpart to the live 'pulse:update' socket event —
+  // Sidebar calls this once on mount so the pulse card has real data
+  // immediately, instead of waiting for the next post/share to trigger
+  // a broadcast.
+  getWeeklyPulse: () =>
+    postApi.get<WeeklyPulseResponse>('/api/posts/pulse/trending'),
 
   // ── Search (Phase 2/2.5 backend, Phase 3 frontend) ──
   // Matches GET /api/posts/search?q=&limit=&offset= — withCredentials on

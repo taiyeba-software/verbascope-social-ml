@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { TrendingTag } from './useFeedSocket';
+import type { WeeklyPulse } from './useFeedSocket';
 import { postService, userService } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -27,25 +27,41 @@ const avatarColor = (id: string) =>
 const initials = (fullname: { firstName: string; lastName: string }) =>
   `${fullname.firstName[0] ?? ''}${fullname.lastName[0] ?? ''}`.toUpperCase();
 
-const TRENDING_FALLBACK = [
-  { tag: '#EmotionalAI',      count: '2.3K posts' },
-  { tag: '#SarcasmDetection', count: '2.1K posts' },
-  { tag: '#SocialSignals',    count: '1.9K posts' },
-  { tag: '#ToxicitySignals',  count: '1.6K posts' },
-];
-
 export function Sidebar({
-  pulseSignal,
-  trendingTags,
+  weeklyPulse,
 }: {
-  pulseSignal: string;
-  trendingTags: TrendingTag[];
+  // Live updates arrive via this prop (parent wires it from
+  // useFeedSocket()'s `weeklyPulse`, updated on 'pulse:update'). Sidebar
+  // additionally self-fetches once on mount below so the card has real
+  // data immediately, instead of waiting for the next post/share to
+  // trigger a broadcast.
+  weeklyPulse: WeeklyPulse | null;
 }) {
   const { user } = useAuth();
   const [recommendations, setRecommendations] = useState<RecommendedUser[]>([]);
   const [followingIds, setFollowingIds]       = useState<Set<string>>(new Set());
   const [loadingFollow, setLoadingFollow]     = useState<string | null>(null);
   const [loading, setLoading]                 = useState(true);
+
+  // ── NEW: Weekly Pulse initial load ──
+  // Falls back to this until the first 'pulse:update' socket event
+  // arrives (or forever, if nothing has happened since mount).
+  const [initialPulse, setInitialPulse] = useState<WeeklyPulse | null>(null);
+  const [pulseLoading, setPulseLoading] = useState(true);
+  const pulse = weeklyPulse ?? initialPulse;
+
+  useEffect(() => {
+    let cancelled = false;
+    postService.getWeeklyPulse()
+      .then((res) => {
+        if (cancelled) return;
+        const { success, ...data } = res.data;
+        if (success) setInitialPulse(data);
+      })
+      .catch((err) => console.error('[Sidebar] Failed to load weekly pulse:', err))
+      .finally(() => { if (!cancelled) setPulseLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -119,27 +135,84 @@ export function Sidebar({
   const followed   = recommendations.filter((p) =>  followingIds.has(p._id));
   const displayed  = [...unfollowed, ...followed].slice(0, 5);
 
+  // ── Weekly Pulse: is there anything worth showing beyond the status
+  // itself? Quiet weeks intentionally render *only* the explanation line
+  // (no tag, no count) — showing "#anime · 0 posts" during a quiet week
+  // implies there's a story here when there isn't one yet.
+  const isQuiet = pulse?.status === '💤 Quiet';
+
   return (
     <aside className="feed-sidebar">
 
-      {/* ── Trending Now ── */}
+      {/* ── Trending Now: Weekly Pulse ── */}
+      {/* NOTE: topics are intentionally plain text, not links — the
+          tag pages (/tag/:tagName) currently 500 because the Meilisearch
+          index isn't configured with `tags` as a filterable attribute.
+          Re-add navigation once that's fixed on the search side. */}
       <div className="sidebar-card">
         <div className="sidebar-card-header">
           <div className="sidebar-card-icon">🔥</div>
           <h3 className="sidebar-card-title">Trending Now</h3>
         </div>
-        {pulseSignal && <div className="pulse-signal-badge">{pulseSignal}</div>}
-        <div className="trending-list">
-          {(trendingTags.length > 0 ? trendingTags : TRENDING_FALLBACK).map((item) => (
-            <div key={item.tag} className="trending-item">
-              <span className="trending-dot" />
-              <div>
-                <div className="trending-tag">{item.tag}</div>
-                <div className="trending-count">{item.count}</div>
+
+        {pulseLoading && !pulse && (
+          <div className="follow-loading">Reading the room...</div>
+        )}
+
+        {!pulseLoading && (!pulse || !pulse.topic) && !isQuiet && (
+          <div className="follow-empty">
+            <div className="follow-empty-icon">💤</div>
+            <div>No standout topic yet this week — be the first to start one.</div>
+          </div>
+        )}
+
+        {pulse && (isQuiet || pulse.topic) && (
+          <>
+            <div className="pulse-signal-badge">{pulse.status}</div>
+
+            {isQuiet ? (
+              // Quiet: the explanation IS the content. No tag, no count —
+              // nothing to feature yet.
+              <div className="follow-empty">
+                {pulse.explanation ?? 'Not enough activity this week yet.'}
               </div>
-            </div>
-          ))}
-        </div>
+            ) : (
+              <div className="trending-list">
+                <div className="trending-item">
+                  <span className="trending-dot" />
+                  <div>
+                    <div className="trending-tag">#{pulse.topic}</div>
+                    <div className="trending-count">{pulse.activityLabel}</div>
+                    {pulse.explanation && (
+                      <div className="trending-explanation">{pulse.explanation}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Already excludes the headline topic (backend dedupes it),
+                so this never repeats the tag shown above. */}
+            {pulse.topics.length > 0 && (
+              <>
+                <div className="sidebar-section-label">
+                  {isQuiet ? 'Topics' : 'Other Topics'}
+                </div>
+                <div className="trending-list">
+                  {pulse.topics.map((item) => (
+                    <div key={item.tag} className="trending-item">
+                      <span className="trending-dot" />
+                      <div>
+                        <div className="trending-tag">#{item.tag}</div>
+                        <div className="trending-count">{item.posts} post{item.posts === 1 ? '' : 's'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Who to Follow ── */}

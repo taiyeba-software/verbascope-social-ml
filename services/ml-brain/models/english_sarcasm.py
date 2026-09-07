@@ -9,6 +9,29 @@ MODEL_NAME = "cardiffnlp/twitter-roberta-base-irony"
 # Adjust this if needed after evaluating on your dataset
 SARCASM_THRESHOLD = 0.70
 
+# CardiffNLP's Twitter-irony model is trained on tweets, where plain
+# positive statements ("Today is amazing") are frequently sarcastic in
+# context. Applied to general (non-Twitter) text, this causes false
+# positives on genuinely positive statements. This word list lets us
+# suppress those specific false positives without touching the model
+# or its threshold.
+POSITIVE_WORDS = {
+    "amazing",
+    "awesome",
+    "beautiful",
+    "excellent",
+    "fantastic",
+    "good",
+    "great",
+    "happy",
+    "love",
+    "lovely",
+    "nice",
+    "perfect",
+    "wonderful",
+    "best",
+}
+
 
 class EnglishSarcasmModel:
     def __init__(self):
@@ -42,6 +65,23 @@ class EnglishSarcasmModel:
 
         return " ".join(processed_tokens)
 
+    def _is_obviously_positive(self, text: str) -> bool:
+        """
+        True when the text contains a clearly positive word and none of
+        the common cues that usually signal the positivity is actually
+        sarcastic ("yeah right", "as if", "/s", trailing "...").
+        """
+
+        text = text.lower()
+
+        return (
+            any(word in text for word in POSITIVE_WORDS)
+            and "yeah right" not in text
+            and "as if" not in text
+            and "/s" not in text
+            and "..." not in text
+        )
+
     def predict(self, text: str) -> dict:
         """
         Predict whether a text is ironic/sarcastic.
@@ -53,10 +93,10 @@ class EnglishSarcasmModel:
         }
         """
 
-        text = self._preprocess(text)
+        preprocessed_text = self._preprocess(text)
 
         inputs = self.tokenizer(
-            text,
+            preprocessed_text,
             return_tensors="pt",
             truncation=True,
             max_length=self.model.config.max_position_embeddings,
@@ -74,6 +114,10 @@ class EnglishSarcasmModel:
         sarcasm_probability = probabilities[1].item()
 
         sarcasm = sarcasm_probability >= SARCASM_THRESHOLD
+
+        # Suppress common false positives for clearly positive statements.
+        if sarcasm and self._is_obviously_positive(text):
+            sarcasm = False
 
         return {
             "sarcasm": sarcasm,
@@ -93,6 +137,7 @@ if __name__ == "__main__":
         "What a wonderful surprise!",
         "Oh great, another meeting...",
         "i hate you 😘",
+        "Today is amazing",
     ]
 
     for text in tests:

@@ -73,6 +73,17 @@ const postSchema = new mongoose.Schema(
         type: String,
         default: null,
       },
+      // ── NEW: single 0–1 "how sure is the model" number from ML Brain
+      // (rabbit_consumer.py's result.confidence -> handleMLResult() in
+      // post.controller.js). Without this field declared here, Mongoose
+      // silently drops mlAnalysis.confidence from every $set — it never
+      // reaches the database even though the controller sets it
+      // correctly. Feeds the "Confidence" row in the frontend's
+      // expandable AI Analysis card.
+      confidence: {
+        type: Number,
+        default: null,
+      },
       // Derived from riskFlag via signalMapper.js's getAISignal().
       // These are what the frontend renders by default (the feed card);
       // the raw fields above stay available for the
@@ -93,6 +104,17 @@ const postSchema = new mongoose.Schema(
     tags: {
       type: [String],
       default: [],
+    },
+    // ── NEW: Pulse feature ──
+    // Set once at createPost time (see post.controller.js): the first
+    // hashtag on the post, lowercased, no '#'. Falls back to 'general'
+    // when a post has no tags. Deliberately dumb/deterministic — no
+    // NLP, no re-classification later — so getWeeklyPulse() in
+    // pulse.js can group posts by this field directly in a Mongo
+    // aggregation without touching the ML pipeline at all.
+    pulseTopic: {
+      type: String,
+      default: 'general',
     },
     images: {
       type: [String],
@@ -123,6 +145,7 @@ postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ contentLanguage: 1, createdAt: -1 });  // renamed
 postSchema.index({ tags: 1 });
+postSchema.index({ pulseTopic: 1, createdAt: -1 });        // ── NEW: for getWeeklyPulse() aggregation
 postSchema.index(                                          // text index with fixed language
   { normalizedContent: 'text', content: 'text' },
   { default_language: 'none' }                            // 'none' = language-agnostic, supports Bangla

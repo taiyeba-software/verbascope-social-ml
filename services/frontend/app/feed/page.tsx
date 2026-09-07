@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import FeedSkeleton from '@/components/FeedSkeleton';
@@ -27,16 +27,35 @@ export const dynamic = 'force-dynamic';
 
 type OpenComments = Record<string, CommentState>;
 
+type FeedResponse = { posts: FeedPost[]; totalPages: number };
+
+// ── Appends `incoming` posts onto `current`, skipping any whose _id is
+// already present. Page-based pagination can occasionally hand back an
+// overlapping post if something was inserted/deleted between requests. ──
+function appendWithoutDuplicates(current: FeedPost[], incoming: FeedPost[]): FeedPost[] {
+  const existingIds = new Set(current.map((post) => post._id));
+  return [...current, ...incoming.filter((post) => !existingIds.has(post._id))];
+}
+
 export default function FeedPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  console.log('FeedPage rendered');
-
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [feedLoading, setFeedLoading] = useState(true);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // pageRef (not state) tracks "which page did we last fetch" — it drives
+  // what page to request next, without needing a state update + rerender
+  // round-trip in the middle of a fetch.
+  const pageRef = useRef(0);
+  const fetchingRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
   const [openComments, setOpenComments] = useState<OpenComments>({});
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
@@ -47,19 +66,79 @@ export default function FeedPage() {
     if (!isLoading && !user) router.replace('/auth/login');
   }, [isLoading, user, router]);
 
+  // ── Fetches a specific page. Page 1 replaces the list (initial load /
+  // retry-from-scratch); any later page appends + dedupes (infinite
+  // scroll). Called imperatively — not driven by a `page` state effect —
+  // so the retry buttons can trigger a real fetch on demand. ──
+  const fetchFeed = useCallback(
+    (targetPage: number) => {
+      if (!user || fetchingRef.current) return;
+
+      fetchingRef.current = true;
+      pageRef.current = targetPage;
+
+      if (targetPage === 1) {
+        setLoadingInitial(true);
+      } else {
+        setLoadingMore(true);
+      }
+      setError(null);
+
+      postService
+        .getFeed(targetPage)
+        .then(({ data }) => {
+          const result = data as FeedResponse;
+          const newPosts = result.posts ?? [];
+
+          setPosts((previous) =>
+            targetPage === 1 ? newPosts : appendWithoutDuplicates(previous, newPosts)
+          );
+          setTotalPages(result.totalPages ?? 1);
+          setHasMore(targetPage < (result.totalPages ?? 1));
+        })
+        .catch(() => {
+          setError(targetPage === 1 ? 'Could not load your feed.' : 'Could not load more posts.');
+        })
+        .finally(() => {
+          fetchingRef.current = false;
+          setLoadingInitial(false);
+          setLoadingMore(false);
+        });
+    },
+    [user]
+  );
+
+  // Kick off page 1 once the user is known.
   useEffect(() => {
-    if (!user) return;
-    setFeedLoading(true);
-    postService
-      .getFeed(page)
-      .then(({ data }) => {
-        const result = data as { posts: FeedPost[]; totalPages: number };
-        setPosts(result.posts ?? []);
-        setTotalPages(result.totalPages ?? 1);
-      })
-      .catch(() => {})
-      .finally(() => setFeedLoading(false));
-  }, [user, page]);
+    if (user) fetchFeed(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // ── Sentinel via callback ref, not useRef+useEffect. A callback ref
+  // fires every time the DOM node actually mounts/unmounts, which is
+  // exactly when the observer needs to (re)attach — unlike a plain effect,
+  // which only reruns when its dependencies change, and can silently miss
+  // the sentinel's first real mount (e.g. right after the initial
+  // skeleton is replaced by the post list). ──
+  const attachSentinel = useCallback(
+    (node: HTMLDivElement | null) => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+
+      if (!node || !hasMore) return;
+
+      observerRef.current = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting && !loadingMore && !fetchingRef.current) {
+            fetchFeed(pageRef.current + 1);
+          }
+        },
+        { threshold: 0.1, rootMargin: '400px 0px' }
+      );
+      observerRef.current.observe(node);
+    },
+    [hasMore, loadingMore, fetchFeed]
+  );
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -174,16 +253,20 @@ export default function FeedPage() {
     }
   };
 
+  // ── Delete — purely local removal + rollback on failure. NOT a refetch:
+  // once several pages are loaded, refetching one page and swapping it in
+  // for the whole accumulated `posts` array would silently drop everything
+  // else that had been loaded. ──
   const handleDeletePost = async (postId: string) => {
     if (!confirm('Delete this post? This cannot be undone.')) return;
+
+    const previousPosts = posts;
     setPosts((cur) => cur.filter((post) => post._id !== postId));
+
     try {
       await postService.deletePost(postId);
     } catch {
-      postService.getFeed(page).then(({ data }) => {
-        const result = data as { posts: FeedPost[]; totalPages: number };
-        setPosts(result.posts ?? []);
-      });
+      setPosts(previousPosts);
       alert('Failed to delete post. Please try again.');
     }
   };
@@ -265,16 +348,10 @@ export default function FeedPage() {
     }
   };
 
-  // NOTE: the old `if (isLoading) { return <bare skeleton> }` branch that
-  // used to live here has been removed. ProtectedRoute (in the root
-  // layout) already renders the correct, full skeleton — with Navbar,
-  // CreatePostBox, and the sidebar — for the entire duration that
-  // isLoading is true, and only mounts FeedPage's children once loading
-  // is done. That made this branch dead code in the normal case, but it
-  // was a bare, sidebar-less version that didn't match ProtectedRoute's
-  // fallback — so if it ever did render for even one frame, it looked
-  // like a second, "wrong" skeleton. Removing it means there's only ever
-  // one possible loading appearance for this route.
+  // NOTE: ProtectedRoute (in the root layout) already renders the correct,
+  // full skeleton — with Navbar, CreatePostBox, and the sidebar — for the
+  // entire duration that isLoading is true, and only mounts FeedPage's
+  // children once loading is done.
 
   if (!user) return null;
 
@@ -288,8 +365,15 @@ export default function FeedPage() {
         {/* Mobile trending bar — hidden on desktop via CSS */}
         <MobileTrendingBar trendingTags={trendingTags} />
 
-        {feedLoading ? (
+        {loadingInitial ? (
           <FeedSkeleton />
+        ) : error && posts.length === 0 ? (
+          <div className="feed-error">
+            <p>{error}</p>
+            <button type="button" onClick={() => fetchFeed(1)}>
+              Retry
+            </button>
+          </div>
         ) : posts.length === 0 ? (
           <div className="feed-empty">
             <div className="feed-empty-icon">📡</div>
@@ -322,24 +406,34 @@ export default function FeedPage() {
               </div>
             ))}
 
-            {totalPages > 1 && (
-              <div className="pagination">
-                <button type="button" onClick={() => setPage((p) => p - 1)} disabled={page === 1}>
-                  ← Previous
-                </button>
-                <span>
-                  Page {page} of {totalPages}
-                </span>
-                <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>
-                  Next →
+            {loadingMore && (
+              <div className="feed-loading-more">
+                <span className="feed-spinner" aria-hidden="true" />
+                <span>Loading more...</span>
+              </div>
+            )}
+
+            {error && !loadingMore && (
+              <div className="feed-load-more-error">
+                <span>{error}</span>
+                <button type="button" onClick={() => fetchFeed(pageRef.current + 1)}>
+                  Retry
                 </button>
               </div>
             )}
+
+            {!hasMore && !loadingMore && (
+              <div className="feed-end">✨ You're all caught up</div>
+            )}
+
+            {/* Sentinel — always the last element when there's more to load,
+                so the observer keeps a stable target to watch. */}
+            {hasMore && <div ref={attachSentinel} className="feed-sentinel" aria-hidden="true" />}
           </>
         )}
       </main>
 
-      {feedLoading ? (
+      {loadingInitial ? (
         <aside className="feed-sidebar">
           <SidebarSkeleton />
         </aside>

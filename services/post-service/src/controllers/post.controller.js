@@ -8,9 +8,9 @@ import { generateImageKitFileName } from '../middlewares/upload.middleware.js';
 import { detectLanguage } from '../utils/detectLanguage.js';
 import { normalizeText } from '../utils/normalizeText.js';
 import authClient from '../utils/authClient.js';
-import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted ──
-import { indexPost, deleteIndexedPost } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing ──
-import { getAISignal } from '../ml/signalMapper.js'; // ── NEW: VerbaScope AI Signal feature ──
+import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted
+import { indexPost, deleteIndexedPost } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing
+import { getAISignal } from '../ml/signalMapper.js'; // ── NEW: VerbaScope AI Signal feature
 
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -21,6 +21,17 @@ const extractTags = (text = '') =>
 
 const countWords = (text = '') =>
   (text.match(/\S+/g) ?? []).length;
+
+// Fire-and-forget helper: recompute the weekly pulse and broadcast it.
+// Called after anything that changes weekly engagement (post created,
+// shared, liked, commented) so every connected client's sidebar stays
+// live without polling. Never awaited by the calling handler — a slow
+// or failing aggregation must never block or fail the user's action.
+const broadcastPulseUpdate = () => {
+  pulse.getWeeklyPulse()
+    .then((weeklyPulse) => io.emit('pulse:update', weeklyPulse))
+    .catch((err) => console.error('broadcastPulseUpdate error:', err.message));
+};
 
 // `savedPostIds` is a Set of post-id strings the current user has bookmarked
 // (looked up from the SavedPost join collection — saves are NOT stored on
@@ -70,6 +81,11 @@ export const createPost = async (req, res) => {
     const wordCount          = countWords(rawContent);
     const contentLanguage    = detectLanguage(rawContent);   // renamed
     const normalizedContent  = normalizeText(rawContent);
+    // ── NEW: Pulse feature ──
+    // First tag wins, no NLP — matches the plan exactly. Falls back to
+    // 'general' for tagless posts so getWeeklyPulse()'s aggregation
+    // always has a group to put them in.
+    const pulseTopic         = tags.length > 0 ? tags[0] : 'general';
 
     const newPost = await Post.create({
       author: req.user.id,
@@ -78,10 +94,12 @@ export const createPost = async (req, res) => {
       contentLanguage,                                        // renamed
       wordCount,
       tags,
+      pulseTopic,
       images: imageUrls,
     });
 
     pulse.onPostCreated(newPost, req.user.id);
+    broadcastPulseUpdate(); // ── NEW: keep sidebar's weekly pulse live
     publish('post.created', { post: newPost });
 
     // Send post text to ML Brain asynchronously
@@ -270,9 +288,28 @@ export const deletePost = async (req, res) => {
     // a reload (useFeedSocket.ts already listens for this event). ──
     io.emit('post:deleted', { postId: req.params.id });
 
+    broadcastPulseUpdate(); // ── NEW: deleting a post can change this week's standings
+
     return res.status(200).json({ success: true, message: 'Post deleted.' });
   } catch (err) {
     console.error('deletePost error:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// ── GET /api/posts/pulse/trending ────────────────────────────────────
+// ── NEW: Weekly Pulse endpoint ──
+// Replaces the old tag-leaderboard response shape with the "community
+// pulse" story: this week's #1 topic, why people are engaging with it,
+// how big a share of weekly activity it is, plus a short "Popular
+// Topics" list for discovery. All computed straight from Mongo in
+// pulse.getWeeklyPulse() — no new service, no ML Brain involvement.
+export const getWeeklyPulse = async (req, res) => {
+  try {
+    const weeklyPulse = await pulse.getWeeklyPulse();
+    return res.status(200).json({ success: true, ...weeklyPulse });
+  } catch (err) {
+    console.error('getWeeklyPulse error:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
@@ -325,9 +362,9 @@ export const reanalyzeStalePosts = async (req, res) => {
 // the parsed payload here.
 //
 // Saves the full "v2" ML Brain payload (language / toxicityLevel /
-// explanation included, alongside the original sentiment/sarcasm/
-// toxicity/riskFlag fields), then derives the frontend-facing
-// signal/signalMessage via getAISignal(), same as before.
+// explanation / confidence included, alongside the original
+// sentiment/sarcasm/toxicity/riskFlag fields), then derives the
+// frontend-facing signal/signalMessage via getAISignal(), same as before.
 export const handleMLResult = async (result) => {
   try {
     if (!result?.postId) {
@@ -352,6 +389,11 @@ export const handleMLResult = async (result) => {
           'mlAnalysis.toxicityLevel': result.toxicity_level,
           'mlAnalysis.riskFlag': result.risk_flag,
           'mlAnalysis.explanation': result.explanation,
+          // NEW: single 0–1 "how sure is the model" number for the
+          // frontend AI Analysis dropdown's "Confidence" row. Comes
+          // straight from rabbit_consumer.py's result_message — see the
+          // comment there for how it's derived.
+          'mlAnalysis.confidence': result.confidence,
           'mlAnalysis.signal': aiSignal.signal,
           'mlAnalysis.signalMessage': aiSignal.message,
           'mlAnalysis.analyzedAt': new Date(),
@@ -365,7 +407,16 @@ export const handleMLResult = async (result) => {
       return;
     }
 
+    // ── DEBUG: split into two logs so we can tell "saved to DB" apart
+    // from "actually emitted over the socket" — if you see the first
+    // line but never the second, handleMLResult() is throwing or
+    // returning before reaching io.emit(). ──
     console.log(`ML analysis saved: ${result.postId} -> ${result.risk_flag} (${aiSignal.signal})`);
+
+    console.log('📡 Emitting post:ml-analysis', {
+      postId: result.postId,
+      mlAnalysis: updatedPost.mlAnalysis,
+    });
 
     // Emit the whole saved mlAnalysis object rather than hand-picking
     // fields, so any new field added to the schema later automatically

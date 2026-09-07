@@ -57,19 +57,13 @@ print("ML Brain ready.")
 # --------------------------------------------------
 # RabbitMQ
 # --------------------------------------------------
-# NOTE: the consumer still takes the raw models directly rather than
-# the Analyzer, for now — see pipelines/analyzer.py docstring. Once the
-# consumer is updated to share the same Analyzer, this can be
-# simplified to `start_consumer(analyzer)`.
+# The consumer now shares the same Analyzer instance as the HTTP
+# /analyze endpoint, so both entry points run identical routing/model
+# logic — no separate branching to keep in sync.
 
 def start_rabbitmq_consumer():
     try:
-        start_consumer(
-            bangla_model,
-            english_model,
-            toxicity_model,
-            english_toxicity_model,
-        )
+        start_consumer(analyzer)
     except Exception:
         traceback.print_exc()
 
@@ -104,12 +98,14 @@ class AnalyzeResponse(BaseModel):
     sarcasm_probability: float
 
     toxicity: float
-    toxicity_top_label: str | None = None    # only set for the English pipeline
-    toxicity_explanation: str | None = None  # model-level explanation, distinct from risk.explanation
+    toxicity_top_label: str | None = None        # only set for the English pipeline
+    toxicity_top_label_score: float | None = None  # only set for the English pipeline
+    toxicity_explanation: str | None = None      # model-level explanation, distinct from risk.explanation
 
     risk_flag: str
     toxicity_level: str
     explanation: str
+    confidence: float
 
 
 # --------------------------------------------------

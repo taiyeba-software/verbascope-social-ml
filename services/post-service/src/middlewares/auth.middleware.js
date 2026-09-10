@@ -2,13 +2,25 @@ import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 
 /**
- * Protects routes by verifying the JWT stored in the httpOnly `token` cookie.
+ * Protects routes by verifying a JWT.
+ *
+ * Reads the token from the `Authorization: Bearer <token>` header first —
+ * this is the cross-origin-safe path, since post-service lives on a
+ * different subdomain than auth-service and can never receive its
+ * httpOnly cookie (public-suffix domain, no shared cookie scope).
+ *
+ * Falls back to the `token` cookie if no header is present, so this still
+ * works for any same-origin/local-dev requests that haven't switched over.
+ *
  * On success, attaches the decoded payload ({ id, role }) to req.user.
- * This mirrors the auth-service middleware so both services share the same
- * cookie/JWT contract without any inter-service HTTP call.
  */
 const protect = (req, res, next) => {
-	const token = req.cookies?.token;
+	const authHeader = req.headers?.authorization;
+	const headerToken = authHeader?.startsWith('Bearer ')
+		? authHeader.slice(7)
+		: null;
+
+	const token = headerToken || req.cookies?.token;
 
 	if (!token) {
 		return res.status(401).json({ success: false, message: 'Not authenticated. No token found.' });

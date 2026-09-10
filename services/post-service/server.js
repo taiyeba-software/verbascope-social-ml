@@ -23,10 +23,26 @@ const seedPulseFromDB = async () => {
     }
 };
 
+// Same allowlist logic as src/app.js — CLIENT_URL from the environment
+// (the deployed frontend URL) plus local-dev fallbacks, so Socket.IO's
+// own CORS check doesn't silently diverge from the HTTP CORS middleware.
+const defaultAllowedOrigins = [
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
+    'http://localhost:3002',
+    'http://127.0.0.1:3002',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+];
+
+const socketAllowlist = process.env.CLIENT_URL
+    ? [process.env.CLIENT_URL, ...defaultAllowedOrigins]
+    : defaultAllowedOrigins;
+
 const PORT = parseInt(process.env.PORT) || 3003;
 const httpServer = createServer(app);
 export const io = new Server(httpServer, {
-    cors: { origin: 'http://localhost:3002', credentials: true }
+    cors: { origin: socketAllowlist, credentials: true }
 });
 
 io.on('connection', (socket) => {

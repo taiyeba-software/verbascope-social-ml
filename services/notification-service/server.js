@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import app from './src/app.js';
 import { connect as connectRabbit } from './src/broker/rabbit.js';
@@ -47,8 +48,29 @@ export const io = new Server(httpServer, {
     },
 });
 
+// ── Socket.IO auth handshake ───────────────────────────────────────
+// Mirrors the inline `protect` middleware in src/app.js: verifies the
+// JWT the frontend sends via `io(url, { auth: { token } })`. Cookies
+// never reach this service cross-origin, so the handshake token is the
+// only reliable source — connections without a valid token are
+// rejected before `connection` fires.
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+
+    if (!token) {
+        return next(new Error('Unauthorized.'));
+    }
+
+    try {
+        socket.user = jwt.verify(token, config.JWT_SECRET);
+        next();
+    } catch (err) {
+        next(new Error('Invalid token.'));
+    }
+});
+
 io.on('connection', (socket) => {
-    console.log('Notification socket connected:', socket.id);
+    console.log('Notification socket connected:', socket.id, 'user:', socket.user?.id);
 
     // each user joins their own room by userId
     socket.on('join', (userId) => {

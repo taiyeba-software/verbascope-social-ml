@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
-import { notificationService } from '@/lib/api';
+import { notificationService, tokenStorage } from '@/lib/api';
 import SearchBar from './search/SearchBar';
 import './Navbar.css';
 import ThemeToggle from './ThemeToggle';
@@ -150,13 +150,16 @@ export default function Navbar() {
      URL comes from NEXT_PUBLIC_NOTIFICATION_API_URL so production
      deployments point at the real deployed notification-service instead
      of every visitor's own localhost. Falls back to localhost for local
-     development when the env var isn't set. ── */
+     development when the env var isn't set.
+     auth.token is verified by notification-service's Socket.IO
+     handshake middleware — same JWT the HTTP requests send as a
+     Bearer header. ── */
   useEffect(() => {
     if (!user?._id) return;
 
     const socket = io(
       process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3001',
-      { withCredentials: true }
+      { withCredentials: true, auth: { token: tokenStorage.get() } }
     );
     socketRef.current = socket;
 

@@ -1,5 +1,6 @@
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import app from './src/app.js';
 import connectDB from './src/db/db.js';
 import {
@@ -11,6 +12,7 @@ import { pulse } from './src/pulse/pulse.js';
 import Post from './src/models/post.model.js';
 import { initMeilisearch } from './src/search/meiliClient.js';
 import { handleMLResult } from './src/controllers/post.controller.js';
+import config from './src/config/config.js';
 
 const seedPulseFromDB = async () => {
     try {
@@ -45,8 +47,30 @@ export const io = new Server(httpServer, {
     cors: { origin: socketAllowlist, credentials: true }
 });
 
+// ── Socket.IO auth handshake ───────────────────────────────────────
+// Mirrors src/middlewares/auth.middleware.js: verifies the JWT the
+// frontend sends via `io(url, { auth: { token } })`. Cookies never
+// reach this service cross-origin, so the handshake token is the only
+// reliable source — connections without a valid token are rejected
+// before `connection` fires.
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+
+    if (!token) {
+        return next(new Error('Not authenticated. No token found.'));
+    }
+
+    try {
+        const decoded = jwt.verify(token, config.jwtSecret);
+        socket.user = decoded; // { id, role, iat, exp }
+        next();
+    } catch (err) {
+        next(new Error('Invalid or expired token.'));
+    }
+});
+
 io.on('connection', (socket) => {
-    console.log('Socket connected:', socket.id);
+    console.log('Socket connected:', socket.id, 'user:', socket.user?.id);
     socket.on('disconnect', () => console.log('Socket disconnected:', socket.id));
 });
 

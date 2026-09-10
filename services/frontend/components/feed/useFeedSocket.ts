@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { io as socketIO } from 'socket.io-client';
 import type { FeedPost } from './PostCard';
+import { tokenStorage } from '@/lib/api';
 
 
 export type TrendingTag = {
@@ -100,6 +101,9 @@ export type PostMLAnalysisPayload = {
  * The socket URL comes from NEXT_PUBLIC_POST_API_URL so production
  * deployments point at the real deployed post-service instead of every
  * visitor's own localhost. Falls back to localhost for local development.
+ *
+ * auth.token is verified by post-service's Socket.IO handshake
+ * middleware — same JWT the HTTP requests send as a Bearer header.
  */
 export function useFeedSocket(setPosts: React.Dispatch<React.SetStateAction<FeedPost[]>>) {
   const [pulseSignal, setPulseSignal] = useState('');
@@ -109,7 +113,7 @@ export function useFeedSocket(setPosts: React.Dispatch<React.SetStateAction<Feed
   useEffect(() => {
     const socket = socketIO(
       process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
-      { withCredentials: true }
+      { withCredentials: true, auth: { token: tokenStorage.get() } }
     );
 
     socket.on('connect', () => {

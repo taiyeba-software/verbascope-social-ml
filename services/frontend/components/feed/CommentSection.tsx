@@ -5,7 +5,7 @@ import { io as socketIO } from 'socket.io-client';
 import { SendIcon } from './icons';
 import { type Comment } from './feedHelpers';
 import { CommentThread, type NestedComment } from './CommentThread';
-import { postApi } from '@/lib/api/posts';
+import { postApi, tokenStorage } from '@/lib/api';
 import './CommentSection.css';
 
 export type { Comment };
@@ -118,9 +118,11 @@ export function CommentSection({
     // URL comes from NEXT_PUBLIC_POST_API_URL so production deployments
     // point at the real deployed post-service instead of every visitor's
     // own localhost. Falls back to localhost for local development.
+    // auth.token is verified by post-service's Socket.IO handshake
+    // middleware — same JWT the HTTP requests send as a Bearer header.
     const socket = socketIO(
       process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
-      { withCredentials: true }
+      { withCredentials: true, auth: { token: tokenStorage.get() } }
     );
     socketRef.current = socket;
 

@@ -8,6 +8,7 @@ import SidebarSkeleton from '@/components/SidebarSkeleton';
 import CreatePostBox from '@/components/CreatePostBox';
 import { useAuth } from '@/hooks/useAuth';
 import { postApi, postService } from '@/lib/api/posts';
+import { tokenStorage } from '@/lib/api';
 import { PostCard, type FeedPost } from '@/components/feed/PostCard';
 import { ShareSheet } from '@/components/feed/ShareSheet';
 import { MobileTrendingBar } from './MobileTrendingBar';
@@ -61,6 +62,22 @@ export default function FeedPage() {
 
   // Pulse signal / trending tags + live post:update / post:deleted sync
   const { pulseSignal, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
+
+  // NEW: capture the ?token= param appended by auth-service's Google OAuth
+  // redirect (googleCallback → `/feed?token=...`). This is the only way a
+  // redirect can hand the SPA a JS-readable token, since the cookie it also
+  // sets is scoped to auth-service's own onrender.com subdomain and never
+  // reaches post-service/notification-service. Runs first, before any
+  // network calls, so lib/api.ts's request interceptor has the token
+  // available for the feed fetch that follows once `user` resolves.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      tokenStorage.set(token);
+      window.history.replaceState({}, '', '/feed');
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/auth/login');

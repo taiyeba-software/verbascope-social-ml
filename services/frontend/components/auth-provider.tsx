@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService, authApi } from '@/lib/api';
+import { authService, authApi, tokenStorage } from '@/lib/api';
 import type { AuthResponse, LoginFormData, RegisterFormData, User } from '@/types';
 
 interface AuthContextValue {
@@ -76,9 +76,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         });
 
-        const result = response.data as AuthResponse;
+        // NEW: auth-service now also returns `token` in the JSON body
+        // (in addition to setting the cookie). Store it so lib/api.ts's
+        // request interceptor can attach it as a Bearer header on calls
+        // to post-service / notification-service, which never receive
+        // the cookie since they're on separate onrender.com subdomains.
+        const result = response.data as AuthResponse & { token?: string };
 
         if (result.success && result.user) {
+          if (result.token) tokenStorage.set(result.token);
           setUser(result.user);
           router.push('/feed');
         } else {
@@ -104,9 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const response = await authService.login(data.email, data.password);
-        const result = response.data as AuthResponse;
+
+        // NEW: same as register — persist the returned token for Bearer auth.
+        const result = response.data as AuthResponse & { token?: string };
 
         if (result.success && result.user) {
+          if (result.token) tokenStorage.set(result.token);
           setUser(result.user);
           router.push('/feed');
         } else {
@@ -143,6 +152,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // ignore socket cleanup errors
         }
       }
+
+      // NEW: clear the stored Bearer token along with the cookie/session,
+      // otherwise a stale token would keep authenticating post-service /
+      // notification-service calls after "logout".
+      tokenStorage.clear();
 
       setUser(null);
       setError(null);

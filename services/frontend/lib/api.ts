@@ -27,6 +27,22 @@ class ApiClient {
       },
     });
 
+    // NEW: attach token from localStorage as Authorization header on every
+    // request. This is what actually authenticates cross-service calls now —
+    // the httpOnly cookie only ever worked for same-origin auth-service
+    // calls, since post-service/notification-service live on different
+    // onrender.com subdomains and never receive it.
+    this.client.interceptors.request.use((requestConfig) => {
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('vs_token');
+        if (token) {
+          requestConfig.headers = requestConfig.headers || {};
+          requestConfig.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+      return requestConfig;
+    });
+
     // Add response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
@@ -96,6 +112,24 @@ class ApiClient {
     return this.client.delete<T>(url, config);
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   Token Storage
+   NEW: central helper for storing/reading/clearing the JWT that
+   auth-service now returns from login/register/google-callback.
+   Used by auth-provider.tsx (on login/register) and feed/page.tsx
+   (to read the ?token= param after a Google redirect).
+   ────────────────────────────────────────────────────────── */
+
+export const tokenStorage = {
+  set: (token: string) => {
+    if (typeof window !== 'undefined') localStorage.setItem('vs_token', token);
+  },
+  get: () => (typeof window !== 'undefined' ? localStorage.getItem('vs_token') : null),
+  clear: () => {
+    if (typeof window !== 'undefined') localStorage.removeItem('vs_token');
+  },
+};
 
 /* ──────────────────────────────────────────────────────────
    Service Instances

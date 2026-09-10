@@ -1,6 +1,20 @@
 import type { SearchResponse, TagSearchResponse, TagPostsResponse } from '@/types/search';
+import { tokenStorage } from '@/lib/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+
+// Same auth strategy as postService (lib/api.ts): post-service lives on a
+// different onrender.com subdomain, so the httpOnly cookie never reaches it
+// cross-origin. These plain fetch() calls were still relying on the cookie
+// alone, which is why /search/tags (and friends) 401'd with "No token
+// found" while axios-based postService.search() worked fine.
+function authHeaders(): HeadersInit {
+  const token = tokenStorage.get();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 export interface SearchPostsOptions {
   limit?: number;
@@ -20,8 +34,8 @@ export async function searchPosts(
 
   const res = await fetch(`${API_BASE_URL}/api/posts/search?${params.toString()}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include', // send the httpOnly `token` cookie cross-origin (3002 → 3003)
+    headers: authHeaders(),
+    credentials: 'include',
     signal,
   });
 
@@ -47,7 +61,7 @@ export async function searchTags(
 
   const res = await fetch(`${API_BASE_URL}/api/posts/search/tags?${params.toString()}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     credentials: 'include',
     signal,
   });
@@ -75,7 +89,7 @@ export async function getPostsByTag(
     `${API_BASE_URL}/api/posts/tag/${encodeURIComponent(tagName)}?${params.toString()}`,
     {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       credentials: 'include',
       signal,
     }

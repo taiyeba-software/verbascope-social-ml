@@ -790,7 +790,7 @@ textarea.input {
 }
 
 /* ── Navbar — Command Center ───────────────────────────────── */
-.navbar {
+.landing-navbar{
   background: var(--v-bg-dark);
   border-bottom: 1px solid var(--v-accent-border);
   padding: var(--v-space-md) var(--v-space-xl);
@@ -801,9 +801,11 @@ textarea.input {
   top: 0;
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
 
-.navbar::before {
+}
+  
+
+.landing-navbar::before {
   content: '';
   position: absolute;
   left: 0;
@@ -813,7 +815,7 @@ textarea.input {
   background: linear-gradient(180deg, transparent, var(--v-border-line), transparent);
 }
 
-.navbar-title {
+.landing-navbar-title {
   font-family: var(--v-font-serif-display);
   font-size: 1.1rem;
   font-weight: 700;

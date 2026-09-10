@@ -76,6 +76,7 @@ const register = async (req, res) => {
     return res.status(201).json({
       success: true,
       user: sanitizeUser(user),
+      token, // NEW: returned so the frontend can send it as Authorization header to other services
     });
   } catch (err) {
     console.error('[auth.controller] register error:', err);
@@ -126,6 +127,7 @@ const login = async (req, res) => {
     return res.status(200).json({
       success: true,
       user: sanitizeUser(user),
+      token, // NEW: returned so the frontend can send it as Authorization header to other services
     });
   } catch (err) {
     console.error('[auth.controller] login error:', err);
@@ -153,7 +155,10 @@ const googleCallback = async (req, res) => {
     const token = signToken(user._id);
     setAuthCookie(res, token);
 
-    return res.redirect(`${CLIENT_URL}/feed`);
+    // NEW: token passed via query param since a redirect can't hand the SPA
+    // a JS-readable value any other way. Frontend reads + strips this on load
+    // (see feed/page.tsx) and stores it for use as a Bearer header.
+    return res.redirect(`${CLIENT_URL}/feed?token=${token}`);
   } catch (err) {
     console.error('[auth.controller] googleCallback error:', err);
     return res.redirect(`${CLIENT_URL}/login?error=google_auth_failed`);

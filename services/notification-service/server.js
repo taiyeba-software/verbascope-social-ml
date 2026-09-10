@@ -1,5 +1,3 @@
-
-
 import dotenv from 'dotenv';
 dotenv.config();
 import { createServer } from 'http';
@@ -17,9 +15,36 @@ await mongoose.connect(config.MONGO_URI);
 console.log('MongoDB connected (notification-service)');
 
 // ── Socket.io ─────────────────────────────────────────────────────
+const defaultAllowedOrigins = [
+    'http://localhost:3002',
+    'http://127.0.0.1:3002',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+];
+
+// Merge in CLIENT_URL from the environment (e.g. the deployed frontend URL)
+// so Socket.IO doesn't silently reject production connections. Socket.IO's
+// CORS is separate from Express's CORS middleware in app.js, so this must
+// be configured independently even though app.js already reads CLIENT_URL.
+const allowedOrigins = process.env.CLIENT_URL
+    ? [process.env.CLIENT_URL, ...defaultAllowedOrigins]
+    : defaultAllowedOrigins;
+
 const httpServer = createServer(app);
 export const io = new Server(httpServer, {
-    cors: { origin: 'http://localhost:3002', credentials: true }
+    cors: {
+        origin: (origin, callback) => {
+            // Allow non-browser clients (no origin header)
+            if (!origin) return callback(null, true);
+
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error(`Socket.IO CORS blocked: ${origin}`));
+        },
+        credentials: true,
+    },
 });
 
 io.on('connection', (socket) => {

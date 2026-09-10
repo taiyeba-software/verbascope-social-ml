@@ -15,6 +15,25 @@ The notification service is an Express-based backend that connects to MongoDB, R
 - Socket.IO live updates for newly created notifications
 - MongoDB persistence for notification history
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    FE[Frontend Browser] -->|GET / PATCH notifications| APP[Express API]
+    APP -->|JWT token cookie| JWT[JWT Auth]
+    APP -->|Store/read notifications| MONGO[(MongoDB)]
+    APP -->|Email test endpoint| SMTP[Gmail SMTP]
+
+    AUTH[Auth Service] -->|user_created| MQ[RabbitMQ]
+    POST[Post Service] -->|notification_created| MQ
+    MQ --> LISTENER[src/broker/listener.js]
+    LISTENER -->|Save notification| MONGO
+    LISTENER -->|Emit live event| IO[Socket.IO Room]
+    LISTENER -->|Send welcome email| SMTP
+
+    IO --> FE
+```
+
 ## Tech Stack
 
 - Node.js + Express

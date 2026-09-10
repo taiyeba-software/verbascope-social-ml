@@ -12,6 +12,24 @@ This service is the authentication and user-profile backbone for the VerbaScope 
 - Uploads user avatars to ImageKit and cleans up old avatars
 - Publishes user events such as user_created and user_updated for other services
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    FE[Frontend Browser] -->|Register / Login / Google / Profile| AUTH[Auth Service Express App]
+    AUTH -->|JWT cookie| COOKIE[HTTP-only token cookie]
+    AUTH -->|User model| MONGO[(MongoDB)]
+    AUTH -->|Avatar upload| IMAGEKIT[ImageKit]
+    AUTH -->|Publish events| RABBIT[RabbitMQ]
+
+    RABBIT -->|user_created / user_updated| POST[Post Service]
+    RABBIT -->|user_created / user_updated| NOTIFY[Notification Service]
+
+    AUTH -->|Passport Google OAuth| GOOGLE[Google OAuth]
+    AUTH -->|Protected routes| USERCTRL[User profile, follow, avatar routes]
+    AUTH -->|Validation + JWT middleware| AUTHMW[Auth middleware]
+```
+
 ## Tech stack
 
 - Node.js + Express

@@ -146,11 +146,18 @@ export default function Navbar() {
       .catch(() => {/* silent — badge stays 0 */});
   }, [user]);
 
-  /* ── Socket.io connection ── */
+  /* ── Socket.io connection ──
+     URL comes from NEXT_PUBLIC_NOTIFICATION_API_URL so production
+     deployments point at the real deployed notification-service instead
+     of every visitor's own localhost. Falls back to localhost for local
+     development when the env var isn't set. ── */
   useEffect(() => {
     if (!user?._id) return;
 
-    const socket = io('http://localhost:3001', { withCredentials: true });
+    const socket = io(
+      process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3001',
+      { withCredentials: true }
+    );
     socketRef.current = socket;
 
     socket.on('connect', () => {

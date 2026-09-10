@@ -10,6 +10,40 @@ The ML Brain is the Python machine-learning service for VerbaScope. It analyzes 
 - Publish ML results back to the post service through RabbitMQ.
 - Expose a lightweight health check and direct analysis endpoint for local debugging and integration tests.
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    POST[Post Service] -->|post text + postId| MQ1[ml_analyze queue\nRabbitMQ]
+    MQ1 --> CONSUMER[rabbit_consumer.py]
+    CONSUMER -->|run analyzer| ANALYZER[Analyzer]
+
+    HTTP[FastAPI /analyze] --> ANALYZER
+    ANALYZER --> ROUTER[router.py]
+    ROUTER --> LANG[language_detector.py]
+
+    ANALYZER -->|Bangla pipeline| BMODEL[Bangla Sentiment + Sarcasm Model]
+    ANALYZER -->|English pipeline| EMODEL[English Sarcasm Model]
+    ANALYZER -->|Bangla toxicity| BTOX[ToxicityModel]
+    ANALYZER -->|English toxicity| ETOX[EnglishToxicityModel]
+    ANALYZER --> RISK[risk_engine.py]
+    ANALYZER -->|structured result| MQ2[ml_results queue\nRabbitMQ]
+    MQ2 --> POST
+
+    subgraph ML_Brain[ML Brain Modules]
+        HTTP
+        ANALYZER
+        ROUTER
+        LANG
+        BMODEL
+        EMODEL
+        BTOX
+        ETOX
+        RISK
+        CONSUMER
+    end
+```
+
 ## Directory And File Guide
 
 ```text

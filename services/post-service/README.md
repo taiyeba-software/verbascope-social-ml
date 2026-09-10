@@ -12,6 +12,26 @@ The Post Service is the Express and Socket.IO backend for VerbaScope posts and t
 - Expose post and tag search through Meilisearch.
 - Broadcast pulse, post, ML, and comment updates through Socket.IO.
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    FE[Frontend / Browser] -->|HTTP + JWT cookie| API[Post Service Express API]
+    API -->|Create, Read, Update, Delete posts/comments| DB[(MongoDB)]
+    API -->|Save media uploads| IMG[ImageKit]
+    API -->|Index searchable posts| MEILI[Meilisearch]
+    API -->|Real-time socket events| IO[Socket.IO]
+    API -->|Publish / consume events| MQ[RabbitMQ]
+
+    MQ -->|post events + pulse| PULSE[Pulse Engine]
+    MQ -->|ml_analyze| ML[ML Brain]
+    MQ -->|ml_results| API
+    MQ -->|notifications| NOTIFY[Notification Service]
+    MQ -->|auth profile syncing| AUTH[Auth Service]
+
+    API -->|Comment sentiment classifier| CLASSIFIER[Local Comment Mood Engine]
+```
+
 ## Directory And File Guide
 
 ```text

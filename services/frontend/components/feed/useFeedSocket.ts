@@ -96,6 +96,10 @@ export type PostMLAnalysisPayload = {
  *    "Analyzing..." card flips to a real signal without a refresh
  *
  * setPosts is passed in so this hook can patch counts without owning post state.
+ *
+ * The socket URL comes from NEXT_PUBLIC_POST_API_URL so production
+ * deployments point at the real deployed post-service instead of every
+ * visitor's own localhost. Falls back to localhost for local development.
  */
 export function useFeedSocket(setPosts: React.Dispatch<React.SetStateAction<FeedPost[]>>) {
   const [pulseSignal, setPulseSignal] = useState('');
@@ -103,9 +107,10 @@ export function useFeedSocket(setPosts: React.Dispatch<React.SetStateAction<Feed
   const [weeklyPulse, setWeeklyPulse] = useState<WeeklyPulse | null>(null); // ── NEW
 
   useEffect(() => {
-    const socket = socketIO('http://localhost:3003', {
-      withCredentials: true,
-    });
+    const socket = socketIO(
+      process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
+      { withCredentials: true }
+    );
 
     socket.on('connect', () => {
       console.log('🟢 [SOCKET] Connected to post-service:', socket.id);

@@ -1,3 +1,4 @@
+
 fastapi
 uvicorn
 transformers
@@ -8,4 +9,3 @@ python-dotenv
 pymongo
 pika
 matplotlib
-

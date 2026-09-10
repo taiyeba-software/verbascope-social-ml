@@ -2,6 +2,28 @@
 
 This directory contains the VerbaScope web application. It is a Next.js App Router frontend with React, TypeScript, Axios, Socket.IO, a custom light/dark theme, and shadcn/Radix-style UI primitives. It provides authentication, the social feed, profiles, search, post details, bookmarks, comments, notifications, and real-time pulse updates.
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    USER[User Browser] --> NEXT[Next.js App Router Frontend]
+    NEXT --> APP[app/ routes and pages]
+    NEXT --> COMP[components/ UI and feature components]
+    NEXT --> HOOKS[hooks/ reusable React hooks]
+    NEXT --> API[lib/api.ts + API clients]
+
+    API --> AUTH[Auth Service\nhttp://localhost:3000]
+    API --> NOTIFY[Notification Service\nhttp://localhost:3001]
+    API --> POST[Post Service\nhttp://localhost:3003]
+
+    COMP --> SOCKET[Socket.IO client\npost service events]
+    COMP --> UI[shadcn / Radix UI primitives]
+    NEXT --> STATE[Theme + Auth Providers]
+    NEXT --> IMAGES[ImageKit upload URLs and public assets]
+
+    SOCKET --> PULSE[pulse:update\npost:update\npost:ml-analysis]
+```
+
 ## Project Structure
 
 ```text

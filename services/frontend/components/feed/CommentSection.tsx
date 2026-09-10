@@ -115,7 +115,13 @@ export function CommentSection({
         console.error('[CommentSection] Failed to fetch comment mood:', err);
       });
 
-    const socket = socketIO('http://localhost:3003', { withCredentials: true });
+    // URL comes from NEXT_PUBLIC_POST_API_URL so production deployments
+    // point at the real deployed post-service instead of every visitor's
+    // own localhost. Falls back to localhost for local development.
+    const socket = socketIO(
+      process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
+      { withCredentials: true }
+    );
     socketRef.current = socket;
 
     socket.on('pulse:mood', (payload: MoodPayload) => {

@@ -47,8 +47,18 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ── Auth middleware ───────────────────────────────────────────────────
+// Reads the Authorization: Bearer <token> header first — this is the
+// cross-origin-safe path, since notification-service lives on a
+// different subdomain than auth-service and can never receive its
+// httpOnly cookie. Falls back to the `token` cookie for any same-origin
+// or local-dev requests that haven't switched over.
 const protect = (req, res, next) => {
-  const token = req.cookies?.token;
+  const authHeader = req.headers?.authorization;
+  const headerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : null;
+
+  const token = headerToken || req.cookies?.token;
 
   if (!token) {
     return res.status(401).json({

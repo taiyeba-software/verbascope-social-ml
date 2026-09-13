@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 import userModel from '../model/user.model.js';
+import { publishToQueue } from '../broker/rabbit.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -32,6 +33,29 @@ function sanitizeUser(user) {
   const obj = user.toObject ? user.toObject() : user;
   delete obj.password;
   return obj;
+}
+
+// ── FIX: this was missing entirely. Neither register() nor
+// googleCallback() ever published `user_created`, so post-service's
+// local User mirror (and notification-service's welcome email) never
+// received ANY real signup — only accounts manually re-published by the
+// one-off backfillUserUpdated.js script ever showed up downstream. This
+// is the actual root cause of every "user: null" / "actor: null" bug
+// traced this session for any account created after that backfill ran.
+//
+// Payload shape matches what post-service's upsertUser() and
+// notification-service's user_created handler both expect:
+// { id, email, fullname, role, authProvider }
+function publishUserCreated(user, authProvider = 'local') {
+  publishToQueue('user_created', {
+    id: user._id,
+    email: user.email,
+    fullname: user.fullname,
+    role: user.role,
+    authProvider,
+  }).catch((err) => {
+    console.error('[auth.controller] failed to publish user_created:', err.message);
+  });
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -72,6 +96,9 @@ const register = async (req, res) => {
 
     const token = signToken(user._id);
     setAuthCookie(res, token);
+
+    // FIX: publish so post-service/notification-service sync this new user.
+    publishUserCreated(user, 'local');
 
     return res.status(201).json({
       success: true,
@@ -154,6 +181,17 @@ const googleCallback = async (req, res) => {
 
     const token = signToken(user._id);
     setAuthCookie(res, token);
+
+    // FIX: Google signups went through this exact same gap — a brand new
+    // Google user was never published either. Passport's verify callback
+    // (config/passport.js) creates the user doc on first login, but this
+    // handler is the only place with access to res/redirect timing, so we
+    // publish here rather than inside the strategy. Safe to call on every
+    // Google login, not just first-time signups: post-service's
+    // upsertUser() and notification-service's welcome-email handler are
+    // both idempotent (upsert: true / just re-sends a "welcome" email —
+    // see note below if that's undesirable for repeat logins).
+    publishUserCreated(user, 'google');
 
     // NEW: token passed via query param since a redirect can't hand the SPA
     // a JS-readable value any other way. Frontend reads + strips this on load

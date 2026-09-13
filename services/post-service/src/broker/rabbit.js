@@ -62,35 +62,60 @@ const consumeQueue = async (queueName, handler) => {
 	});
 };
 
+// ── FIX: publish() previously did two dangerous things silently:
+//   1. If `channel` was null (RabbitMQ not yet connected, or connection
+//      dropped), it just `return`ed with no error — the caller had no way
+//      to know the message was dropped, so a log like
+//      "notification_created published ✅" right after calling this
+//      could be printed even though NOTHING was actually sent.
+//   2. `channel.sendToQueue(...)` can itself throw (e.g. channel closed
+//      mid-call), and that was never caught, so callers not wrapping this
+//      in try/catch could crash — or, since it's called fire-and-forget
+//      in like.controller.js, the error would vanish into an unhandled
+//      rejection with no useful log.
+//
+// Now publish() returns true/false so callers can actually check whether
+// the message went out, and every failure path logs clearly. Also added
+// `{ persistent: true }` to the notification_created send so it matches
+// the queue's own `durable: true` — without it, a broker restart between
+// publish and consume could still lose an in-flight message.
 export const publish = (eventType, data) => {
-        if (!channel) return;
+	if (!channel) {
+		console.error(`⚠️  publish('${eventType}') dropped — RabbitMQ channel not connected`);
+		return false;
+	}
 
-        const payload = JSON.stringify({
-                type: eventType,
-                ...data,
-        });
+	const payload = JSON.stringify({
+		type: eventType,
+		...data,
+	});
 
-        if (eventType === 'notification_created') {
-                channel.sendToQueue(
-                        'notification_created',
-                        Buffer.from(payload)
-                );
-        } else if (eventType === 'ml.analyze') {
-                channel.sendToQueue(
-                        mlAnalyzeQueue,
-                        Buffer.from(payload),
-                        { persistent: true }
-                );
-        } else {
-                // Existing pulse events
-                channel.sendToQueue(
-                        pulseQueue,
-                        Buffer.from(payload)
-                );
-        }
+	try {
+		if (eventType === 'notification_created') {
+			channel.sendToQueue(
+				'notification_created',
+				Buffer.from(payload),
+				{ persistent: true }
+			);
+		} else if (eventType === 'ml.analyze') {
+			channel.sendToQueue(
+				mlAnalyzeQueue,
+				Buffer.from(payload),
+				{ persistent: true }
+			);
+		} else {
+			// Existing pulse events
+			channel.sendToQueue(
+				pulseQueue,
+				Buffer.from(payload)
+			);
+		}
+		return true;
+	} catch (err) {
+		console.error(`⚠️  publish('${eventType}') failed:`, err.message);
+		return false;
+	}
 };
-
-
 
 export const consumePulseEvents = async (onEvent) => {
 	if (!channel) return;
@@ -133,12 +158,24 @@ export const connect = async () => {
 		});
 		connection.on('close', () => {
 			console.warn('⚠️  RabbitMQ connection closed. Attempting reconnect in 5s...');
+			channel = null; // ── FIX: null out channel immediately on close so
+			// publish() correctly reports "dropped" during the reconnect
+			// window instead of holding a stale, dead channel reference
+			// that might still "succeed" at sendToQueue() but never
+			// actually deliver.
 			setTimeout(connect, 5000);
 		});
 
 		channel = await connection.createChannel();
 		channel.on('error', (err) => {
 			console.error('⚠️  RabbitMQ channel error:', err.message);
+		});
+		channel.on('close', () => {
+			// ── FIX: a channel can close independently of the connection
+			// (e.g. a protocol error on this channel specifically). Null
+			// it out here too so publish() doesn't keep calling methods
+			// on a dead channel object.
+			channel = null;
 		});
 
 		await channel.assertQueue(pulseQueue, { durable: false });

@@ -56,14 +56,26 @@ export const likePost = async (req, res) => {
 			if (actor) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
 				console.log('🔍 [LIKE] actorName:', actorName, '| recipientId:', post.author.toString());
-				publish('notification_created', {
+
+				// ── FIX: publish() now returns true/false instead of
+				// silently no-op'ing when RabbitMQ isn't connected. Check
+				// it and log accordingly, instead of always printing
+				// "published ✅" regardless of whether anything actually
+				// went out — that false-positive log is exactly what hid
+				// the root cause (channel was null) for so long.
+				const published = publish('notification_created', {
 					recipientId: post.author.toString(),
 					actorId:     req.user.id,
 					actorName,
 					type:        'like',
 					postId:      req.params.id,
 				});
-				console.log('🔍 [LIKE] notification_created published ✅');
+
+				if (published) {
+					console.log('🔍 [LIKE] notification_created published ✅');
+				} else {
+					console.error('🔍 [LIKE] notification_created publish FAILED ❌ — RabbitMQ channel unavailable');
+				}
 			} else {
 				console.log('🔍 [LIKE] No actor found — User.findById returned null');
 			}

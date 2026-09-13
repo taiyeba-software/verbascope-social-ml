@@ -23,10 +23,6 @@ const defaultAllowedOrigins = [
     'http://127.0.0.1:3000',
 ];
 
-// Merge in CLIENT_URL from the environment (e.g. the deployed frontend URL)
-// so Socket.IO doesn't silently reject production connections. Socket.IO's
-// CORS is separate from Express's CORS middleware in app.js, so this must
-// be configured independently even though app.js already reads CLIENT_URL.
 const allowedOrigins = process.env.CLIENT_URL
     ? [process.env.CLIENT_URL, ...defaultAllowedOrigins]
     : defaultAllowedOrigins;
@@ -35,7 +31,6 @@ const httpServer = createServer(app);
 export const io = new Server(httpServer, {
     cors: {
         origin: (origin, callback) => {
-            // Allow non-browser clients (no origin header)
             if (!origin) return callback(null, true);
 
             if (allowedOrigins.includes(origin)) {
@@ -49,11 +44,6 @@ export const io = new Server(httpServer, {
 });
 
 // ── Socket.IO auth handshake ───────────────────────────────────────
-// Mirrors the inline `protect` middleware in src/app.js: verifies the
-// JWT the frontend sends via `io(url, { auth: { token } })`. Cookies
-// never reach this service cross-origin, so the handshake token is the
-// only reliable source — connections without a valid token are
-// rejected before `connection` fires.
 io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
 
@@ -72,11 +62,21 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
     console.log('Notification socket connected:', socket.id, 'user:', socket.user?.id);
 
-    // each user joins their own room by userId
-    socket.on('join', (userId) => {
-        socket.join(userId);
-        console.log(`User ${userId} joined notification room`);
-    });
+    // ── FIX: auto-join the room using the VERIFIED id from the JWT,
+    // instead of trusting a client-emitted 'join' event. This removes
+    // the old "socket.emit('join', user._id)" trust gap, and fixes the
+    // real bug where `user._id` was sometimes undefined on the frontend
+    // (the user object there actually carries `id`, not `_id`, in some
+    // code paths) — which silently joined a room literally named
+    // "undefined" and meant no notification ever matched.
+    //
+    // socket.user.id must be a string here so it matches whatever
+    // format recipientId is emitted as (e.g. `recipientId.toString()`)
+    // on the emit side in your RabbitMQ listener/controller.
+    if (socket.user?.id) {
+        socket.join(socket.user.id.toString());
+        console.log(`User ${socket.user.id} auto-joined notification room`);
+    }
 
     socket.on('disconnect', () => {
         console.log('Notification socket disconnected:', socket.id);

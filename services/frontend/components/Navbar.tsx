@@ -123,6 +123,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const userId = user ? (user._id ?? (user as any).id) : null;
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount]     = useState(0);
   const [dropdownOpen, setDropdownOpen]   = useState(false);
@@ -155,16 +157,27 @@ export default function Navbar() {
      handshake middleware — same JWT the HTTP requests send as a
      Bearer header. ── */
   useEffect(() => {
-    if (!user?._id) return;
+    if (!userId) return;
 
+    // FIX: dropped `withCredentials` (cookies never reach this service
+    // cross-origin, so it did nothing useful) and dropped the client
+    // `socket.emit('join', user._id)` call — that relied on `user._id`
+    // existing, but this file already knows `user` sometimes only has
+    // `.id` (see `userId` below). notification-service now auto-joins
+    // the room server-side using the verified id from the JWT, so no
+    // client-side join is needed or trusted anymore.
     const socket = io(
       process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3001',
-      { withCredentials: true, auth: { token: tokenStorage.get() } }
+      { auth: { token: tokenStorage.get() } }
     );
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      socket.emit('join', user._id);
+      console.log('🟢 notif socket connected:', socket.id);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('🔴 notif socket error:', err.message);
     });
 
     socket.on('notification:new', (notification: Notification) => {
@@ -177,7 +190,7 @@ export default function Navbar() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [user?._id]);
+  }, [userId]);
 
   /* ── Close notification dropdown / mobile menu when clicking outside ── */
   useEffect(() => {
@@ -250,8 +263,6 @@ export default function Navbar() {
   }
 
   /* ── Avatar / display name ── */
-  const userId = user ? (user._id ?? (user as any).id) : null;
-
   const initials = user
     ? `${user?.fullname?.firstName?.[0] ?? ''}${user?.fullname?.lastName?.[0] ?? ''}`.toUpperCase() || 'U'
     : 'U';

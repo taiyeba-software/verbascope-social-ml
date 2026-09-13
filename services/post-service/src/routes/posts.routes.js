@@ -4,7 +4,7 @@ import { validatePost, validateComment } from '../middlewares/validation.middlew
 import { pulse } from '../pulse/pulse.js';
 import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse } from '../controllers/post.controller.js';
+import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
@@ -57,6 +57,17 @@ router.get('/search/tags',                    protect,                  searchTa
 // other search routes, rather than relying on that safety margin being
 // obvious to the next person editing this file.
 router.get('/tag/:tagName',                   protect,                  getPostsByTag);
+
+// ── Admin / one-time backfill routes ───────────────────────────────────
+// Both are one-off maintenance actions for data created before a fix was
+// live (search indexing, ML analysis). Safe to call more than once —
+// reindexAllPosts just re-adds the same posts, reanalyzeStalePosts only
+// selects posts still missing a riskFlag. Placed above the generic
+// '/:id' route for the same reason as '/search' and '/saved' above:
+// '/admin/...' is a two-segment path so it wouldn't actually collide with
+// '/:id' regardless of position, but kept here for consistency/clarity.
+router.post('/admin/reindex-search',          protect,                  reindexAllPosts);
+router.post('/admin/reanalyze',               protect,                  reanalyzeStalePosts);
 
 // ── Post routes ──────────────────────────────────────────────────────
 router.post('/',                              protect, upload.array('images', 4), validatePost, createPost);

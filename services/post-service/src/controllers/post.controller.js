@@ -354,6 +354,52 @@ export const reanalyzeStalePosts = async (req, res) => {
   }
 };
 
+
+// ── ONE-TIME: Backfill search index ──────────────────────────────────
+// Re-indexes every existing post into Meilisearch. Needed because posts
+// created before Meilisearch was properly connected were saved to Mongo
+// fine, but never made it into the search index (indexPost() failed
+// silently at the time). Safe to run more than once — it just re-adds
+// the same posts, no duplicates or side effects.
+export const reindexAllPosts = async (req, res) => {
+  try {
+    const posts = await Post.find().lean();
+
+    let indexed = 0;
+    let failed = 0;
+
+    for (const post of posts) {
+      try {
+        // Same author-fetch pattern as createPost/getPost — indexPost
+        // needs the author object, not just the ID.
+        const usersRes = await authClient.post('/api/users/bulk', {
+          ids: [post.author.toString()],
+        });
+        const author = usersRes.data.users?.[0] || null;
+
+        await indexPost(post, author);
+        indexed++;
+      } catch (err) {
+        console.error(`Failed to index post ${post._id}:`, err.message);
+        failed++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Reindexed ${indexed} post(s), ${failed} failed.`,
+      indexed,
+      failed,
+      total: posts.length,
+    });
+  } catch (err) {
+    console.error('reindexAllPosts error:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+
+
 // ── ML Brain result handler ──────────────────────────────────────────
 // Called by consumeMLResults() (src/broker/rabbit.js) for every message
 // on the ml_results queue. This is the ONLY place that writes ML output

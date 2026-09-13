@@ -181,6 +181,7 @@ export default function Navbar() {
     });
 
     socket.on('notification:new', (notification: Notification) => {
+      console.log('🔔 [FRONTEND] notification:new received:', notification);
       setNotifications((prev) => [normalizeNotification(notification), ...prev]);
       setUnreadCount((prev) => prev + 1);
       playNotificationSound();

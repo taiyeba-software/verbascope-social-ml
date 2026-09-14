@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 import Post from '../models/post.model.js';
-import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
+import { resolveUser } from '../utils/resolveUser.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -51,7 +51,13 @@ export const likePost = async (req, res) => {
 		// notify post owner — fire and forget, don't await
 		console.log('🔍 [LIKE] req.user.id:', req.user.id);
 
-		User.findById(req.user.id, 'fullname').lean().then((actor) => {
+		// ── FIX: replaced User.findById() with resolveUser(), which falls
+		// back to auth-service and self-heals the local mirror if the
+		// actor is missing locally — this was the root cause of
+		// "Actor found: null" and notifications silently never firing for
+		// any account whose user_created/user_updated event was missed or
+		// predates the sync fix. ──
+		resolveUser(req.user.id).then((actor) => {
 			console.log('🔍 [LIKE] Actor found:', actor);
 			if (actor) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
@@ -77,7 +83,7 @@ export const likePost = async (req, res) => {
 					console.error('🔍 [LIKE] notification_created publish FAILED ❌ — RabbitMQ channel unavailable');
 				}
 			} else {
-				console.log('🔍 [LIKE] No actor found — User.findById returned null');
+				console.log('🔍 [LIKE] No actor found — resolveUser returned null (auth-service lookup also failed)');
 			}
 		}).catch((err) => {
 			console.error('🔍 [LIKE] Notification publish failed:', err.message);

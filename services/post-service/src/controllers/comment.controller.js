@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
 import Comment from '../models/comment.model.js';
 import Post from '../models/post.model.js';
-import User from '../models/user.model.js';
 import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 import { classifyComment } from '../services/commentSentiment.js';
+import { resolveUser } from '../utils/resolveUser.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -113,18 +113,30 @@ export const addComment = async (req, res) => {
 		}
 
 		// notify post owner — fire and forget
-		User.findById(req.user.id, 'fullname').lean().then((actor) => {
+		// ── FIX: replaced User.findById() with resolveUser(), same
+		// self-healing fallback as like.controller.js — this was silently
+		// dropping every comment/reply notification whenever the actor's
+		// local mirror entry was missing, with zero logging to even
+		// notice it was happening. ──
+		resolveUser(req.user.id).then((actor) => {
 			if (actor && updatedPost) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
-				publish('notification_created', {
+				const published = publish('notification_created', {
 					recipientId: updatedPost.author.toString(),
 					actorId:     req.user.id,
 					actorName,
 					type:        parentComment ? 'reply' : 'comment',
 					postId:      req.params.id,
 				});
+				if (!published) {
+					console.error('🔍 [COMMENT] notification_created publish FAILED — RabbitMQ channel unavailable');
+				}
+			} else {
+				console.log('🔍 [COMMENT] No actor found — resolveUser returned null (auth-service lookup also failed)');
 			}
-		}).catch(() => {});
+		}).catch((err) => {
+			console.error('🔍 [COMMENT] Notification publish failed:', err.message);
+		});
 
 		// avatar added alongside fullname so comment authors render their
 		// real photo instead of always falling back to initials

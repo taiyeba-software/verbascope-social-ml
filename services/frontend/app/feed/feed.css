@@ -1,5 +1,10 @@
 /* ──────────────────────────────────────────────────────────
    Verbascope Social — Light Feed Layout
+
+   Breakpoints used across the feed:
+     Large   ≥ 1025px  two columns (feed + 340px sidebar)
+     Medium  641–1024  single centred column, sidebar hidden
+     Small   ≤ 640px   single column, tighter gutters
    ────────────────────────────────────────────────────────── */
 
 
@@ -24,17 +29,35 @@ body {
   font-family: var(--vs-font-sans);
   margin: 0;
   min-height: 100vh;
+  /* Safety net: nothing should ever make the page scroll sideways.
+     `clip` (unlike `hidden`) doesn't create a scroll container, so the
+     sticky navbar keeps working. */
+  overflow-x: clip;
 }
 
 .feed-layout {
+  /* Side gutter, shared by the layout padding and the full-bleed navbar
+     below so the two can never drift apart. */
+  --feed-gutter: var(--vs-space-lg);
+
   display: grid;
-  grid-template-columns: 1fr 340px;
+  /* minmax(0, 1fr) — a plain `1fr` has an implicit min of `auto`, which lets
+     wide children (nowrap chips, long links, images) stretch the column past
+     the viewport and cause horizontal scrolling on phones. */
+  grid-template-columns: minmax(0, 1fr) 340px;
   grid-template-rows: auto 1fr;
   min-height: 100vh;
+  min-height: 100dvh;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 var(--vs-space-lg);
+  padding: 0 var(--feed-gutter);
   gap: 0 var(--vs-space-lg);
+}
+
+/* Pages with no sidebar (e.g. /bookmarks): one centred column at every size */
+.feed-layout.feed-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 900px;
 }
 
 .feed-layout > nav {
@@ -43,6 +66,7 @@ body {
 
 .feed-main {
   grid-column: 1;
+  min-width: 0;
   padding: var(--vs-space-lg) 0 var(--vs-space-xl);
   display: flex;
   flex-direction: column;
@@ -52,6 +76,7 @@ body {
 .feed-sidebar {
   grid-column: 2;
   grid-row: 2;
+  min-width: 0;
   padding: var(--vs-space-lg) 0 var(--vs-space-xl);
   display: flex;
   flex-direction: column;
@@ -632,6 +657,7 @@ body {
     padding: 4px 0 8px;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   .mobile-trending-bar::-webkit-scrollbar {
@@ -661,26 +687,9 @@ body {
   border-color: var(--vs-teal);
 }
 
-/* ── Hide desktop sidebar on tablet/mobile ── */
-@media (max-width: 1024px) {
-  .feed-sidebar {
-    display: none;
-  }
-
-  .feed-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ── Mobile-only wrapper ── */
 .mobile-only {
   display: none;
-}
-
-@media (max-width: 1024px) {
-  .mobile-only {
-    display: block;
-  }
 }
 
 /* ── Inline Who to Follow card ── */
@@ -884,6 +893,7 @@ body {
 
 .comment-input {
   flex: 1;
+  min-width: 0;
   background: var(--vs-surface-hover);
   border: 1px solid var(--vs-border);
   border-radius: var(--vs-radius-full);
@@ -950,6 +960,7 @@ body {
 
 .comment-body {
   flex: 1;
+  min-width: 0;
 }
 
 .comment-author {
@@ -963,6 +974,7 @@ body {
   color: var(--vs-text-secondary);
   margin-top: 2px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .comment-delete-btn {
@@ -986,6 +998,13 @@ body {
   color: var(--vs-accent-red);
 }
 
+/* Touch screens have no hover, so the delete button would never appear */
+@media (hover: none) {
+  .comment-delete-btn {
+    opacity: 1;
+  }
+}
+
 .comments-loading,
 .comments-empty {
   color: var(--vs-text-muted);
@@ -1003,6 +1022,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--vs-space-md);
   padding: var(--vs-space-md) 0;
 }
@@ -1056,29 +1076,6 @@ body {
   margin-bottom: var(--vs-space-sm);
 }
 
-@media (max-width: 900px) {
-  .feed-layout {
-    grid-template-columns: 1fr;
-    padding: 0 var(--vs-space-md);
-  }
-
-  .feed-sidebar {
-    grid-column: 1;
-    grid-row: 3;
-  }
-}
-
-@media (max-width: 640px) {
-  .post-card {
-    padding: var(--vs-space-md);
-    border-radius: var(--vs-radius-md);
-  }
-
-  .post-action-btn span {
-    display: none;
-  }
-}
-
 /* ── Share Reason Sheet ─────────────────────────────────── */
 .share-sheet-overlay {
   position: fixed;
@@ -1094,8 +1091,14 @@ body {
   background: var(--vs-surface);
   border-radius: var(--vs-radius-lg) var(--vs-radius-lg) 0 0;
   padding: var(--vs-space-lg);
+  /* keep the buttons clear of the iPhone home indicator */
+  padding-bottom: calc(var(--vs-space-lg) + env(safe-area-inset-bottom, 0px));
   width: 100%;
   max-width: 480px;
+  /* short landscape phones: scroll inside the sheet instead of overflowing */
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--vs-space-sm);
@@ -1266,4 +1269,121 @@ body {
   font-style: italic;
   margin-top: 8px !important;
   display: inline-block !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+   Kept together at the end of the file (and in one place) so the
+   order is obvious: Large → Medium → Small.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Large screens (≥1440px): a little more room ── */
+@media (min-width: 1440px) {
+  .feed-layout {
+    max-width: 1360px;
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  /* .feed-layout--single is more specific, so it keeps its own width */
+}
+
+/* ── Medium + Small (≤1024px): single column, sidebar hidden ── */
+@media (max-width: 1024px) {
+  .feed-layout {
+    --feed-gutter: var(--vs-space-md);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Make the navbar span the full viewport width. The layout has side
+     padding, so without this the navbar is inset and page content
+     shows through on either side of it. It also makes the notification
+     dropdown line up with the screen edges. */
+  .feed-layout > nav {
+    margin-inline: calc(-1 * var(--feed-gutter));
+  }
+
+  .feed-sidebar {
+    display: none;
+  }
+
+  /* Keep posts a comfortable reading width on tablets instead of
+     stretching them across the whole screen. */
+  .feed-main {
+    width: 100%;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+
+  .mobile-only {
+    display: block;
+    /* the wrapper sits directly under a post card, which has no bottom
+       margin of its own — without this the two touch */
+    margin-top: var(--vs-space-md);
+  }
+}
+
+/* ── Small screens (≤767px): stop iOS Safari zooming into inputs.
+   iOS zooms the page whenever a focused input has a font size below
+   16px, which looks like a broken layout after tapping search/comment/
+   compose fields. ── */
+@media (max-width: 767px) {
+  .feed-layout input,
+  .feed-layout textarea,
+  .feed-layout select {
+    font-size: 16px;
+  }
+}
+
+/* ── Small screens (≤640px) ── */
+@media (max-width: 640px) {
+  .feed-layout {
+    --feed-gutter: 12px;
+  }
+
+  .feed-main {
+    padding-top: var(--vs-space-md);
+    gap: var(--vs-space-sm);
+  }
+
+  .post-card {
+    padding: var(--vs-space-md);
+    border-radius: var(--vs-radius-md);
+  }
+
+  .pagination {
+    gap: var(--vs-space-sm);
+  }
+
+  .pagination button {
+    padding: 8px 14px;
+  }
+
+  .feed-empty {
+    padding: 40px 0;
+  }
+
+  .feed-end {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* ── Share sheet: centred dialog on larger screens, bottom sheet on phones ── */
+@media (min-width: 641px) {
+  .share-sheet-overlay {
+    align-items: center;
+    padding: var(--vs-space-lg);
+  }
+
+  .share-sheet {
+    border-radius: var(--vs-radius-lg);
+    padding-bottom: var(--vs-space-lg);
+  }
+}
+
+/* ── Very narrow phones (≤360px) ── */
+@media (max-width: 360px) {
+  .share-sheet-options {
+    grid-template-columns: 1fr;
+  }
 }

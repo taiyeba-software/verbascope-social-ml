@@ -4,6 +4,7 @@
 
 .home-layout {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 
@@ -61,7 +62,9 @@
 
 .hero-content {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr) so long words / wide children can't blow a column
+     past the screen width */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--v-space-xl);
   max-width: 1200px;
   width: 100%;
@@ -72,10 +75,13 @@
 
 /* ── Hero Text ──────────────────────────────────────────– */
 .hero-text h1 {
-  font-size: 3rem;
+  /* Fluid: ~30px on a phone, ~42px on a tablet, up to 56px on desktop.
+     Replaces three separate fixed sizes in the media queries. */
+  font-size: clamp(1.875rem, 1.2rem + 3vw, 3.5rem);
   margin-bottom: var(--v-space-lg);
   line-height: 1.1;
   color: var(--lp-ink);
+  overflow-wrap: break-word;
 }
 
 .hero-text > p {
@@ -88,6 +94,7 @@
 /* ── Hero CTA ───────────────────────────────────────────– */
 .hero-cta {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--v-space-md);
   margin-bottom: var(--v-space-xl);
 }
@@ -131,10 +138,12 @@
   transform: translateY(-3px) rotate(1deg);
 }
 
-/* ── Features Grid ─────────────────────────────────────– */
+/* ── Features Grid ─────────────────────────────────────–
+   auto-fit: 3 columns when there's room, 2 or 1 when there isn't,
+   so it adapts to its container instead of to fixed breakpoints. */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
   gap: var(--v-space-lg);
 }
 
@@ -142,6 +151,7 @@
   display: flex;
   gap: var(--v-space-md);
   align-items: flex-start;
+  min-width: 0;
 }
 
 .feature-icon {
@@ -250,6 +260,7 @@
 
 .header-text {
   flex: 1;
+  min-width: 0;
 }
 
 .name {
@@ -271,6 +282,7 @@
   color: var(--lp-surface-ink);
   line-height: 1.7;
   font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
 .card-signals {
@@ -407,50 +419,48 @@
   text-transform: uppercase;
 }
 
-/* ── Responsive ────────────────────────────────────────– */
-@media (max-width: 1024px) {
-  .hero-text h1 {
-    font-size: 2.5rem;
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+   Large: ≥1025px · Medium: 601–1024px · Small: ≤600px
+   (headline size and the features grid adapt on their own — see
+   clamp() on .hero-text h1 and auto-fit on .features-grid)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Large screens (≥1440px): use the extra room ── */
+@media (min-width: 1440px) {
+  .hero-content {
+    max-width: 1320px;
   }
 
-  .features-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .hero-text > p {
+    font-size: 1.2rem;
   }
 }
 
+/* ── Medium (≤900px): stack text above the card ── */
+@media (max-width: 900px) {
+  .hero-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--v-space-lg);
+  }
+
+  .hero-visual {
+    min-height: 300px;
+  }
+
+  .visual-card {
+    max-width: 420px;
+  }
+}
+
+/* ── Small-medium (≤768px) ── */
 @media (max-width: 768px) {
   .hero {
     padding: var(--v-space-lg);
   }
 
-  .hero-content {
-    grid-template-columns: 1fr;
-    gap: var(--v-space-lg);
-  }
-
-  .hero-text h1 {
-    font-size: 2rem;
-  }
-
   .hero-text > p {
     font-size: 1rem;
-  }
-
-  .hero-cta {
-    flex-direction: column;
-  }
-
-  .btn-lg {
-    width: 100%;
-  }
-
-  .features-grid {
-    grid-template-columns: 1fr;
-    gap: var(--v-space-md);
-  }
-
-  .hero-visual {
-    min-height: 300px;
   }
 
   .visual-card {
@@ -460,5 +470,50 @@
 
   .visual-card:hover {
     transform: translateY(-4px);
+  }
+}
+
+/* ── Small (≤480px): phones ── */
+@media (max-width: 480px) {
+  .hero {
+    padding: var(--v-space-md);
+  }
+
+  /* Buttons stack and fill the width — easy to tap with a thumb */
+  .hero-cta {
+    flex-direction: column;
+  }
+
+  .btn-lg {
+    width: 100%;
+    padding: 12px 20px;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-visual {
+    min-height: 0;
+  }
+
+  .visual-card {
+    padding: var(--v-space-md);
+  }
+
+  .card-signals .badge {
+    padding: 6px 10px;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+  }
+
+  .footer p {
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* Users who ask their device for less motion: keep the page still */
+@media (prefers-reduced-motion: reduce) {
+  .orb,
+  .visual-card {
+    animation: none;
   }
 }

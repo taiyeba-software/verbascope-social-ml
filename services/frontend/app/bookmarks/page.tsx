@@ -244,10 +244,13 @@ export default function BookmarksPage() {
   if (!user) return null;
 
   return (
-    <div className="feed-layout">
+    // feed-layout--single: this page has no sidebar, so it uses one centred
+    // column at every screen size (see feed.css) instead of the two-column
+    // feed grid with an empty right column.
+    <div className="feed-layout feed-layout--single">
       <Navbar />
 
-      <main className="feed-main" style={{ marginInline: 'auto' }}>
+      <main className="feed-main">
         <h1 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '4px 0 16px' }}>Your Bookmarks</h1>
 
         {feedLoading ? (

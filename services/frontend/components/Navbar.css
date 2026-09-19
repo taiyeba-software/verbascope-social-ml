@@ -296,9 +296,11 @@
 
 /* ══════════════════════════════════════════════════════════
    Notification Dropdown
-   Uses position: fixed, anchored to the VIEWPORT (not the bell
-   button), so it can never render partially off-screen regardless
-   of where the bell sits in the navbar at any breakpoint.
+   Uses position: fixed. NOTE: because .navbar has backdrop-filter,
+   browsers treat the navbar (not the viewport) as the containing block
+   for this fixed element. That's fine as long as the navbar spans the
+   full screen width on small screens — app/feed/feed.css makes it
+   full-bleed at ≤1024px for exactly that reason.
    ══════════════════════════════════════════════════════════ */
 
 .navbar-notification-wrapper {
@@ -313,6 +315,7 @@
   width: 400px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 96px);
+  max-height: calc(100dvh - 96px);
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.98);
@@ -464,6 +467,7 @@
   font-size: 0.85rem;
   line-height: 1.4;
   color: #0d2d3a;
+  overflow-wrap: anywhere;
 }
 
 .notification-text strong {
@@ -560,6 +564,7 @@
   width: 280px;
   max-width: 82vw;
   max-height: calc(100vh - 64px);
+  max-height: calc(100dvh - 64px);
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(18px);
@@ -644,10 +649,21 @@
 
 /* ──────────────────────────────────────────────────────────
    RESPONSIVE BREAKPOINTS
-   Desktop: ≥1024px · Tablet: 768–1023px · Mobile: ≤767px
+   Large: ≥1024px · Medium: 768–1023px · Small: ≤767px
    ────────────────────────────────────────────────────────── */
 
-/* Tablet + Mobile: show hamburger, hide user name */
+/* Large: the hamburger panel never applies (guards against resizing the
+   window with the panel open) */
+@media (min-width: 1024px) {
+  .navbar-mobile-menu,
+  .navbar-mobile-menu-backdrop {
+    display: none;
+  }
+}
+
+/* Medium + Small: hamburger replaces the inline links, user name is hidden.
+   The links used to stay visible down to 768px, which squeezed the search
+   bar to almost nothing on tablets — they're all in the hamburger panel. */
 @media (max-width: 1023px) {
   .navbar {
     padding: 0 var(--vs-space-lg);
@@ -655,6 +671,10 @@
 
   .navbar-hamburger {
     display: flex;
+  }
+
+  .navbar-links {
+    display: none;
   }
 
   .navbar-user-name,
@@ -674,15 +694,11 @@
   }
 }
 
-/* Mobile only: hide inline nav links (available via hamburger), compact search */
+/* Small: compact bar, logo text hidden, dropdown spans the screen */
 @media (max-width: 767px) {
   .navbar {
     padding: 0 var(--vs-space-md);
     gap: var(--vs-space-sm);
-  }
-
-  .navbar-links {
-    display: none;
   }
 
   .navbar-logo .v-logo-name {
@@ -693,18 +709,47 @@
     max-width: none;
   }
 
+  .navbar-end {
+    gap: var(--vs-space-sm);
+  }
+
   .navbar-user-avatar {
     width: 28px;
     height: 28px;
   }
 
   .notification-dropdown {
-    top: 64px;
+    top: 68px;
+    left: 12px;
     right: 12px;
-    width: calc(100vw - 24px);
-    max-width: calc(100vw - 24px);
-    max-height: calc(100vh - 80px);
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 84px);
+    max-height: calc(100dvh - 84px);
     border-radius: 12px;
+  }
+}
+
+/* Narrow phones: tighten spacing so search keeps usable width */
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .navbar-left {
+    gap: 0;
+  }
+
+  .navbar-end {
+    gap: 2px;
+  }
+}
+
+/* Very narrow phones (320–380px): the hamburger + search are enough */
+@media (max-width: 380px) {
+  .navbar-logo {
+    display: none;
   }
 }
 

@@ -16,28 +16,6 @@
    on every route) instead of the feed-scoped --vs- tokens.
    ────────────────────────────────────────────────────────── */
 
-
-@media (max-width: 640px) {
-  .post-card {
-    padding: var(--v-space-md);
-    border-radius: var(--v-radius-md);
-  }
-
-  .post-action-btn span {
-    display: none;
-  }
-
-  .post-avatar {
-    width: 38px;
-    height: 38px;
-  }
-
-  .comment-avatar {
-    width: 26px;
-    height: 26px;
-  }
-}
-
 .post-card {
   --pc-accent: var(--v-signal-green);
   --pc-accent-mid: var(--v-accent-soft);
@@ -669,5 +647,159 @@
   .comment-submit-btn,
   .comment-delete-btn {
     transition: none;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — Small ≤640 · Medium 641–1024 · Large ≥1025
+
+   Why this block is at the END of the file:
+   the old mobile rules sat at the TOP, so the base rules further
+   down (same specificity, later in the file) overrode them and
+   the mobile padding/avatar sizes never applied.
+
+   Why selectors are prefixed with `.post-card`:
+   app/feed/feed.css still carries an older copy of some of these
+   rules and loads AFTER this file on /feed and /bookmarks. The extra
+   specificity makes these win regardless of load order.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── All sizes ── */
+
+/* Media scales with the screen instead of a fixed 400px / 500px.
+   Phones: ~240–280px tall carousel. Tablet and up: the original 400px. */
+.post-card .post-carousel {
+  height: clamp(240px, 68vw, 400px);
+}
+
+.post-card .post-image-single,
+.post-card .post-image-single .post-image-fg {
+  max-height: min(500px, 75vh);
+}
+
+/* Long names / tags / URLs must never push the card wider than the screen */
+.post-card .post-author-info > div:last-child {
+  min-width: 0;
+}
+
+.post-card .post-author-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-card .post-more-wrap {
+  flex-shrink: 0;
+}
+
+.post-card .post-content,
+.post-card .comment-text {
+  overflow-wrap: anywhere;
+}
+
+.post-card .post-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The comment box can't shrink below an input's default width without this */
+.post-card .comment-input {
+  min-width: 0;
+}
+
+/* ── Touch screens (phones + tablets) ── */
+@media (pointer: coarse) {
+  .post-card .post-more-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* Carousel dots are 7px — invisible hit area makes them tappable */
+  .post-card .post-carousel-dot {
+    position: relative;
+  }
+  .post-card .post-carousel-dot::after {
+    content: '';
+    position: absolute;
+    inset: -9px -3px;
+  }
+}
+
+/* No hover on touch: don't leave cards "lifted" after a tap, and
+   always show the comment delete button (it was hover-only). */
+@media (hover: none) {
+  article.post-card:hover {
+    transform: none;
+  }
+  article.post-card:hover::before {
+    opacity: 0;
+  }
+  .post-card .comment-delete-btn {
+    opacity: 1;
+  }
+}
+
+/* ── Small screens (≤640px) ── */
+@media (max-width: 640px) {
+  article.post-card {
+    padding: var(--v-space-md);
+    border-radius: var(--v-radius-md);
+  }
+
+  .post-card .post-header {
+    margin-bottom: var(--v-space-sm);
+  }
+
+  .post-card .post-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 0.9rem;
+  }
+
+  .post-card .comment-avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  .post-card .post-content {
+    font-size: 0.92rem;
+  }
+
+  /* Four action buttons share one row — tighter padding so the counts
+     stay visible (they used to be hidden entirely below 640px). */
+  .post-card .post-actions {
+    gap: 2px;
+  }
+
+  .post-card .post-action-btn {
+    padding: 7px 4px;
+    gap: 4px;
+    font-size: 0.8rem;
+  }
+
+  .post-card .post-carousel-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+  }
+  .post-card .post-carousel-btn--prev {
+    left: 6px;
+  }
+  .post-card .post-carousel-btn--next {
+    right: 6px;
+  }
+
+  .post-card .comment-item {
+    padding: var(--v-space-sm);
+  }
+}
+
+/* ── Very narrow phones (≤359px): only now drop the counts ── */
+@media (max-width: 359px) {
+  .post-card .post-action-btn span {
+    display: none;
   }
 }

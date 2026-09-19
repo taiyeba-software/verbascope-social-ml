@@ -25,6 +25,18 @@ export const meiliClient = new Meilisearch({
 
 const POSTS_INDEX = 'posts';
 
+// Attributes that must be filterable for existing features to work:
+//   - `tags` — searchTagFacets() (postIndex.js) does a facet-distribution
+//     search on `tags`, and searchPostsByTag() filters with `tags = "..."`.
+// Meilisearch does NOT persist this setting outside of data.ms, so it's
+// wiped along with everything else whenever the ephemeral disk resets on
+// redeploy (see Meilisearch_Index_Persistence_Fix.md). ensurePostsIndex()
+// previously only applied it inside the "index didn't exist yet" branch,
+// so a fresh/rebuilt index came back WITHOUT `tags` filterable until
+// someone noticed and fixed it by hand — that's the
+// "Pattern `tags` is not filterable" error seen in searchTags.
+const FILTERABLE_ATTRIBUTES = ['tags'];
+
 async function ensurePostsIndex() {
   try {
     await meiliClient.getIndex(POSTS_INDEX);
@@ -36,6 +48,18 @@ async function ensurePostsIndex() {
     } else {
       throw err;
     }
+  }
+
+  // Applied unconditionally on every boot, not just on creation.
+  // updateFilterableAttributes() is idempotent/cheap when the setting is
+  // already correct, so this is safe to call every time — and it's the
+  // only way to guarantee the setting survives an index rebuild after a
+  // disk wipe, since a normal restart (index intact) never re-enters the
+  // "index didn't exist" branch above.
+  try {
+    await meiliClient.index(POSTS_INDEX).updateFilterableAttributes(FILTERABLE_ATTRIBUTES);
+  } catch (err) {
+    console.warn('⚠️ Could not set filterable attributes on "posts" index:', err.message);
   }
 }
 

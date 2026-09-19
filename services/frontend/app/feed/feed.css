@@ -907,7 +907,8 @@ body {
 
 .comment-input:focus {
   border-color: var(--vs-teal);
-  background: white;
+  /* was `white` — unreadable in dark mode. --vs-surface is #fff in light. */
+  background: var(--vs-surface);
   box-shadow: 0 0 0 3px rgba(14, 159, 171, 0.1);
 }
 

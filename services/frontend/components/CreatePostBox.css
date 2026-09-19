@@ -1,12 +1,26 @@
 /* Create Post Box Component */
 
 .create-post-box {
+	/* Background of an input while it has focus.
+	   Light theme: white (unchanged). Dark theme: set below — it used to be a
+	   hard-coded `white`, which made the light dark-mode text unreadable. */
+	--cpb-focus-bg: #ffffff;
+	--cpb-focus-ring: rgba(14, 159, 171, 0.1);
+
 	background: var(--vs-surface);
 	border: 1px solid var(--vs-border-card);
 	border-radius: var(--vs-radius-lg);
 	padding: var(--vs-space-md);
 	box-shadow: var(--vs-shadow-card);
 	margin-bottom: 0;
+}
+
+/* Dark theme: a slightly lighter navy than the resting fields
+   (--vs-surface-hover = #243349), so focus is still visible but the
+   text stays readable. */
+[data-theme='dark'] .create-post-box {
+	--cpb-focus-bg: #2b3d57;
+	--cpb-focus-ring: rgba(45, 212, 191, 0.22);
 }
 
 .create-post-header {
@@ -51,8 +65,8 @@
 .create-post-input:focus,
 .create-post-textarea:focus {
 	border-color: var(--vs-teal);
-	background: white;
-	box-shadow: 0 0 0 3px rgba(14, 159, 171, 0.1);
+	background: var(--cpb-focus-bg);
+	box-shadow: 0 0 0 3px var(--cpb-focus-ring);
 }
 
 .create-post-media-btn {

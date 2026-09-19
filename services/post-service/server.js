@@ -10,7 +10,8 @@ import {
 } from './src/broker/rabbit.js';
 import { pulse } from './src/pulse/pulse.js';
 import Post from './src/models/post.model.js';
-import { initMeilisearch } from './src/search/meiliClient.js';
+import { initMeilisearch, postsIndex } from './src/search/meiliClient.js';
+import { rebuildSearchIndex } from './src/search/postIndex.js'; // ── NEW: self-heal after ephemeral-disk wipe on redeploy
 import { handleMLResult } from './src/controllers/post.controller.js';
 import config from './src/config/config.js';
 
@@ -79,6 +80,30 @@ await seedPulseFromDB();
 
 // Meilisearch is non-critical — if it's down, log a warning and keep going.
 await initMeilisearch();
+
+// ── NEW: self-heal after ephemeral-disk wipe on redeploy ───────────
+// initMeilisearch() (above) already creates the "posts" index if it
+// doesn't exist — by this point the index always exists. What we
+// actually need to check is whether it's EMPTY, which is the real
+// signal that this deploy wiped previously-indexed data (see
+// Meilisearch_Index_Persistence_Fix.md, confirmed via logs: "Created
+// posts index" appears on every fresh deploy).
+//
+// A normal restart where the index survived intact skips the rebuild
+// entirely (fast startup, no wasted work). Wrapped in its own
+// try/catch, separate from the RabbitMQ try/catch below, so a
+// Meilisearch hiccup here can never take down server startup — same
+// "non-critical" rationale as initMeilisearch() itself.
+try {
+    const stats = await postsIndex().getStats();
+    if (stats.numberOfDocuments === 0) {
+        console.log('🔧 Search index is empty — rebuilding from Mongo...');
+        const { indexed, failed } = await rebuildSearchIndex();
+        console.log(`🔧 Rebuild complete: ${indexed} indexed, ${failed} failed`);
+    }
+} catch (err) {
+    console.warn('⚠️  Could not check/rebuild search index:', err.message);
+}
 
 try {
     await connectRabbit();

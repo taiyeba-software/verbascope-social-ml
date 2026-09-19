@@ -1,4 +1,6 @@
 import { postsIndex } from './meiliClient.js';
+import Post from '../models/post.model.js';
+import authClient from '../utils/authClient.js';
 
 // `author` here is the enriched author object fetched from auth-service
 // (same shape as `populatedPost.author` in post.controller.js), NOT the
@@ -115,4 +117,41 @@ export async function searchPostsByTag(tagName, opts = {}) {
     limit,
     offset,
   });
+}
+
+// ── Shared rebuild logic ────────────────────────────────────────────
+// Callable from BOTH the admin route (post.controller.js's
+// reindexAllPosts) and server.js's startup self-healing check. Never
+// call the Express handler (reindexAllPosts) internally — it expects
+// (req, res), and mixing HTTP concerns into startup code is the wrong
+// shape. This is the actual business logic; the route just wraps it
+// with req/res handling.
+//
+// Identical in behavior to the loop that used to live inline inside
+// reindexAllPosts — moved here unchanged so both callers share one
+// implementation instead of drifting apart over time.
+export async function rebuildSearchIndex() {
+  const posts = await Post.find().lean();
+
+  let indexed = 0;
+  let failed = 0;
+
+  for (const post of posts) {
+    try {
+      // Same author-fetch pattern as createPost/getPost — indexPost
+      // needs the author object, not just the ID.
+      const usersRes = await authClient.post('/api/users/bulk', {
+        ids: [post.author.toString()],
+      });
+      const author = usersRes.data.users?.[0] || null;
+
+      await indexPost(post, author);
+      indexed++;
+    } catch (err) {
+      console.error(`Failed to index post ${post._id}:`, err.message);
+      failed++;
+    }
+  }
+
+  return { indexed, failed, total: posts.length };
 }

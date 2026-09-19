@@ -9,7 +9,7 @@ import { detectLanguage } from '../utils/detectLanguage.js';
 import { normalizeText } from '../utils/normalizeText.js';
 import authClient from '../utils/authClient.js';
 import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted
-import { indexPost, deleteIndexedPost } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing
+import { indexPost, deleteIndexedPost, rebuildSearchIndex } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing (rebuildSearchIndex added for the redeploy/self-heal fix)
 import { getAISignal } from '../ml/signalMapper.js'; // ── NEW: VerbaScope AI Signal feature
 
 
@@ -355,42 +355,28 @@ export const reanalyzeStalePosts = async (req, res) => {
 };
 
 
-// ── ONE-TIME: Backfill search index ──────────────────────────────────
-// Re-indexes every existing post into Meilisearch. Needed because posts
-// created before Meilisearch was properly connected were saved to Mongo
-// fine, but never made it into the search index (indexPost() failed
-// silently at the time). Safe to run more than once — it just re-adds
-// the same posts, no duplicates or side effects.
+// ── ONE-TIME / ON-DEMAND: Backfill search index ─────────────────────
+// Re-indexes every existing post into Meilisearch. Needed both for the
+// original case (posts created before Meilisearch was properly connected
+// never made it into the index) and now for manual recovery after a
+// redeploy on Render's ephemeral disk wipes the index (see
+// Meilisearch_Index_Persistence_Fix.md). Safe to run more than once —
+// it just re-adds the same posts, no duplicates or side effects.
+//
+// This is now a thin HTTP wrapper only. The actual logic lives in
+// rebuildSearchIndex() (search/postIndex.js) so server.js's startup
+// self-healing check can call the same function without going through
+// an Express req/res — a route handler must never be called directly
+// from non-HTTP startup code.
 export const reindexAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find().lean();
-
-    let indexed = 0;
-    let failed = 0;
-
-    for (const post of posts) {
-      try {
-        // Same author-fetch pattern as createPost/getPost — indexPost
-        // needs the author object, not just the ID.
-        const usersRes = await authClient.post('/api/users/bulk', {
-          ids: [post.author.toString()],
-        });
-        const author = usersRes.data.users?.[0] || null;
-
-        await indexPost(post, author);
-        indexed++;
-      } catch (err) {
-        console.error(`Failed to index post ${post._id}:`, err.message);
-        failed++;
-      }
-    }
-
+    const { indexed, failed, total } = await rebuildSearchIndex();
     return res.status(200).json({
       success: true,
       message: `Reindexed ${indexed} post(s), ${failed} failed.`,
       indexed,
       failed,
-      total: posts.length,
+      total,
     });
   } catch (err) {
     console.error('reindexAllPosts error:', err);

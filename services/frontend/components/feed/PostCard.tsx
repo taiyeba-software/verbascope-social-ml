@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type Ref } from 'react';
+import { createPortal } from 'react-dom'; // ── NEW: needed to escape .post-card's overflow:hidden
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Post } from '@/types';
@@ -10,7 +11,7 @@ import { CommentSection, type CommentState } from './CommentSection';
 import { LikeAnimation, type AnchorPoint } from './LikeAnimation';
 import { AISignalCard, type MLAnalysis } from './AISignalCard';
 import { useDwellTracker } from '@/hooks/useDwellTracker';
-import { postService, type SharerEntry } from '@/lib/api'; // ── NEW: Community Signals — who shared this post
+import { postService, type SharerEntry } from '@/lib/api';
 import {
   safeAuthorName,
   safeAuthorInitials,
@@ -152,15 +153,23 @@ function ImageCarousel({ images }: { images: string[] }) {
   );
 }
 
-// ── NEW: Community Signals — sharers popover ───────────────────────────
-// Opened by clicking the share COUNT (not the share icon itself, which
-// stays wired to onShare for toggling). Fetches on demand, once, and
-// caches the result for the lifetime of this card instance.
+// ── UPDATED: Community Signals — sharers popover ───────────────────────
+// Was: `position: absolute` nested inside .post-actions. .post-card has
+// `overflow: hidden` (for the left accent border / rounded image corners),
+// which silently clipped this popover whenever it extended past the
+// card's own box — it fetched and rendered, it just wasn't visible.
+//
+// Fix: render through a portal to document.body with `position: fixed`
+// at real screen coordinates, computed from the trigger element's
+// getBoundingClientRect(). Same escape-the-clip approach this file
+// already needs for LikeAnimation's anchorPoint.
 function SharersPopover({
   postId,
+  anchorRect,
   onClose,
 }: {
   postId: string;
+  anchorRect: { top: number; left: number; width: number };
   onClose: () => void;
 }) {
   const [sharers, setSharers] = useState<SharerEntry[] | null>(null);
@@ -181,7 +190,6 @@ function SharersPopover({
     return () => { cancelled = true; };
   }, [postId]);
 
-  // Close on outside click / Escape, same pattern as PostMoreMenu.
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) onClose();
@@ -189,16 +197,31 @@ function SharersPopover({
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
+    // Attach on next frame so the click that OPENED this popover (still
+    // bubbling in the same tick) doesn't immediately close it again.
+    const id = requestAnimationFrame(() => {
+      document.addEventListener('mousedown', handleClick);
+      document.addEventListener('keydown', handleKey);
+    });
     return () => {
+      cancelAnimationFrame(id);
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('keydown', handleKey);
     };
   }, [onClose]);
 
-  return (
-    <div className="sharers-popover" ref={popoverRef} onClick={(e) => e.stopPropagation()}>
+  // Anchored ABOVE the trigger, horizontally centered on it — real pixel
+  // coordinates since this is now a fixed-position portal, not relative
+  // to any (potentially clipping) ancestor.
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    top: anchorRect.top - 8,
+    left: anchorRect.left + anchorRect.width / 2,
+    transform: 'translate(-50%, -100%)',
+  };
+
+  return createPortal(
+    <div className="sharers-popover" ref={popoverRef} style={style} onClick={(e) => e.stopPropagation()}>
       <div className="sharers-popover-title">Shared by</div>
 
       {error && <div className="sharers-popover-empty">Couldn't load this list.</div>}
@@ -228,7 +251,8 @@ function SharersPopover({
           })}
         </ul>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -265,8 +289,11 @@ export function PostCard({
   const [anchorPoint, setAnchorPoint] = useState<AnchorPoint | null>(null);
   const likeBtnRef = useRef<HTMLButtonElement>(null);
 
-  // ── NEW: Community Signals — sharers popover open state ──
-  const [sharersOpen, setSharersOpen] = useState(false);
+  // ── UPDATED: Community Signals — sharers popover now tracks the
+  // trigger's screen position (not just open/closed), since it renders
+  // via a portal and needs real coordinates. Null = closed. ──
+  const [sharersAnchor, setSharersAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+  const sharesCountRef = useRef<HTMLSpanElement>(null);
 
   const tags = post.tags ?? extractTags(post.content);
   const images = post.images ?? [];
@@ -296,12 +323,18 @@ export function PostCard({
     }
   };
 
-  // ── NEW: opens the sharers popover instead of toggling share. Only
-  // makes sense when there's at least one share to list. ──
+  // ── UPDATED: opens the sharers popover (via portal) instead of
+  // toggling share. Only makes sense when there's at least one share. ──
   const handleSharesCountClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if ((post.sharesCount ?? 0) === 0) return;
-    setSharersOpen((open) => !open);
+    if (sharersAnchor) {
+      setSharersAnchor(null); // toggle closed
+      return;
+    }
+    const rect = sharesCountRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setSharersAnchor({ top: rect.top, left: rect.left + rect.width / 2, width: 0 });
   };
 
   const avatarEl = (
@@ -409,9 +442,9 @@ export function PostCard({
           <span>{post.commentsCount ?? 0}</span>
         </button>
 
-        {/* ── UPDATED: share button icon still toggles share/unshare; the
-            count is now a separate clickable target that opens "who shared
-            this" instead, when there's at least one share. ── */}
+        {/* ── UPDATED: share icon still toggles share/unshare; the count
+            is a separate clickable target that opens "who shared this"
+            (via portal, see SharersPopover) when there's ≥1 share. ── */}
         <button
           type="button"
           className={`post-action-btn${post.sharedByMe ? ' shared' : ''}`}
@@ -421,6 +454,7 @@ export function PostCard({
         >
           <ShareIcon />
           <span
+            ref={sharesCountRef}
             onClick={handleSharesCountClick}
             className={(post.sharesCount ?? 0) > 0 ? 'post-action-count--clickable' : undefined}
             role={(post.sharesCount ?? 0) > 0 ? 'button' : undefined}
@@ -430,8 +464,12 @@ export function PostCard({
           </span>
         </button>
 
-        {sharersOpen && (
-          <SharersPopover postId={post._id} onClose={() => setSharersOpen(false)} />
+        {sharersAnchor && (
+          <SharersPopover
+            postId={post._id}
+            anchorRect={sharersAnchor}
+            onClose={() => setSharersAnchor(null)}
+          />
         )}
 
         <button

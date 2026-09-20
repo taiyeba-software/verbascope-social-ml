@@ -10,6 +10,7 @@ import { CommentSection, type CommentState } from './CommentSection';
 import { LikeAnimation, type AnchorPoint } from './LikeAnimation';
 import { AISignalCard, type MLAnalysis } from './AISignalCard';
 import { useDwellTracker } from '@/hooks/useDwellTracker';
+import { postService, type SharerEntry } from '@/lib/api'; // ── NEW: Community Signals — who shared this post
 import {
   safeAuthorName,
   safeAuthorInitials,
@@ -28,22 +29,33 @@ export type FeedPost = Post & {
   tags?: string[];
   createdAt?: string;
   images?: string[];
-  // ── NEW: VerbaScope AI Signal feature ──
-  // Populated by post.controller.js's handleMLResult() once the ML Brain
-  // finishes analyzing the post's text. Absent/null until then.
   mlAnalysis?: MLAnalysis | null;
 };
 
+// ── NEW: Community Signals — reason icon/label, mirrors CommunityInsights'
+// INSIGHTS config (reason -> label/icon). Kept as a small local map instead
+// of importing that file, since this only needs icon+label, not the full
+// slug/banner/empty-state config used by the sidebar widget. ──
+const REASON_META: Record<string, { icon: string; label: string }> = {
+  needs_attention: { icon: '🚨', label: 'Needs Attention' },
+  agree:           { icon: '✅', label: 'I Agree' },
+  funny:           { icon: '😄', label: 'Funny' },
+  insightful:      { icon: '💡', label: 'Insightful' },
+  concerning:      { icon: '⚠️', label: 'Concerning' },
+  educational:     { icon: '📚', label: 'Educational' },
+};
+
+const sharerName = (sharer: SharerEntry) =>
+  `${sharer.user?.fullname?.firstName ?? ''} ${sharer.user?.fullname?.lastName ?? ''}`.trim() || 'Someone';
+
 // ── Carousel ─────────────────────────────────────────────────────────
-const AUTO_ADVANCE_MS = 5500; // change interval — 2.5s
+const AUTO_ADVANCE_MS = 5500;
 
 function ImageCarousel({ images }: { images: string[] }) {
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // stopPropagation on all these — the carousel now sits inside a
-  // click-to-navigate wrapper, and these controls shouldn't trigger it.
   const prev = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIndex((i) => (i - 1 + images.length) % images.length);
@@ -53,7 +65,6 @@ function ImageCarousel({ images }: { images: string[] }) {
     setIndex((i) => (i + 1) % images.length);
   };
 
-  // Auto-advance: runs only when there's more than one image and it's not paused
   useEffect(() => {
     if (images.length <= 1 || isPaused) return;
 
@@ -68,7 +79,6 @@ function ImageCarousel({ images }: { images: string[] }) {
 
   if (images.length === 0) return null;
 
-  // Single image — no controls needed
   if (images.length === 1) {
     return (
       <div className="post-image-single">
@@ -142,6 +152,86 @@ function ImageCarousel({ images }: { images: string[] }) {
   );
 }
 
+// ── NEW: Community Signals — sharers popover ───────────────────────────
+// Opened by clicking the share COUNT (not the share icon itself, which
+// stays wired to onShare for toggling). Fetches on demand, once, and
+// caches the result for the lifetime of this card instance.
+function SharersPopover({
+  postId,
+  onClose,
+}: {
+  postId: string;
+  onClose: () => void;
+}) {
+  const [sharers, setSharers] = useState<SharerEntry[] | null>(null);
+  const [error, setError] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    postService
+      .getPostSharers(postId)
+      .then((res) => {
+        if (cancelled) return;
+        setSharers(res.data.sharers ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+    return () => { cancelled = true; };
+  }, [postId]);
+
+  // Close on outside click / Escape, same pattern as PostMoreMenu.
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) onClose();
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="sharers-popover" ref={popoverRef} onClick={(e) => e.stopPropagation()}>
+      <div className="sharers-popover-title">Shared by</div>
+
+      {error && <div className="sharers-popover-empty">Couldn't load this list.</div>}
+
+      {!error && sharers === null && (
+        <div className="sharers-popover-empty">Loading...</div>
+      )}
+
+      {!error && sharers !== null && sharers.length === 0 && (
+        <div className="sharers-popover-empty">No shares yet.</div>
+      )}
+
+      {!error && sharers !== null && sharers.length > 0 && (
+        <ul className="sharers-popover-list">
+          {sharers.map((sharer, i) => {
+            const meta = sharer.reason ? REASON_META[sharer.reason] : null;
+            return (
+              <li key={`${sharer.user?._id ?? i}`} className="sharers-popover-item">
+                <span className="sharers-popover-name">{sharerName(sharer)}</span>
+                {meta && (
+                  <span className="sharers-popover-reason">
+                    {meta.icon} {meta.label}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ── PostCard ──────────────────────────────────────────────────────────
 export function PostCard({
   post,
@@ -168,8 +258,6 @@ export function PostCard({
   onCommentInput: (postId: string, value: string) => void;
   onSubmitComment: (postId: string) => void;
   onDeleteComment: (postId: string, commentId: string) => void;
-  // Set this true when the card is rendered on its own /post/[id] page,
-  // so clicking the content doesn't try to navigate to itself.
   disableCardLink?: boolean;
 }) {
   const router = useRouter();
@@ -177,16 +265,15 @@ export function PostCard({
   const [anchorPoint, setAnchorPoint] = useState<AnchorPoint | null>(null);
   const likeBtnRef = useRef<HTMLButtonElement>(null);
 
+  // ── NEW: Community Signals — sharers popover open state ──
+  const [sharersOpen, setSharersOpen] = useState(false);
+
   const tags = post.tags ?? extractTags(post.content);
   const images = post.images ?? [];
   const dwellRef = useDwellTracker(post._id);
   const authorAvatarUrl = getAuthorAvatarUrl(post.author);
   const hasText = !!post.content?.trim();
 
-  // Post authors can be null/undefined for deleted-user edge cases (same
-  // reasoning as safeAuthorName/safeAuthorInitials already handling that
-  // gracefully) — only render a profile link when there's a real id to
-  // link to, otherwise fall back to the old, non-clickable rendering.
   const authorId = post.author && typeof post.author === 'object' ? (post.author as { _id?: string })._id : undefined;
   const authorHref = authorId ? `/profile/${authorId}` : undefined;
 
@@ -209,6 +296,14 @@ export function PostCard({
     }
   };
 
+  // ── NEW: opens the sharers popover instead of toggling share. Only
+  // makes sense when there's at least one share to list. ──
+  const handleSharesCountClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if ((post.sharesCount ?? 0) === 0) return;
+    setSharersOpen((open) => !open);
+  };
+
   const avatarEl = (
     <div
       className="post-avatar"
@@ -224,7 +319,6 @@ export function PostCard({
 
   return (
     <article className="post-card" ref={dwellRef as Ref<HTMLElement>}>
-      {/* ── NEW: VerbaScope AI Signal — first thing inside the post ── */}
       <AISignalCard mlAnalysis={post.mlAnalysis} hasText={hasText} />
 
       <div className="post-header">
@@ -276,7 +370,6 @@ export function PostCard({
         </p>
       )}
 
-      {/* Carousel — only renders when the post has images */}
       {images.length > 0 && (
         <div onClick={goToPost} style={{ cursor: disableCardLink ? undefined : 'pointer' }}>
           <ImageCarousel images={images} />
@@ -316,6 +409,9 @@ export function PostCard({
           <span>{post.commentsCount ?? 0}</span>
         </button>
 
+        {/* ── UPDATED: share button icon still toggles share/unshare; the
+            count is now a separate clickable target that opens "who shared
+            this" instead, when there's at least one share. ── */}
         <button
           type="button"
           className={`post-action-btn${post.sharedByMe ? ' shared' : ''}`}
@@ -324,8 +420,19 @@ export function PostCard({
           aria-pressed={post.sharedByMe}
         >
           <ShareIcon />
-          <span>{post.sharesCount ?? 0}</span>
+          <span
+            onClick={handleSharesCountClick}
+            className={(post.sharesCount ?? 0) > 0 ? 'post-action-count--clickable' : undefined}
+            role={(post.sharesCount ?? 0) > 0 ? 'button' : undefined}
+            aria-label={(post.sharesCount ?? 0) > 0 ? 'See who shared this' : undefined}
+          >
+            {post.sharesCount ?? 0}
+          </span>
         </button>
+
+        {sharersOpen && (
+          <SharersPopover postId={post._id} onClose={() => setSharersOpen(false)} />
+        )}
 
         <button
           type="button"

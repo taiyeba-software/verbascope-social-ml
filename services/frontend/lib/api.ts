@@ -21,17 +21,12 @@ class ApiClient {
     this.client = axios.create({
       baseURL: config.baseURL,
       timeout: config.timeout || API_TIMEOUT,
-      withCredentials: config.withCredentials !== false, // true by default for auth cookies
+      withCredentials: config.withCredentials !== false,
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    // NEW: attach token from localStorage as Authorization header on every
-    // request. This is what actually authenticates cross-service calls now —
-    // the httpOnly cookie only ever worked for same-origin auth-service
-    // calls, since post-service/notification-service live on different
-    // onrender.com subdomains and never receive it.
     this.client.interceptors.request.use((requestConfig) => {
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('vs_token');
@@ -43,11 +38,9 @@ class ApiClient {
       return requestConfig;
     });
 
-    // Add response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Safe extraction to prevent empty error objects `{}`
         const status = error.response?.status ?? null;
         const statusText = error.response?.statusText ?? '';
         const message =
@@ -65,13 +58,6 @@ class ApiClient {
           data,
         };
 
-        // Statuses that represent EXPECTED validation failures rather than
-        // bugs — a 422/400 for an oversized post, or a 401 for "not logged
-        // in yet", is normal user-facing behavior the calling component
-        // already turns into a friendly message. These should never hit
-        // the console, in development or production. Anything else is a
-        // genuine unexpected error and still logs, but only in development,
-        // so production/demo consoles stay clean.
         const EXPECTED_VALIDATION_STATUSES = [400, 401, 422];
 
         if (
@@ -81,33 +67,27 @@ class ApiClient {
           console.error('[API Error]', message, cleanError);
         }
 
-        // Return a rejected promise with structured error data
         return Promise.reject(cleanError);
       }
     );
   }
 
-  // GET request
   async get<T>(url: string, config = {}) {
     return this.client.get<T>(url, config);
   }
 
-  // POST request
   async post<T>(url: string, data?: unknown, config = {}) {
     return this.client.post<T>(url, data, config);
   }
 
-  // PUT request
   async put<T>(url: string, data?: unknown, config = {}) {
     return this.client.put<T>(url, data, config);
   }
 
-  // PATCH request
   async patch(url: string, data?: unknown, config = {}) {
     return this.client.patch(url, data, config);
   }
 
-  // DELETE request
   async delete<T>(url: string, config = {}) {
     return this.client.delete<T>(url, config);
   }
@@ -115,10 +95,6 @@ class ApiClient {
 
 /* ──────────────────────────────────────────────────────────
    Token Storage
-   NEW: central helper for storing/reading/clearing the JWT that
-   auth-service now returns from login/register/google-callback.
-   Used by auth-provider.tsx (on login/register) and feed/page.tsx
-   (to read the ?token= param after a Google redirect).
    ────────────────────────────────────────────────────────── */
 
 export const tokenStorage = {
@@ -135,13 +111,11 @@ export const tokenStorage = {
    Service Instances
    ────────────────────────────────────────────────────────── */
 
-// Auth Service - runs on port 3000
 export const authApi = new ApiClient({
   baseURL: process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:3000',
-  withCredentials: true, // Important: support httpOnly cookies
+  withCredentials: true,
 });
 
-// Notification Service - runs on port 3001
 export const notificationApi = new ApiClient({
   baseURL: process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3001',
   withCredentials: true,
@@ -152,27 +126,22 @@ export const notificationApi = new ApiClient({
    ────────────────────────────────────────────────────────── */
 
 export const authService = {
-  // Register new user
   register: (data: {
     email: string;
     password: string;
     fullname: { firstName: string; lastName: string };
   }) => authApi.post('/api/auth/register', data),
 
-  // Login user
   login: (email: string, password: string) =>
     authApi.post('/api/auth/login', { email, password }),
 
-  // Get the currently authenticated user
   getCurrentUser: () => authApi.get('/api/auth/me'),
 
-  // Start Google OAuth flow
   googleAuthStart: () => {
     window.location.href = googleAuthUrl;
   },
 };
 
-// Auth Service — user social graph
 export const userService = {
   getUsersBulk: (ids: string[]) =>
     authApi.get(`/api/users/bulk?ids=${ids.join(',')}`),
@@ -186,15 +155,12 @@ export const userService = {
   getMyFollowing: () =>
     authApi.get('/api/users/me/following'),
 
-  // ── Profile (Phase 2 / 4) ──
-  // id can be a real ObjectId string or the literal "me".
   getUserProfile: (id: string) =>
     authApi.get(`/api/users/${id}`),
 
   updateProfile: (data: { bio?: string; headline?: string }) =>
     authApi.patch('/api/users/profile', data),
 
-  // FormData must contain a single file under the field name "avatar".
   updateAvatar: (formData: FormData) =>
     authApi.patch('/api/users/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -208,17 +174,13 @@ export const googleAuthUrl = `${process.env.NEXT_PUBLIC_AUTH_URL || 'http://loca
    ────────────────────────────────────────────────────────── */
 
 export const notificationService = {
-  // Test email endpoint
   testEmail: (email: string) =>
     notificationApi.post('/api/notification/test-email', { email }),
 
-  // Get all notifications for the current user
   getNotifications: () => notificationApi.get('/api/notifications'),
 
-  // Mark all notifications as read
   markAllRead: () => notificationApi.patch('/api/notifications/read'),
 
-  // Mark a single notification as read
   markRead: (id: string) => notificationApi.patch(`/api/notifications/${id}/read`),
 };
 
@@ -226,31 +188,40 @@ export const notificationService = {
    Post Service
    ────────────────────────────────────────────────────────── */
 
-// Post Service - runs on port 3003
 export const postApi = new ApiClient({
   baseURL: process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003',
   withCredentials: true,
-  timeout: 30000, // Increased from 10s to 30s for image uploads to ImageKit
+  timeout: 30000,
 });
 
-// ── NEW: Weekly Pulse feature ──
-// Shape returned by GET /api/posts/pulse/trending (post.controller.js's
-// getWeeklyPulse), matching the WeeklyPulse type used by the socket hook
-// so the initial fetch and the live pulse:update events are
-// interchangeable in the Sidebar.
 export type WeeklyPulseResponse = { success: boolean } & WeeklyPulse;
 
-// ── NEW: Community Insights ──
-// Shape returned by GET /api/posts/community-signals/summary. Keys are the
-// stored shareReasons keys: needs_attention, educational, concerning, funny.
 export type CommunityInsightsSummaryResponse = {
   success: boolean;
   summary: Record<string, number>;
 };
 
+// ── NEW: Community Signals — "who marked it" ──
+// Shape returned by GET /api/posts/:id/sharers (post.controller.js's
+// getPostSharers). `reason` is null for shares made without picking one
+// (sharePost() allows that — see share.controller.js).
+export type SharerEntry = {
+  user: {
+    _id: string;
+    fullname: { firstName: string; lastName: string };
+    avatar?: string;
+  };
+  reason: string | null;
+  sharedAt: string | null;
+};
+
+export type PostSharersResponse = {
+  success: boolean;
+  sharers: SharerEntry[];
+  total: number;
+};
+
 export const postService = {
-  // ── UPDATED: optional `signal` (a Community Insights slug such as
-  // 'needs-attention'). When omitted, the request is identical to before.
   getFeed: (page = 1, limit = 10, signal?: string) =>
     postApi.get('/api/posts/feed', {
       params: { page, limit, ...(signal ? { signal } : {}) },
@@ -273,7 +244,6 @@ export const postService = {
   getComments: (id: string) =>
     postApi.get(`/api/posts/${id}/comments`),
 
-  // FETCH direct replies to a single comment (one level, not the whole subtree)
   getReplies: (commentId: string) =>
     postApi.get(`/api/posts/comments/${commentId}/replies`),
 
@@ -292,8 +262,12 @@ export const postService = {
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),
 
-  // ── Saved / bookmarked posts ──────────────────────────────────────
-  // Matches: POST /:id/save, DELETE /:id/unsave, GET /saved on posts.routes.js
+  // ── NEW: Community Signals — who shared this post and why. Called
+  // on-demand by PostCard when the user opens the sharers list, not as
+  // part of every feed load. ──
+  getPostSharers: (id: string) =>
+    postApi.get<PostSharersResponse>(`/api/posts/${id}/sharers`),
+
   bookmarkPost: (id: string) =>
     postApi.post(`/api/posts/${id}/save`),
 
@@ -312,28 +286,15 @@ export const postService = {
   recordDwell: (postId: string, duration: number) =>
     postApi.post('/api/posts/dwell', { postId, duration }),
 
-  // Post Service — recommendations
   getRecommendedUsers: () =>
     postApi.get('/api/posts/recommendations/users'),
 
-  // ── NEW: Weekly Pulse ──
-  // Initial-load counterpart to the live 'pulse:update' socket event —
-  // Sidebar calls this once on mount so the pulse card has real data
-  // immediately, instead of waiting for the next post/share to trigger
-  // a broadcast.
   getWeeklyPulse: () =>
     postApi.get<WeeklyPulseResponse>('/api/posts/pulse/trending'),
 
-  // ── NEW: Community Insights ──
-  // Marks per category for the last 7 days (sidebar / mobile widget).
   getCommunitySignalsSummary: () =>
     postApi.get<CommunityInsightsSummaryResponse>('/api/posts/community-signals/summary'),
 
-  // ── Search (Phase 2/2.5 backend, Phase 3 frontend) ──
-  // Matches GET /api/posts/search?q=&limit=&offset= — withCredentials on
-  // postApi already sends the `token` cookie, so no manual auth header needed.
-  // Typed with SearchResponse so callers get `res.data` as the real shape
-  // instead of `unknown`.
   search: (
     query: string,
     opts: { limit?: number; offset?: number; signal?: AbortSignal } = {}

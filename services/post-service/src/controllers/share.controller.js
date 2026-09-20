@@ -5,20 +5,15 @@ import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
+import { VALID_REASONS } from '../constants/shareReasons.js'; // ── UPDATED: moved to shared constants so post.model.js can use it too
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
-const VALID_REASONS = ['agree', 'funny', 'needs_attention', 'insightful', 'concerning', 'educational'];
 
-// ── NEW: Community Insights shared config ──
-// Defined ONCE here and imported by post.controller.js (getFeed), so the
-// sidebar summary and the filtered feed can never drift apart.
-//
-// Maps the URL slug (/feed?signal=needs-attention) to the real key stored
-// in Post.shareReasons. These keys MUST match VALID_REASONS above, since
-// sharePost() writes `shareReasons.<reason>` using those exact values.
-//
-// Covers ALL six share reasons offered in the "Why are you passing this
-// forward?" sheet. Order matches that sheet.
+// ── Helper: get the user id out of a sharedBy entry regardless of shape.
+// Old documents store raw ObjectIds; new ones store { user, reason, sharedAt }.
+// See the sharedBy migration note in post.model.js. ──
+const sharerUserId = (entry) => (entry?.user ?? entry)?.toString();
+
 export const SIGNAL_MAP = {
 	'needs-attention': 'needs_attention',
 	'agree':           'agree',
@@ -28,17 +23,11 @@ export const SIGNAL_MAP = {
 	'educational':     'educational',
 };
 
-// Both the sidebar summary and the filtered feed use this window.
 export const INSIGHTS_WINDOW_DAYS = 7;
 
 export const getInsightsWindowStart = () =>
 	new Date(Date.now() - INSIGHTS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-// ── Weekly Pulse ──
-// Fire-and-forget: a share changes sharesCount and shareReasons, both
-// inputs to getWeeklyPulse()'s score, so re-broadcast after every share/
-// unshare. Never awaited — a slow aggregation must never block the
-// share response itself.
 const broadcastPulseUpdate = () => {
 	pulse.getWeeklyPulse()
 		.then((weeklyPulse) => io.emit('pulse:update', weeklyPulse))
@@ -58,7 +47,7 @@ export const sharePost = async (req, res) => {
 		}
 
 		const alreadyShared = post.sharedBy.some(
-			(userId) => userId.toString() === req.user.id
+			(entry) => sharerUserId(entry) === req.user.id
 		);
 		if (alreadyShared) {
 			return res.status(409).json({ success: false, message: 'You already shared this post.' });
@@ -66,8 +55,11 @@ export const sharePost = async (req, res) => {
 
 		const reason = VALID_REASONS.includes(req.body.reason) ? req.body.reason : null;
 
+		// ── UPDATED: sharedBy now carries who + which reason + when, not
+		// just a bare user id, so unsharePost can correctly reverse
+		// shareReasons.<reason> and PostCard can show who marked it. ──
 		const update = {
-			$push: { sharedBy: req.user.id },
+			$push: { sharedBy: { user: req.user.id, reason, sharedAt: new Date() } },
 			$inc: { sharesCount: 1, ...(reason && { [`shareReasons.${reason}`]: 1 }) },
 		};
 
@@ -79,16 +71,14 @@ export const sharePost = async (req, res) => {
 
 		publish('post.shared', { postId: req.params.id, reason });
 		pulse.onPostShared(req.params.id, reason, req.user.id);
-		broadcastPulseUpdate(); // ── keep sidebar's weekly pulse live
+		broadcastPulseUpdate();
 		updateUserPulse(req.user.id, req.params.id, 'share');
 
-		// ── live sync ──
 		io.emit('post:update', {
 			postId: req.params.id,
 			sharesCount: updated.sharesCount,
 		});
 
-		// notify post owner — fire and forget
 		User.findById(req.user.id, 'fullname').lean().then((actor) => {
 			if (actor) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
@@ -127,25 +117,45 @@ export const unsharePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Post not found.' });
 		}
 
-		const hasShared = post.sharedBy.some(
-			(userId) => userId.toString() === req.user.id
+		const existingEntry = post.sharedBy.find(
+			(entry) => sharerUserId(entry) === req.user.id
 		);
-		if (!hasShared) {
+		if (!existingEntry) {
 			return res.status(404).json({ success: false, message: 'You have not shared this post.' });
 		}
 
+		// ── UPDATED: fixes "Known limitation #1" from the build doc — we now
+		// know WHICH reason this user picked, so we can decrement
+		// shareReasons.<reason> instead of leaving it stuck forever. Only
+		// decrement if the count is actually above 0, so a double-unshare
+		// race or already-migrated-away data can never push it negative. ──
+		const reason = existingEntry.reason ?? null;
+		const currentReasonCount = reason ? (post.shareReasons?.[reason] ?? 0) : 0;
+		const shouldDecrementReason = Boolean(reason) && currentReasonCount > 0;
+
+		// Rebuild sharedBy without this user's entry rather than $pull, since
+		// $pull's query shape can't cleanly match both the old (raw ObjectId)
+		// and new ({ user, reason, sharedAt }) shapes in one filter.
+		const newSharedBy = post.sharedBy.filter(
+			(entry) => sharerUserId(entry) !== req.user.id
+		);
+
+		const update = {
+			$set: { sharedBy: newSharedBy },
+			$inc: {
+				sharesCount: -1,
+				...(shouldDecrementReason && { [`shareReasons.${reason}`]: -1 }),
+			},
+		};
+
 		const updated = await Post.findByIdAndUpdate(
 			req.params.id,
-			{
-				$pull: { sharedBy: new mongoose.Types.ObjectId(req.user.id) },
-				$inc: { sharesCount: -1 },
-			},
+			update,
 			{ returnDocument: 'after', select: 'sharesCount' }
 		);
 
-		broadcastPulseUpdate(); // ── unsharing also changes this week's standings
+		broadcastPulseUpdate();
 
-		// ── live sync ──
 		io.emit('post:update', {
 			postId: req.params.id,
 			sharesCount: updated.sharesCount,
@@ -159,10 +169,6 @@ export const unsharePost = async (req, res) => {
 };
 
 // ── GET /api/posts/community-signals/summary ──────────────────────────
-// ── NEW: Community Insights sidebar widget ──
-// Lightweight aggregation: total community marks per core category, for
-// posts created inside the shared 7-day window. Always returns all four
-// keys (defaulting to 0) so the frontend never has to guard for missing ones.
 export const getCommunitySignalsSummary = async (req, res) => {
 	try {
 		const windowStart = getInsightsWindowStart();

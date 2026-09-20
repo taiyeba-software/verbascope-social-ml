@@ -8,10 +8,10 @@ import { generateImageKitFileName } from '../middlewares/upload.middleware.js';
 import { detectLanguage } from '../utils/detectLanguage.js';
 import { normalizeText } from '../utils/normalizeText.js';
 import authClient from '../utils/authClient.js';
-import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted
-import { indexPost, deleteIndexedPost, rebuildSearchIndex } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing (rebuildSearchIndex added for the redeploy/self-heal fix)
-import { getAISignal } from '../ml/signalMapper.js'; // ── NEW: VerbaScope AI Signal feature
-import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js'; // ── NEW: Community Insights (shared slug map + 7-day window)
+import { io } from '../../server.js';
+import { indexPost, deleteIndexedPost, rebuildSearchIndex } from '../search/postIndex.js';
+import { getAISignal } from '../ml/signalMapper.js';
+import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js';
 
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -23,11 +23,6 @@ const extractTags = (text = '') =>
 const countWords = (text = '') =>
   (text.match(/\S+/g) ?? []).length;
 
-// Fire-and-forget helper: recompute the weekly pulse and broadcast it.
-// Called after anything that changes weekly engagement (post created,
-// shared, liked, commented) so every connected client's sidebar stays
-// live without polling. Never awaited by the calling handler — a slow
-// or failing aggregation must never block or fail the user's action.
 const broadcastPulseUpdate = () => {
   pulse.getWeeklyPulse()
     .then((weeklyPulse) => io.emit('pulse:update', weeklyPulse))
@@ -42,16 +37,17 @@ const broadcastPulseUpdate = () => {
 //
 // EXPORTED so savedPost.controller.js's getSavedPosts() can run its results
 // through the exact same enrichment logic as getFeed/getPost/getPostsByUser.
-// Previously getSavedPosts() built its own plain post objects and never set
-// likedByMe/sharedByMe/isOwner at all, so every post on the Saved tab always
-// showed likedByMe: undefined (falsy) regardless of the real state — that
-// was the root cause of the "You already liked this post." 409s coming from
-// the Saved tab.
 export const addStateFlags = (posts, userId, savedPostIds = new Set()) =>
   posts.map((post) => ({
     ...post,
-    likedByMe:      post.likedBy?.some((id) => id.toString() === userId) || false,
-    sharedByMe:     post.sharedBy?.some((id) => id.toString() === userId) || false,
+    likedByMe:  post.likedBy?.some((id) => id.toString() === userId) || false,
+    // ── UPDATED: Community Signals ──
+    // sharedBy entries are now { user, reason, sharedAt } on posts shared
+    // after this change, but documents shared before it still have
+    // sharedBy as raw ObjectIds — `(entry.user ?? entry)` handles both
+    // shapes. See the migration note in post.model.js / the one-time
+    // scripts/migrateSharedBy.js script.
+    sharedByMe: post.sharedBy?.some((entry) => (entry.user ?? entry)?.toString() === userId) || false,
     bookmarkedByMe: savedPostIds.has(post._id.toString()),
     isOwner:
       post.author?._id?.toString() === userId ||
@@ -80,19 +76,15 @@ export const createPost = async (req, res) => {
     const rawContent         = content?.trim() || '';
     const tags               = extractTags(rawContent);
     const wordCount          = countWords(rawContent);
-    const contentLanguage    = detectLanguage(rawContent);   // renamed
+    const contentLanguage    = detectLanguage(rawContent);
     const normalizedContent  = normalizeText(rawContent);
-    // ── NEW: Pulse feature ──
-    // First tag wins, no NLP — matches the plan exactly. Falls back to
-    // 'general' for tagless posts so getWeeklyPulse()'s aggregation
-    // always has a group to put them in.
     const pulseTopic         = tags.length > 0 ? tags[0] : 'general';
 
     const newPost = await Post.create({
       author: req.user.id,
       content: rawContent,
       normalizedContent,
-      contentLanguage,                                        // renamed
+      contentLanguage,
       wordCount,
       tags,
       pulseTopic,
@@ -100,10 +92,9 @@ export const createPost = async (req, res) => {
     });
 
     pulse.onPostCreated(newPost, req.user.id);
-    broadcastPulseUpdate(); // ── NEW: keep sidebar's weekly pulse live
+    broadcastPulseUpdate();
     publish('post.created', { post: newPost });
 
-    // Send post text to ML Brain asynchronously
     if (rawContent) {
       publish('ml.analyze', {
         postId: newPost._id.toString(),
@@ -111,7 +102,6 @@ export const createPost = async (req, res) => {
       });
     }
 
-    // Fetch author from auth-service instead of populate()
     const usersRes = await authClient.post('/api/users/bulk', {
       ids: [newPost.author.toString()],
     });
@@ -119,9 +109,6 @@ export const createPost = async (req, res) => {
 
     const populatedPost = { ...newPost.toObject(), author };
 
-    // ── NEW: Phase 1 search indexing ──
-    // Fire-and-forget — search is non-critical, so we never make the
-    // response wait on Meilisearch, and any failure here is only logged.
     indexPost(newPost, author).catch((err) =>
       console.error('indexPost error:', err.message)
     );
@@ -134,12 +121,6 @@ export const createPost = async (req, res) => {
 };
 
 // ── GET /api/posts/feed ──────────────────────────────────────────────
-// ── UPDATED: Community Insights ──
-// Accepts an optional ?signal=<slug> (needs-attention | educational |
-// concerning | funny). When present, the feed is limited to posts from the
-// last 7 days (same window as the sidebar summary) that have at least one
-// community mark for that category, sorted by mark count (highest first),
-// then newest. Without `signal`, behaviour is exactly as before.
 export const getFeed = async (req, res) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page)  || 1);
@@ -147,15 +128,11 @@ export const getFeed = async (req, res) => {
     const skip   = (page - 1) * limit;
     const userId = req.user.id;
 
-    // ── NEW: Community Insights filter ──
     const { signal } = req.query;
     const filter = {};
     let sort = { createdAt: -1 };
 
     if (signal !== undefined && signal !== '') {
-      // hasOwnProperty check so inputs like "constructor" or "__proto__"
-      // can't slip through the plain-object lookup. Also rejects array
-      // values from ?signal=a&signal=b.
       const isKnownSignal =
         typeof signal === 'string' &&
         Object.prototype.hasOwnProperty.call(SIGNAL_MAP, signal);
@@ -171,7 +148,7 @@ export const getFeed = async (req, res) => {
 
       filter.createdAt = { $gte: getInsightsWindowStart() };
       filter[dbPath]   = { $gt: 0 };
-      sort = { [dbPath]: -1, createdAt: -1 }; // highest community marks first
+      sort = { [dbPath]: -1, createdAt: -1 };
     }
 
     const posts = await Post.find(filter)
@@ -186,10 +163,6 @@ export const getFeed = async (req, res) => {
       usersRes.data.users.map((u) => [u._id.toString(), u])
     );
 
-    // Which of THIS page's posts has the current user already saved?
-    // Scoped to `posts` (not a global "all my saves" query) since that's
-    // all addStateFlags needs, and it keeps this cheap even for users
-    // with a large saved-posts history.
     const savedDocs = await SavedPost.find({
       user: userId,
       post: { $in: posts.map((p) => p._id) },
@@ -198,12 +171,9 @@ export const getFeed = async (req, res) => {
       .lean();
     const savedPostIds = new Set(savedDocs.map((d) => d.post.toString()));
 
-    // Note: `mlAnalysis` is a plain field on the Post document, so it's
-    // already present on every item in `posts` (via .lean()) — nothing
-    // extra needed here to include it in the feed response.
     const enriched        = posts.map((p) => ({ ...p, author: userMap[p.author.toString()] || null }));
     const postsWithState  = addStateFlags(enriched, userId, savedPostIds);
-    const total            = await Post.countDocuments(filter); // ── UPDATED: same filter, so pagination matches
+    const total            = await Post.countDocuments(filter);
 
     return res.status(200).json({
       success: true,
@@ -230,13 +200,11 @@ export const getPost = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Post not found.' });
     }
 
-    // Fetch author from auth-service
     const usersRes = await authClient.post('/api/users/bulk', {
       ids: [post.author.toString()],
     });
     post.author = usersRes.data.users?.[0] || null;
 
-    // Single-post version of the same saved-lookup used in getFeed.
     const isSaved      = await SavedPost.exists({ user: req.user.id, post: post._id });
     const savedPostIds = isSaved ? new Set([post._id.toString()]) : new Set();
 
@@ -248,6 +216,55 @@ export const getPost = async (req, res) => {
   }
 };
 
+// ── GET /api/posts/:id/sharers ───────────────────────────────────────
+// ── NEW: Community Signals — "who marked it" ──
+// Returns everyone who shared this post, with the reason they picked
+// (if any) and when, newest first. Deliberately its own endpoint rather
+// than bundled into every feed item: the list is only needed when a user
+// clicks/hovers to expand it on a single post, so keeping it out of
+// getFeed's response keeps every normal feed page light.
+export const getPostSharers = async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid post ID.' });
+    }
+
+    const post = await Post.findById(req.params.id).select('sharedBy').lean();
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found.' });
+    }
+
+    // Normalize both entry shapes (see sharedBy migration note in
+    // post.model.js) into a single { userId, reason, sharedAt } form
+    // before looking up names.
+    const entries = (post.sharedBy || []).map((entry) =>
+      entry && typeof entry === 'object' && entry.user
+        ? { userId: entry.user.toString(), reason: entry.reason ?? null, sharedAt: entry.sharedAt ?? null }
+        : { userId: entry.toString(), reason: null, sharedAt: null }
+    );
+
+    if (entries.length === 0) {
+      return res.status(200).json({ success: true, sharers: [], total: 0 });
+    }
+
+    const userIds  = [...new Set(entries.map((e) => e.userId))];
+    const usersRes = await authClient.post('/api/users/bulk', { ids: userIds });
+    const userMap  = Object.fromEntries(
+      usersRes.data.users.map((u) => [u._id.toString(), u])
+    );
+
+    const sharers = entries
+      .map((e) => ({ user: userMap[e.userId] || null, reason: e.reason, sharedAt: e.sharedAt }))
+      .filter((e) => e.user) // drop anyone auth-service no longer has (deleted account)
+      .sort((a, b) => new Date(b.sharedAt || 0) - new Date(a.sharedAt || 0));
+
+    return res.status(200).json({ success: true, sharers, total: sharers.length });
+  } catch (err) {
+    console.error('getPostSharers error:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
 // ── GET /api/posts/user/:userId ──────────────────────────────────────
 export const getPostsByUser = async (req, res) => {
   try {
@@ -255,13 +272,12 @@ export const getPostsByUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid user ID.' });
     }
 
-    const viewerId = req.user.id; // the logged-in viewer, NOT the profile owner
+    const viewerId = req.user.id;
 
     const posts = await Post.find({ author: req.params.userId })
       .sort({ createdAt: -1 })
       .lean();
 
-    // Single bulk call for all posts' author (same user, profile owner)
     const usersRes = await authClient.post('/api/users/bulk', {
       ids: [req.params.userId],
     });
@@ -269,9 +285,6 @@ export const getPostsByUser = async (req, res) => {
 
     const enrichedPosts = posts.map((post) => ({ ...post, author }));
 
-    // Same saved-lookup pattern as getFeed — scoped to viewerId (the
-    // logged-in user), not the profile owner, and to just this page's
-    // posts.
     const savedDocs = await SavedPost.find({
       user: viewerId,
       post: { $in: posts.map((p) => p._id) },
@@ -310,19 +323,13 @@ export const deletePost = async (req, res) => {
 
     await post.deleteOne();
 
-    // ── NEW: Phase 1 search indexing ──
-    // Fire-and-forget, same rationale as createPost — a Meilisearch
-    // hiccup should never block or fail a delete.
     deleteIndexedPost(req.params.id).catch((err) =>
       console.error('deleteIndexedPost error:', err.message)
     );
 
-    // ── NEW: tell every connected browser this post is gone, so it
-    // disappears from everyone's feed instantly instead of only after
-    // a reload (useFeedSocket.ts already listens for this event). ──
     io.emit('post:deleted', { postId: req.params.id });
 
-    broadcastPulseUpdate(); // ── NEW: deleting a post can change this week's standings
+    broadcastPulseUpdate();
 
     return res.status(200).json({ success: true, message: 'Post deleted.' });
   } catch (err) {
@@ -332,12 +339,6 @@ export const deletePost = async (req, res) => {
 };
 
 // ── GET /api/posts/pulse/trending ────────────────────────────────────
-// ── NEW: Weekly Pulse endpoint ──
-// Replaces the old tag-leaderboard response shape with the "community
-// pulse" story: this week's #1 topic, why people are engaging with it,
-// how big a share of weekly activity it is, plus a short "Popular
-// Topics" list for discovery. All computed straight from Mongo in
-// pulse.getWeeklyPulse() — no new service, no ML Brain involvement.
 export const getWeeklyPulse = async (req, res) => {
   try {
     const weeklyPulse = await pulse.getWeeklyPulse();
@@ -349,14 +350,6 @@ export const getWeeklyPulse = async (req, res) => {
 };
 
 // ── POST /api/posts/admin/reanalyze ──────────────────────────────────
-// One-time backfill for posts created before the AI Signal feature
-// existed — they have text but were never sent to ml.analyze, so their
-// mlAnalysis.riskFlag is stuck at null forever. This finds those posts
-// and republishes them to the ML Brain via the same queue createPost()
-// already uses, so handleMLResult() picks up the results normally.
-//
-// Safe to call more than once — it only ever selects posts still missing
-// a riskFlag, so already-analyzed posts are never re-queued.
 export const reanalyzeStalePosts = async (req, res) => {
   try {
     const stalePosts = await Post.find({
@@ -390,18 +383,6 @@ export const reanalyzeStalePosts = async (req, res) => {
 
 
 // ── ONE-TIME / ON-DEMAND: Backfill search index ─────────────────────
-// Re-indexes every existing post into Meilisearch. Needed both for the
-// original case (posts created before Meilisearch was properly connected
-// never made it into the index) and now for manual recovery after a
-// redeploy on Render's ephemeral disk wipes the index (see
-// Meilisearch_Index_Persistence_Fix.md). Safe to run more than once —
-// it just re-adds the same posts, no duplicates or side effects.
-//
-// This is now a thin HTTP wrapper only. The actual logic lives in
-// rebuildSearchIndex() (search/postIndex.js) so server.js's startup
-// self-healing check can call the same function without going through
-// an Express req/res — a route handler must never be called directly
-// from non-HTTP startup code.
 export const reindexAllPosts = async (req, res) => {
   try {
     const { indexed, failed, total } = await rebuildSearchIndex();
@@ -421,16 +402,6 @@ export const reindexAllPosts = async (req, res) => {
 
 
 // ── ML Brain result handler ──────────────────────────────────────────
-// Called by consumeMLResults() (src/broker/rabbit.js) for every message
-// on the ml_results queue. This is the ONLY place that writes ML output
-// onto a Post, and the ONLY place that emits post:ml-analysis over
-// Socket.IO — no changes needed in rabbit.js itself, it just forwards
-// the parsed payload here.
-//
-// Saves the full "v2" ML Brain payload (language / toxicityLevel /
-// explanation / confidence included, alongside the original
-// sentiment/sarcasm/toxicity/riskFlag fields), then derives the
-// frontend-facing signal/signalMessage via getAISignal(), same as before.
 export const handleMLResult = async (result) => {
   try {
     if (!result?.postId) {
@@ -438,8 +409,6 @@ export const handleMLResult = async (result) => {
       return;
     }
 
-    // Derive the user-friendly signal + message from risk_flag.
-    // The backend decides this, not the frontend — see signalMapper.js.
     const aiSignal = getAISignal(result.risk_flag);
 
     const updatedPost = await Post.findByIdAndUpdate(
@@ -455,10 +424,6 @@ export const handleMLResult = async (result) => {
           'mlAnalysis.toxicityLevel': result.toxicity_level,
           'mlAnalysis.riskFlag': result.risk_flag,
           'mlAnalysis.explanation': result.explanation,
-          // NEW: single 0–1 "how sure is the model" number for the
-          // frontend AI Analysis dropdown's "Confidence" row. Comes
-          // straight from rabbit_consumer.py's result_message — see the
-          // comment there for how it's derived.
           'mlAnalysis.confidence': result.confidence,
           'mlAnalysis.signal': aiSignal.signal,
           'mlAnalysis.signalMessage': aiSignal.message,
@@ -473,10 +438,6 @@ export const handleMLResult = async (result) => {
       return;
     }
 
-    // ── DEBUG: split into two logs so we can tell "saved to DB" apart
-    // from "actually emitted over the socket" — if you see the first
-    // line but never the second, handleMLResult() is throwing or
-    // returning before reaching io.emit(). ──
     console.log(`ML analysis saved: ${result.postId} -> ${result.risk_flag} (${aiSignal.signal})`);
 
     console.log('📡 Emitting post:ml-analysis', {
@@ -484,9 +445,6 @@ export const handleMLResult = async (result) => {
       mlAnalysis: updatedPost.mlAnalysis,
     });
 
-    // Emit the whole saved mlAnalysis object rather than hand-picking
-    // fields, so any new field added to the schema later automatically
-    // reaches the frontend without another edit here.
     io.emit('post:ml-analysis', {
       postId: result.postId,
       mlAnalysis: updatedPost.mlAnalysis,

@@ -4,9 +4,9 @@ import { validatePost, validateComment } from '../middlewares/validation.middlew
 import { pulse } from '../pulse/pulse.js';
 import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts } from '../controllers/post.controller.js';
+import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts, getPostSharers } from '../controllers/post.controller.js'; // ── UPDATED: + getPostSharers
 import { likePost, unlikePost } from '../controllers/like.controller.js';
-import { sharePost, unsharePost, getCommunitySignalsSummary } from '../controllers/share.controller.js'; // ── UPDATED: + getCommunitySignalsSummary
+import { sharePost, unsharePost, getCommunitySignalsSummary } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
 import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
@@ -17,27 +17,14 @@ import { search, searchTags, getPostsByTag } from '../controllers/search.control
 
 const router = Router();
 
-// ── UPDATED: Weekly Pulse feature ──
-// Was: res.json({ trending: pulse.getTrending() }) — the old in-memory
-// tag-leaderboard handler, defined inline right here instead of going
-// through post.controller.js. That's why getWeeklyPulse()'s new
-// aggregation-based response never showed up: this route never called it.
-// Now points at the real controller, matching every other route below.
 router.get('/pulse/trending', protect, getWeeklyPulse);
 
 router.get('/pulse/signal', (req, res) => {
 	res.json(pulse.getSignal());
 });
 
-// ── NEW: Community Insights sidebar summary ──────────────────────────
-// Marks per category for the last 7 days. Registered above the generic
-// '/:id' route for consistency with '/search' and '/saved' — it is a
-// two-segment path so it wouldn't collide with '/:id' anyway, but this
-// keeps the ordering obvious to the next person editing this file.
 router.get('/community-signals/summary', protect, getCommunitySignalsSummary);
 
-// ── Milestone 4: per-post comment mood — computed live from the DB, so
-// old threads are accurate immediately, not just newly-arriving comments. ──
 router.get('/:id/pulse/mood', protect, getCommentMood);
 
 // ── Search routes ────────────────────────────────────────────────────
@@ -47,32 +34,11 @@ router.get('/search/health', async (req, res) => {
 	res.status(statusCode).json(health);
 });
 
-// NOTE: '/search' MUST be registered before the generic '/:id' route
-// below, same reasoning as '/saved' — otherwise GET /api/posts/search
-// matches '/:id' with id="search" and gets routed into getPost.
 router.get('/search',                         protect,                  search);
-
-// ── Tag search ──────────────────────────────────────────────────────
-// '/search/tags' is a more specific sibling of '/search' above — Express
-// matches these by exact path so there's no ordering conflict between the
-// two, but keeping tag routes grouped here for discoverability.
 router.get('/search/tags',                    protect,                  searchTags);
-
-// '/tag/:tagName' is a two-segment path, so it can't collide with the
-// single-segment '/:id' route below regardless of order — Express routes
-// by segment count/shape, not just prefix. Kept here anyway, next to the
-// other search routes, rather than relying on that safety margin being
-// obvious to the next person editing this file.
 router.get('/tag/:tagName',                   protect,                  getPostsByTag);
 
 // ── Admin / one-time backfill routes ───────────────────────────────────
-// Both are one-off maintenance actions for data created before a fix was
-// live (search indexing, ML analysis). Safe to call more than once —
-// reindexAllPosts just re-adds the same posts, reanalyzeStalePosts only
-// selects posts still missing a riskFlag. Placed above the generic
-// '/:id' route for the same reason as '/search' and '/saved' above:
-// '/admin/...' is a two-segment path so it wouldn't actually collide with
-// '/:id' regardless of position, but kept here for consistency/clarity.
 router.post('/admin/reindex-search',          protect,                  reindexAllPosts);
 router.post('/admin/reanalyze',               protect,                  reanalyzeStalePosts);
 
@@ -82,10 +48,6 @@ router.get('/feed',                           protect,                  getFeed)
 router.get('/user/:userId',                   protect,                  getPostsByUser);
 
 // ── Saved post routes ─────────────────────────────────────────────────
-// NOTE: '/saved' MUST be registered before the generic '/:id' route just
-// below. Express matches routes top-to-bottom, so if '/:id' came first,
-// a request to GET /api/posts/saved would match '/:id' with id="saved"
-// and get routed into getPost instead of getSavedPosts.
 router.get('/saved',                          protect,                  getSavedPosts);
 
 router.get('/:id',                            protect,                  getPost);
@@ -99,6 +61,13 @@ router.delete('/:id/unlike',                  protect,                  unlikePo
 router.post('/:id/share',                     protect,                  sharePost);
 router.delete('/:id/unshare',                 protect,                  unsharePost);
 
+// ── NEW: Community Signals — who shared this post and why (for the
+// PostCard hover/click "who marked this" list). Sibling of the share
+// routes just above, so it's registered here alongside them rather than
+// up with '/community-signals/summary' — that one is a fixed two-segment
+// path, this one needs '/:id' resolved first. ──
+router.get('/:id/sharers',                    protect,                  getPostSharers);
+
 // ── Save routes ──────────────────────────────────────────────────────
 router.post('/:id/save',                      protect,                  savePost);
 router.delete('/:id/unsave',                  protect,                  unsavePost);
@@ -106,8 +75,8 @@ router.delete('/:id/unsave',                  protect,                  unsavePo
 // ── Comment routes ───────────────────────────────────────────────────
 router.post('/:id/comment',                   protect, validateComment, addComment);
 router.get('/:id/comments',                   protect,                  getComments);
-router.get('/comments/:commentId/replies',    protect,                  getReplies); // ── NEW ──
-router.delete('/:postId/comments/:commentId', protect,                  deleteComment); // ── FIXED: removed stray whitespace in path ──
+router.get('/comments/:commentId/replies',    protect,                  getReplies);
+router.delete('/:postId/comments/:commentId', protect,                  deleteComment);
 
 // ── Dwell routes ─────────────────────────────────────────────────────
 router.post('/dwell',                         protect,                  recordDwell);

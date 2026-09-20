@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { VALID_REASONS } from '../constants/shareReasons.js';
 
 const postSchema = new mongoose.Schema(
   {
@@ -26,14 +27,6 @@ const postSchema = new mongoose.Schema(
       default: 0,
     },
     mlAnalysis: {
-      // ── NEW: ML Brain "v2" fields ──
-      // language / languageConfidence are the ML Brain's own language
-      // detection on the analyzed text. Deliberately named differently
-      // from the top-level `contentLanguage` field above (which is set
-      // synchronously at createPost time via detectLanguage.js) so the
-      // two never collide or get confused — contentLanguage is "our
-      // quick guess at write time", this is "the ML Brain's verdict
-      // after analysis".
       language: {
         type: String,
         default: null,
@@ -58,7 +51,6 @@ const postSchema = new mongoose.Schema(
         type: Number,
         default: null,
       },
-      // ── NEW: human-readable toxicity bucket from ML Brain v2 (e.g. "low"/"medium"/"high") ──
       toxicityLevel: {
         type: String,
         default: null,
@@ -68,26 +60,14 @@ const postSchema = new mongoose.Schema(
         enum: ['green', 'yellow', 'red', null],
         default: null,
       },
-      // ── NEW: ML Brain's own free-text explanation for the risk flag ──
       explanation: {
         type: String,
         default: null,
       },
-      // ── NEW: single 0–1 "how sure is the model" number from ML Brain
-      // (rabbit_consumer.py's result.confidence -> handleMLResult() in
-      // post.controller.js). Without this field declared here, Mongoose
-      // silently drops mlAnalysis.confidence from every $set — it never
-      // reaches the database even though the controller sets it
-      // correctly. Feeds the "Confidence" row in the frontend's
-      // expandable AI Analysis card.
       confidence: {
         type: Number,
         default: null,
       },
-      // Derived from riskFlag via signalMapper.js's getAISignal().
-      // These are what the frontend renders by default (the feed card);
-      // the raw fields above stay available for the
-      // "Why this signal?" expandable detail view.
       signal: {
         type: String,
         default: null,
@@ -105,13 +85,6 @@ const postSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    // ── NEW: Pulse feature ──
-    // Set once at createPost time (see post.controller.js): the first
-    // hashtag on the post, lowercased, no '#'. Falls back to 'general'
-    // when a post has no tags. Deliberately dumb/deterministic — no
-    // NLP, no re-classification later — so getWeeklyPulse() in
-    // pulse.js can group posts by this field directly in a Mongo
-    // aggregation without touching the ML pipeline at all.
     pulseTopic: {
       type: String,
       default: 'general',
@@ -127,7 +100,40 @@ const postSchema = new mongoose.Schema(
     likesCount:    { type: Number, default: 0 },
     commentsCount: { type: Number, default: 0 },
     sharesCount:   { type: Number, default: 0 },
-    sharedBy:  [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+    // ── UPDATED: Community Insights — "who marked it" ──
+    // Was: [{ type: ObjectId, ref: 'User' }] — just a flat list of sharers,
+    // with no record of which reason each person picked. That made it
+    // impossible to (a) show who marked a post as e.g. "Insightful" and
+    // (b) correctly reverse shareReasons.<reason> on unshare (see the
+    // "Known limitations" note this replaces).
+    //
+    // NOTE ON EXISTING DATA: documents created before this change still
+    // have sharedBy as raw ObjectIds in the database. Mongoose casts new
+    // $push'd entries into this subdocument shape going forward, but a
+    // .lean() read of an OLD document returns those old entries as plain
+    // ObjectIds, not { user, reason, sharedAt } objects. Every place that
+    // reads sharedBy (sharePost, unsharePost, addStateFlags, getPostSharers)
+    // MUST handle both shapes — look for `(entry.user ?? entry)`. Run the
+    // one-time migration script (scripts/migrateSharedBy.js) to normalize
+    // existing documents so this fallback becomes unnecessary over time.
+    sharedBy: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      reason: {
+        type: String,
+        enum: [...VALID_REASONS, null],
+        default: null,
+      },
+      sharedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+
     likedBy:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     shareReasons: {
       agree:           { type: Number, default: 0 },
@@ -143,12 +149,12 @@ const postSchema = new mongoose.Schema(
 
 postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
-postSchema.index({ contentLanguage: 1, createdAt: -1 });  // renamed
+postSchema.index({ contentLanguage: 1, createdAt: -1 });
 postSchema.index({ tags: 1 });
-postSchema.index({ pulseTopic: 1, createdAt: -1 });        // ── NEW: for getWeeklyPulse() aggregation
-postSchema.index(                                          // text index with fixed language
+postSchema.index({ pulseTopic: 1, createdAt: -1 });
+postSchema.index(
   { normalizedContent: 'text', content: 'text' },
-  { default_language: 'none' }                            // 'none' = language-agnostic, supports Bangla
+  { default_language: 'none' }
 );
 
 export default mongoose.model('Post', postSchema);

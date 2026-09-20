@@ -9,7 +9,27 @@ import { io } from '../../server.js';
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 const VALID_REASONS = ['agree', 'funny', 'needs_attention', 'insightful', 'concerning', 'educational'];
 
-// ── NEW: Weekly Pulse ──
+// ── NEW: Community Insights shared config ──
+// Defined ONCE here and imported by post.controller.js (getFeed), so the
+// sidebar summary and the filtered feed can never drift apart.
+//
+// Maps the URL slug (/feed?signal=needs-attention) to the real key stored
+// in Post.shareReasons. These keys MUST match VALID_REASONS above, since
+// sharePost() writes `shareReasons.<reason>` using those exact values.
+export const SIGNAL_MAP = {
+	'needs-attention': 'needs_attention',
+	'educational':     'educational',
+	'concerning':      'concerning',
+	'funny':           'funny',
+};
+
+// Both the sidebar summary and the filtered feed use this window.
+export const INSIGHTS_WINDOW_DAYS = 7;
+
+export const getInsightsWindowStart = () =>
+	new Date(Date.now() - INSIGHTS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+// ── Weekly Pulse ──
 // Fire-and-forget: a share changes sharesCount and shareReasons, both
 // inputs to getWeeklyPulse()'s score, so re-broadcast after every share/
 // unshare. Never awaited — a slow aggregation must never block the
@@ -54,7 +74,7 @@ export const sharePost = async (req, res) => {
 
 		publish('post.shared', { postId: req.params.id, reason });
 		pulse.onPostShared(req.params.id, reason, req.user.id);
-		broadcastPulseUpdate(); // ── NEW: keep sidebar's weekly pulse live
+		broadcastPulseUpdate(); // ── keep sidebar's weekly pulse live
 		updateUserPulse(req.user.id, req.params.id, 'share');
 
 		// ── live sync ──
@@ -118,7 +138,7 @@ export const unsharePost = async (req, res) => {
 			{ returnDocument: 'after', select: 'sharesCount' }
 		);
 
-		broadcastPulseUpdate(); // ── NEW: unsharing also changes this week's standings
+		broadcastPulseUpdate(); // ── unsharing also changes this week's standings
 
 		// ── live sync ──
 		io.emit('post:update', {
@@ -130,5 +150,35 @@ export const unsharePost = async (req, res) => {
 	} catch (err) {
 		console.error('unsharePost error:', err);
 		return res.status(500).json({ success: false, message: 'Server error.' });
+	}
+};
+
+// ── GET /api/posts/community-signals/summary ──────────────────────────
+// ── NEW: Community Insights sidebar widget ──
+// Lightweight aggregation: total community marks per core category, for
+// posts created inside the shared 7-day window. Always returns all four
+// keys (defaulting to 0) so the frontend never has to guard for missing ones.
+export const getCommunitySignalsSummary = async (req, res) => {
+	try {
+		const windowStart = getInsightsWindowStart();
+		const reasonKeys  = Object.values(SIGNAL_MAP);
+
+		const summary = await Post.aggregate([
+			{ $match: { createdAt: { $gte: windowStart } } },
+			{ $project: { shareReasons: { $objectToArray: '$shareReasons' } } },
+			{ $unwind: '$shareReasons' },
+			{ $match: { 'shareReasons.k': { $in: reasonKeys } } },
+			{ $group: { _id: '$shareReasons.k', totalMarked: { $sum: '$shareReasons.v' } } },
+		]);
+
+		const result = Object.fromEntries(reasonKeys.map((key) => [key, 0]));
+		summary.forEach((item) => {
+			result[item._id] = item.totalMarked;
+		});
+
+		return res.status(200).json({ success: true, summary: result });
+	} catch (err) {
+		console.error('getCommunitySignalsSummary error:', err);
+		return res.status(500).json({ success: false, summary: {} });
 	}
 };

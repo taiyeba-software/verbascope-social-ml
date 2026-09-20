@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import FeedSkeleton from '@/components/FeedSkeleton';
 import SidebarSkeleton from '@/components/SidebarSkeleton';
@@ -14,6 +15,7 @@ import { ShareSheet } from '@/components/feed/ShareSheet';
 import { MobileTrendingBar } from './MobileTrendingBar';
 import { WhoToFollowInline } from './WhoToFollowInline';
 import { Sidebar } from '@/components/feed/Sidebar';
+import { CommunityInsights, InsightBanner, findInsight } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
 import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
 import {
   DEFAULT_COMMENT_STATE,
@@ -38,9 +40,15 @@ function appendWithoutDuplicates(current: FeedPost[], incoming: FeedPost[]): Fee
   return [...current, ...incoming.filter((post) => !existingIds.has(post._id))];
 }
 
-export default function FeedPage() {
+function FeedPageContent() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+
+  // ── NEW: Community Insights filter, driven by the URL (?signal=educational).
+  // Unknown values are ignored, so /feed?signal=bogus behaves like /feed. ──
+  const searchParams = useSearchParams();
+  const activeInsight = findInsight(searchParams.get('signal'));
+  const activeSignal = activeInsight?.slug;
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -50,6 +58,11 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ── NEW: true once the first feed load has finished. Keeps the sidebar
+  // mounted while switching between Community Insights filters (otherwise
+  // it would flash back to its skeleton on every filter click). ──
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+
   // pageRef (not state) tracks "which page did we last fetch" — it drives
   // what page to request next, without needing a state update + rerender
   // round-trip in the middle of a fetch.
@@ -57,11 +70,18 @@ export default function FeedPage() {
   const fetchingRef = useRef(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  // ── NEW: bumped every time the filter changes. A response that comes back
+  // for an OLD filter compares its captured version against this and is
+  // discarded, so a slow request can never overwrite the new list. ──
+  const signalVersionRef = useRef(0);
+
   const [openComments, setOpenComments] = useState<OpenComments>({});
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
-  // Pulse signal / trending tags + live post:update / post:deleted sync
-  const { pulseSignal, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
+  // Weekly pulse / trending tags + live post:update / post:deleted sync.
+  // UPDATED: `weeklyPulse` (live 'pulse:update' data) is what <Sidebar />
+  // actually accepts; the old `pulseSignal` prop no longer exists on it.
+  const { weeklyPulse, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
 
   // NEW: capture the ?token= param appended by auth-service's Google OAuth
   // redirect (googleCallback → `/feed?token=...`). This is the only way a
@@ -91,6 +111,9 @@ export default function FeedPage() {
     (targetPage: number) => {
       if (!user || fetchingRef.current) return;
 
+      // ── NEW: remember which filter this request belongs to ──
+      const version = signalVersionRef.current;
+
       fetchingRef.current = true;
       pageRef.current = targetPage;
 
@@ -101,9 +124,16 @@ export default function FeedPage() {
       }
       setError(null);
 
-      postService
-        .getFeed(targetPage)
+      // ── UPDATED: passes the active Community Insights signal (if any) as a
+      // query param. With no filter, `signal` is undefined and axios omits
+      // it, so the request is identical to before. ──
+      postApi
+        .get('/api/posts/feed', {
+          params: { page: targetPage, limit: 10, signal: activeSignal },
+        })
         .then(({ data }) => {
+          if (version !== signalVersionRef.current) return; // stale (filter changed)
+
           const result = data as FeedResponse;
           const newPosts = result.posts ?? [];
 
@@ -114,22 +144,36 @@ export default function FeedPage() {
           setHasMore(targetPage < (result.totalPages ?? 1));
         })
         .catch(() => {
+          if (version !== signalVersionRef.current) return; // stale (filter changed)
+
           setError(targetPage === 1 ? 'Could not load your feed.' : 'Could not load more posts.');
         })
         .finally(() => {
+          if (version !== signalVersionRef.current) return; // stale (filter changed)
+
           fetchingRef.current = false;
           setLoadingInitial(false);
           setLoadingMore(false);
+          setFirstLoadDone(true);
         });
     },
-    [user]
+    [user, activeSignal]
   );
 
-  // Kick off page 1 once the user is known.
+  // Kick off page 1 once the user is known — and again whenever the
+  // Community Insights filter changes (sidebar click, banner "Clear Filter",
+  // browser back/forward). Switching filter keeps this component mounted, so
+  // the old list, page counter and any in-flight request are reset first.
   useEffect(() => {
+    signalVersionRef.current += 1;
+    fetchingRef.current = false;
+    pageRef.current = 0;
+    setPosts([]);
+    setHasMore(true);
+    setTotalPages(1);
     if (user) fetchFeed(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, activeSignal]);
 
   // ── Sentinel via callback ref, not useRef+useEffect. A callback ref
   // fires every time the DOM node actually mounts/unmounts, which is
@@ -377,10 +421,26 @@ export default function FeedPage() {
       <Navbar />
 
       <main className="feed-main">
-        <CreatePostBox onPost={(newPost) => setPosts((cur) => [{ ...newPost, commentsCount: 0 } as FeedPost, ...cur])} />
+        <CreatePostBox
+          onPost={(newPost) => {
+            // ── NEW: a brand-new post has no community marks yet, so it
+            // never belongs in a filtered Community Insights view. ──
+            if (activeSignal) return;
+            setPosts((cur) => [{ ...newPost, commentsCount: 0 } as FeedPost, ...cur]);
+          }}
+        />
 
         {/* Mobile trending bar — hidden on desktop via CSS */}
         <MobileTrendingBar trendingTags={trendingTags} />
+
+        {/* ── NEW: Community Insights, compact 2×2 version — mobile only
+            (the desktop version lives in <Sidebar />) ── */}
+        <div className="mobile-only">
+          <CommunityInsights activeSlug={activeSignal ?? null} compact />
+        </div>
+
+        {/* ── NEW: active-filter banner ── */}
+        {activeInsight && <InsightBanner insight={activeInsight} />}
 
         {loadingInitial ? (
           <FeedSkeleton />
@@ -392,11 +452,23 @@ export default function FeedPage() {
             </button>
           </div>
         ) : posts.length === 0 ? (
-          <div className="feed-empty">
-            <div className="feed-empty-icon">📡</div>
-            <div className="feed-empty-title">No posts yet</div>
-            <p>Be the first to share something with the community.</p>
-          </div>
+          activeInsight ? (
+            // ── NEW: friendly empty state for a Community Insights filter ──
+            <div className="feed-empty">
+              <div className="feed-empty-icon">{activeInsight.icon}</div>
+              <div className="feed-empty-title">{activeInsight.emptyTitle}</div>
+              <p>{activeInsight.emptyText}</p>
+              <Link href="/feed" className="insight-banner-clear">
+                Back to all posts
+              </Link>
+            </div>
+          ) : (
+            <div className="feed-empty">
+              <div className="feed-empty-icon">📡</div>
+              <div className="feed-empty-title">No posts yet</div>
+              <p>Be the first to share something with the community.</p>
+            </div>
+          )
         ) : (
           <>
             {posts.map((post, index) => (
@@ -450,14 +522,16 @@ export default function FeedPage() {
         )}
       </main>
 
-      {loadingInitial ? (
+      {/* UPDATED: skeleton only until the FIRST load finishes, so switching
+          Community Insights filters doesn't remount the sidebar each time. */}
+      {!firstLoadDone ? (
         <aside className="feed-sidebar">
           <SidebarSkeleton />
         </aside>
       ) : (
         <Sidebar
-          pulseSignal={pulseSignal}
-          trendingTags={trendingTags}
+          weeklyPulse={weeklyPulse}
+          activeInsight={activeSignal ?? null}
         />
       )}
 
@@ -469,5 +543,14 @@ export default function FeedPage() {
         />
       )}
     </div>
+  );
+}
+
+// useSearchParams() must sit under a <Suspense> boundary in the App Router.
+export default function FeedPage() {
+  return (
+    <Suspense fallback={null}>
+      <FeedPageContent />
+    </Suspense>
   );
 }

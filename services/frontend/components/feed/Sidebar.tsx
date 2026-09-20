@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import type { WeeklyPulse } from './useFeedSocket';
 import { postService, userService } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { CommunityInsights } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
 
 interface RecommendedUser {
   _id: string;
@@ -29,6 +30,7 @@ const initials = (fullname: { firstName: string; lastName: string }) =>
 
 export function Sidebar({
   weeklyPulse,
+  activeInsight = null,
 }: {
   // Live updates arrive via this prop (parent wires it from
   // useFeedSocket()'s `weeklyPulse`, updated on 'pulse:update'). Sidebar
@@ -36,6 +38,10 @@ export function Sidebar({
   // data immediately, instead of waiting for the next post/share to
   // trigger a broadcast.
   weeklyPulse: WeeklyPulse | null;
+  // ── NEW: slug of the Community Insights filter currently applied to the
+  // feed (e.g. 'educational'), used only to highlight the active row.
+  // Optional, so any other place that renders <Sidebar /> keeps working.
+  activeInsight?: string | null;
 }) {
   const { user } = useAuth();
   const [recommendations, setRecommendations] = useState<RecommendedUser[]>([]);
@@ -143,6 +149,9 @@ export function Sidebar({
 
   return (
     <aside className="feed-sidebar">
+
+      {/* ── NEW: Community Insights ── */}
+      <CommunityInsights activeSlug={activeInsight} />
 
       {/* ── Trending Now: Weekly Pulse ── */}
       {/* NOTE: topics are intentionally plain text, not links — the

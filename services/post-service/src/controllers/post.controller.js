@@ -11,6 +11,7 @@ import authClient from '../utils/authClient.js';
 import { io } from '../../server.js'; // ── NEW: needed to broadcast post:deleted
 import { indexPost, deleteIndexedPost, rebuildSearchIndex } from '../search/postIndex.js'; // ── NEW: Phase 1 search indexing (rebuildSearchIndex added for the redeploy/self-heal fix)
 import { getAISignal } from '../ml/signalMapper.js'; // ── NEW: VerbaScope AI Signal feature
+import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js'; // ── NEW: Community Insights (shared slug map + 7-day window)
 
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -133,6 +134,12 @@ export const createPost = async (req, res) => {
 };
 
 // ── GET /api/posts/feed ──────────────────────────────────────────────
+// ── UPDATED: Community Insights ──
+// Accepts an optional ?signal=<slug> (needs-attention | educational |
+// concerning | funny). When present, the feed is limited to posts from the
+// last 7 days (same window as the sidebar summary) that have at least one
+// community mark for that category, sorted by mark count (highest first),
+// then newest. Without `signal`, behaviour is exactly as before.
 export const getFeed = async (req, res) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page)  || 1);
@@ -140,8 +147,35 @@ export const getFeed = async (req, res) => {
     const skip   = (page - 1) * limit;
     const userId = req.user.id;
 
-    const posts = await Post.find()
-      .sort({ createdAt: -1 })
+    // ── NEW: Community Insights filter ──
+    const { signal } = req.query;
+    const filter = {};
+    let sort = { createdAt: -1 };
+
+    if (signal !== undefined && signal !== '') {
+      // hasOwnProperty check so inputs like "constructor" or "__proto__"
+      // can't slip through the plain-object lookup. Also rejects array
+      // values from ?signal=a&signal=b.
+      const isKnownSignal =
+        typeof signal === 'string' &&
+        Object.prototype.hasOwnProperty.call(SIGNAL_MAP, signal);
+
+      if (!isKnownSignal) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid signal. Allowed values: ${Object.keys(SIGNAL_MAP).join(', ')}`,
+        });
+      }
+
+      const dbPath = `shareReasons.${SIGNAL_MAP[signal]}`;
+
+      filter.createdAt = { $gte: getInsightsWindowStart() };
+      filter[dbPath]   = { $gt: 0 };
+      sort = { [dbPath]: -1, createdAt: -1 }; // highest community marks first
+    }
+
+    const posts = await Post.find(filter)
+      .sort(sort)
       .skip(skip)
       .limit(limit)
       .lean();
@@ -169,7 +203,7 @@ export const getFeed = async (req, res) => {
     // extra needed here to include it in the feed response.
     const enriched        = posts.map((p) => ({ ...p, author: userMap[p.author.toString()] || null }));
     const postsWithState  = addStateFlags(enriched, userId, savedPostIds);
-    const total            = await Post.countDocuments();
+    const total            = await Post.countDocuments(filter); // ── UPDATED: same filter, so pagination matches
 
     return res.status(200).json({
       success: true,

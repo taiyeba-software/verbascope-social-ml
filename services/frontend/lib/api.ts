@@ -240,9 +240,21 @@ export const postApi = new ApiClient({
 // interchangeable in the Sidebar.
 export type WeeklyPulseResponse = { success: boolean } & WeeklyPulse;
 
+// ── NEW: Community Insights ──
+// Shape returned by GET /api/posts/community-signals/summary. Keys are the
+// stored shareReasons keys: needs_attention, educational, concerning, funny.
+export type CommunityInsightsSummaryResponse = {
+  success: boolean;
+  summary: Record<string, number>;
+};
+
 export const postService = {
-  getFeed: (page = 1, limit = 10) =>
-    postApi.get(`/api/posts/feed?page=${page}&limit=${limit}`),
+  // ── UPDATED: optional `signal` (a Community Insights slug such as
+  // 'needs-attention'). When omitted, the request is identical to before.
+  getFeed: (page = 1, limit = 10, signal?: string) =>
+    postApi.get('/api/posts/feed', {
+      params: { page, limit, ...(signal ? { signal } : {}) },
+    }),
 
   getPost: (id: string) =>
     postApi.get(`/api/posts/${id}`),
@@ -311,6 +323,11 @@ export const postService = {
   // a broadcast.
   getWeeklyPulse: () =>
     postApi.get<WeeklyPulseResponse>('/api/posts/pulse/trending'),
+
+  // ── NEW: Community Insights ──
+  // Marks per category for the last 7 days (sidebar / mobile widget).
+  getCommunitySignalsSummary: () =>
+    postApi.get<CommunityInsightsSummaryResponse>('/api/posts/community-signals/summary'),
 
   // ── Search (Phase 2/2.5 backend, Phase 3 frontend) ──
   // Matches GET /api/posts/search?q=&limit=&offset= — withCredentials on

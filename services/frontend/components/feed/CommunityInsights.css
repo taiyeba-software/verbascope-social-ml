@@ -1,0 +1,126 @@
+/* ──────────────────────────────────────────────────────────
+   Community Insights
+   Self-contained: does not touch feed.css. Colors use translucent
+   greys / currentColor so it works in both light and dark themes.
+   The card itself reuses the existing .sidebar-card* classes.
+   ────────────────────────────────────────────────────────── */
+
+.community-insights .insight-window {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.insight-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px; /* comfortable tap target */
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.insight-row:hover,
+.insight-row:focus-visible {
+  background: rgba(127, 127, 127, 0.12);
+  outline: none;
+}
+
+.insight-row--active {
+  background: rgba(14, 159, 171, 0.14);
+}
+
+.insight-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.insight-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.insight-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.insight-count {
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.insight-chevron {
+  margin-left: auto;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ── Mobile / compact: 2×2 grid of large tap targets ── */
+.insight-list--compact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.insight-list--compact .insight-row {
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  padding: 10px;
+}
+
+.insight-list--compact .insight-chevron {
+  display: none;
+}
+
+/* ── Active-filter banner above the feed ── */
+.insight-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(14, 159, 171, 0.1);
+  border: 1px solid rgba(14, 159, 171, 0.25);
+}
+
+.insight-banner-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.insight-banner-desc {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.insight-banner-clear {
+  color: #0e9fab;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.insight-banner-clear:hover {
+  text-decoration: underline;
+}

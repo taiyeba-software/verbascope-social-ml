@@ -6,7 +6,7 @@ import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
 import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
-import { sharePost, unsharePost } from '../controllers/share.controller.js';
+import { sharePost, unsharePost, getCommunitySignalsSummary } from '../controllers/share.controller.js'; // ── UPDATED: + getCommunitySignalsSummary
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
 import { recordDwell } from '../controllers/dwell.controller.js';
 import { getRecommendedUsers } from '../controllers/recommendations.controller.js';
@@ -28,6 +28,13 @@ router.get('/pulse/trending', protect, getWeeklyPulse);
 router.get('/pulse/signal', (req, res) => {
 	res.json(pulse.getSignal());
 });
+
+// ── NEW: Community Insights sidebar summary ──────────────────────────
+// Marks per category for the last 7 days. Registered above the generic
+// '/:id' route for consistency with '/search' and '/saved' — it is a
+// two-segment path so it wouldn't collide with '/:id' anyway, but this
+// keeps the ordering obvious to the next person editing this file.
+router.get('/community-signals/summary', protect, getCommunitySignalsSummary);
 
 // ── Milestone 4: per-post comment mood — computed live from the DB, so
 // old threads are accurate immediately, not just newly-arriving comments. ──

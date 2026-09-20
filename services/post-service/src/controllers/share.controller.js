@@ -16,11 +16,16 @@ const VALID_REASONS = ['agree', 'funny', 'needs_attention', 'insightful', 'conce
 // Maps the URL slug (/feed?signal=needs-attention) to the real key stored
 // in Post.shareReasons. These keys MUST match VALID_REASONS above, since
 // sharePost() writes `shareReasons.<reason>` using those exact values.
+//
+// Covers ALL six share reasons offered in the "Why are you passing this
+// forward?" sheet. Order matches that sheet.
 export const SIGNAL_MAP = {
 	'needs-attention': 'needs_attention',
-	'educational':     'educational',
-	'concerning':      'concerning',
+	'agree':           'agree',
 	'funny':           'funny',
+	'insightful':      'insightful',
+	'concerning':      'concerning',
+	'educational':     'educational',
 };
 
 // Both the sidebar summary and the filtered feed use this window.

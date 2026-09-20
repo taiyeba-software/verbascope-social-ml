@@ -13,8 +13,11 @@ import './CommunityInsights.css';
    `mobile-only` wrapper), and so app/feed/page.tsx can reuse the
    labels/icons/copy without importing from Sidebar.
 
-   `reason` values are the keys stored in Post.shareReasons by the
-   backend (see VALID_REASONS in share.controller.js) — snake_case.
+   Covers every share reason from the "Why are you passing this forward?"
+   sheet (same order). `reason` values are the keys stored in
+   Post.shareReasons by the backend (VALID_REASONS in
+   share.controller.js) — snake_case. `slug` is the URL value and must
+   match SIGNAL_MAP in share.controller.js.
    ────────────────────────────────────────────────────────── */
 
 export const INSIGHTS = [
@@ -23,17 +26,39 @@ export const INSIGHTS = [
     reason: 'needs_attention',
     label: 'Needs Attention',
     icon: '🚨',
+    bannerTitle: 'Needs Attention Posts',
     bannerText: 'Showing posts from this week frequently marked by the community.',
     emptyTitle: 'No posts need attention',
     emptyText: 'Nothing has been marked by the community this week.',
   },
   {
-    slug: 'educational',
-    reason: 'educational',
-    label: 'Educational',
-    icon: '📚',
-    bannerText: 'Showing posts from this week the community found educational.',
-    emptyTitle: 'No Educational posts yet',
+    slug: 'agree',
+    reason: 'agree',
+    label: 'I Agree',
+    icon: '✅',
+    bannerTitle: 'Posts the Community Agrees With',
+    bannerText: 'Showing posts from this week the community agreed with.',
+    emptyTitle: 'No agreed-with posts yet',
+    emptyText: 'Nothing has been marked "I agree" this week.',
+  },
+  {
+    slug: 'funny',
+    reason: 'funny',
+    label: 'Funny',
+    icon: '😄',
+    bannerTitle: 'Funny Posts',
+    bannerText: 'Showing posts from this week the community found funny.',
+    emptyTitle: 'No Funny posts yet',
+    emptyText: 'Be the first to share one with the community.',
+  },
+  {
+    slug: 'insightful',
+    reason: 'insightful',
+    label: 'Insightful',
+    icon: '💡',
+    bannerTitle: 'Insightful Posts',
+    bannerText: 'Showing posts from this week the community found insightful.',
+    emptyTitle: 'No Insightful posts yet',
     emptyText: 'Be the first to share one with the community.',
   },
   {
@@ -41,17 +66,19 @@ export const INSIGHTS = [
     reason: 'concerning',
     label: 'Concerning',
     icon: '⚠️',
+    bannerTitle: 'Concerning Posts',
     bannerText: 'Showing posts from this week the community found concerning.',
     emptyTitle: 'No Concerning posts this week',
     emptyText: 'Nothing has been marked as concerning right now.',
   },
   {
-    slug: 'funny',
-    reason: 'funny',
-    label: 'Funny',
-    icon: '😄',
-    bannerText: 'Showing posts from this week the community found funny.',
-    emptyTitle: 'No Funny posts yet',
+    slug: 'educational',
+    reason: 'educational',
+    label: 'Educational',
+    icon: '📚',
+    bannerTitle: 'Educational Posts',
+    bannerText: 'Showing posts from this week the community found educational.',
+    emptyTitle: 'No Educational posts yet',
     emptyText: 'Be the first to share one with the community.',
   },
 ] as const;
@@ -94,7 +121,7 @@ export function CommunityInsights({
 }: {
   /** Slug currently applied to the feed, so its row can be highlighted. */
   activeSlug?: string | null;
-  /** Compact 2×2 layout for the mobile inline version. */
+  /** Compact 2-column layout for the mobile inline version. */
   compact?: boolean;
 }) {
   const [summary, setSummary] = useState<Summary>({});
@@ -110,6 +137,13 @@ export function CommunityInsights({
     return () => { cancelled = true; };
   }, []);
 
+  // Only categories that actually have community marks this week are shown.
+  // The currently-applied filter is always kept visible so the user can
+  // still see where they are (and switch away) even if its count is 0.
+  const visible = INSIGHTS.filter(
+    ({ slug, reason }) => (summary[reason] || 0) > 0 || slug === activeSlug
+  );
+
   return (
     <div className="sidebar-card community-insights">
       <div className="sidebar-card-header">
@@ -118,33 +152,42 @@ export function CommunityInsights({
         <span className="insight-window">This week</span>
       </div>
 
-      <nav
-        aria-label="Community Insights"
-        className={`insight-list${compact ? ' insight-list--compact' : ''}`}
-      >
-        {INSIGHTS.map(({ slug, reason, label, icon }) => {
-          const count    = summary[reason] || 0;
-          const isActive = activeSlug === slug;
-          const noun     = compact ? 'mark' : 'community mark';
-          return (
-            <Link
-              key={slug}
-              href={`/feed?signal=${slug}`}
-              className={`insight-row${isActive ? ' insight-row--active' : ''}`}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <span className="insight-icon" aria-hidden="true">{icon}</span>
-              <span className="insight-text">
-                <span className="insight-label">{label}</span>
-                <span className="insight-count">
-                  {loaded ? `${count} ${noun}${count === 1 ? '' : 's'}` : '…'}
+      {!loaded ? (
+        <div className="follow-loading">Loading insights...</div>
+      ) : visible.length === 0 ? (
+        <div className="follow-empty">
+          <div className="follow-empty-icon">🌐</div>
+          <div>No community marks yet this week. Share a post with a reason to get things started.</div>
+        </div>
+      ) : (
+        <nav
+          aria-label="Community Insights"
+          className={`insight-list${compact ? ' insight-list--compact' : ''}`}
+        >
+          {visible.map(({ slug, reason, label, icon }) => {
+            const count    = summary[reason] || 0;
+            const isActive = activeSlug === slug;
+            const noun     = compact ? 'mark' : 'community mark';
+            return (
+              <Link
+                key={slug}
+                href={`/feed?signal=${slug}`}
+                className={`insight-row${isActive ? ' insight-row--active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <span className="insight-icon" aria-hidden="true">{icon}</span>
+                <span className="insight-text">
+                  <span className="insight-label">{label}</span>
+                  <span className="insight-count">
+                    {`${count} ${noun}${count === 1 ? '' : 's'}`}
+                  </span>
                 </span>
-              </span>
-              <span className="insight-chevron" aria-hidden="true">›</span>
-            </Link>
-          );
-        })}
-      </nav>
+                <span className="insight-chevron" aria-hidden="true">›</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
     </div>
   );
 }
@@ -156,7 +199,7 @@ export function InsightBanner({ insight }: { insight: Insight }) {
     <div className="insight-banner" role="status">
       <div className="insight-banner-text">
         <div className="insight-banner-title">
-          {insight.icon} {insight.label} Posts
+          {insight.icon} {insight.bannerTitle}
         </div>
         <div className="insight-banner-desc">{insight.bannerText}</div>
       </div>

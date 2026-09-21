@@ -5,7 +5,7 @@ import { publish } from '../broker/rabbit.js';
 import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
-import { VALID_REASONS } from '../constants/shareReasons.js'; // ── UPDATED: moved to shared constants so post.model.js can use it too
+import { VALID_REASONS } from '../constants/shareReasons.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -14,6 +14,9 @@ const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 // See the sharedBy migration note in post.model.js. ──
 const sharerUserId = (entry) => (entry?.user ?? entry)?.toString();
 
+// ── Community Insights shared config ──
+// Defined ONCE here and imported by post.controller.js (getFeed), so the
+// sidebar summary and the filtered feed can never drift apart.
 export const SIGNAL_MAP = {
 	'needs-attention': 'needs_attention',
 	'agree':           'agree',
@@ -124,11 +127,11 @@ export const unsharePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'You have not shared this post.' });
 		}
 
-		// ── UPDATED: fixes "Known limitation #1" from the build doc — we now
-		// know WHICH reason this user picked, so we can decrement
-		// shareReasons.<reason> instead of leaving it stuck forever. Only
-		// decrement if the count is actually above 0, so a double-unshare
-		// race or already-migrated-away data can never push it negative. ──
+		// ── UPDATED: we now know WHICH reason this user picked, so we
+		// can decrement shareReasons.<reason> instead of leaving it stuck
+		// forever. Only decrement if the count is actually above 0, so a
+		// double-unshare race or already-migrated-away data can never
+		// push it negative. ──
 		const reason = existingEntry.reason ?? null;
 		const currentReasonCount = reason ? (post.shareReasons?.[reason] ?? 0) : 0;
 		const shouldDecrementReason = Boolean(reason) && currentReasonCount > 0;

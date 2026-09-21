@@ -4,7 +4,7 @@ import { validatePost, validateComment } from '../middlewares/validation.middlew
 import { pulse } from '../pulse/pulse.js';
 import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts, getPostSharers } from '../controllers/post.controller.js'; // ── UPDATED: + getPostSharers
+import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts, getPostSharers } from '../controllers/post.controller.js';
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost, getCommunitySignalsSummary } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
@@ -62,10 +62,7 @@ router.post('/:id/share',                     protect,                  sharePos
 router.delete('/:id/unshare',                 protect,                  unsharePost);
 
 // ── NEW: Community Signals — who shared this post and why (for the
-// PostCard hover/click "who marked this" list). Sibling of the share
-// routes just above, so it's registered here alongside them rather than
-// up with '/community-signals/summary' — that one is a fixed two-segment
-// path, this one needs '/:id' resolved first. ──
+// PostCard hover/click "who marked this" list). ──
 router.get('/:id/sharers',                    protect,                  getPostSharers);
 
 // ── Save routes ──────────────────────────────────────────────────────

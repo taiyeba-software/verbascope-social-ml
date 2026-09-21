@@ -29,12 +29,6 @@ const broadcastPulseUpdate = () => {
     .catch((err) => console.error('broadcastPulseUpdate error:', err.message));
 };
 
-// `savedPostIds` is a Set of post-id strings the current user has bookmarked
-// (looked up from the SavedPost join collection — saves are NOT stored on
-// the Post doc itself, unlike likedBy/sharedBy). Defaults to an empty Set so
-// any existing caller that doesn't pass one just gets bookmarkedByMe: false
-// instead of throwing.
-//
 // EXPORTED so savedPost.controller.js's getSavedPosts() can run its results
 // through the exact same enrichment logic as getFeed/getPost/getPostsByUser.
 export const addStateFlags = (posts, userId, savedPostIds = new Set()) =>
@@ -219,10 +213,9 @@ export const getPost = async (req, res) => {
 // ── GET /api/posts/:id/sharers ───────────────────────────────────────
 // ── NEW: Community Signals — "who marked it" ──
 // Returns everyone who shared this post, with the reason they picked
-// (if any) and when, newest first. Deliberately its own endpoint rather
-// than bundled into every feed item: the list is only needed when a user
-// clicks/hovers to expand it on a single post, so keeping it out of
-// getFeed's response keeps every normal feed page light.
+// (if any) and when, newest first. Its own endpoint rather than bundled
+// into getFeed's response, since it's only needed when a user opens it
+// on a single post — keeps every normal feed page light.
 export const getPostSharers = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {

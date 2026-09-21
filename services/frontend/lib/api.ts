@@ -6,7 +6,7 @@ import type { WeeklyPulse } from '@/components/feed/useFeedSocket';
    API Client Configuration
    ────────────────────────────────────────────────────────── */
 
-const API_TIMEOUT = 10000; // 10 seconds
+const API_TIMEOUT = 10000;
 
 interface ApiConfig {
   baseURL: string;
@@ -202,9 +202,6 @@ export type CommunityInsightsSummaryResponse = {
 };
 
 // ── NEW: Community Signals — "who marked it" ──
-// Shape returned by GET /api/posts/:id/sharers (post.controller.js's
-// getPostSharers). `reason` is null for shares made without picking one
-// (sharePost() allows that — see share.controller.js).
 export type SharerEntry = {
   user: {
     _id: string;
@@ -262,9 +259,7 @@ export const postService = {
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),
 
-  // ── NEW: Community Signals — who shared this post and why. Called
-  // on-demand by PostCard when the user opens the sharers list, not as
-  // part of every feed load. ──
+  // ── NEW: Community Signals — who shared this post and why. ──
   getPostSharers: (id: string) =>
     postApi.get<PostSharersResponse>(`/api/posts/${id}/sharers`),
 

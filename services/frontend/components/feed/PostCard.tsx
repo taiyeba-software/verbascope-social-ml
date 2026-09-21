@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type Ref } from 'react';
-import { createPortal } from 'react-dom'; // ── NEW: needed to escape .post-card's overflow:hidden
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Post } from '@/types';
@@ -33,10 +33,6 @@ export type FeedPost = Post & {
   mlAnalysis?: MLAnalysis | null;
 };
 
-// ── NEW: Community Signals — reason icon/label, mirrors CommunityInsights'
-// INSIGHTS config (reason -> label/icon). Kept as a small local map instead
-// of importing that file, since this only needs icon+label, not the full
-// slug/banner/empty-state config used by the sidebar widget. ──
 const REASON_META: Record<string, { icon: string; label: string }> = {
   needs_attention: { icon: '🚨', label: 'Needs Attention' },
   agree:           { icon: '✅', label: 'I Agree' },
@@ -153,16 +149,11 @@ function ImageCarousel({ images }: { images: string[] }) {
   );
 }
 
-// ── UPDATED: Community Signals — sharers popover ───────────────────────
-// Was: `position: absolute` nested inside .post-actions. .post-card has
-// `overflow: hidden` (for the left accent border / rounded image corners),
-// which silently clipped this popover whenever it extended past the
-// card's own box — it fetched and rendered, it just wasn't visible.
-//
-// Fix: render through a portal to document.body with `position: fixed`
-// at real screen coordinates, computed from the trigger element's
-// getBoundingClientRect(). Same escape-the-clip approach this file
-// already needs for LikeAnimation's anchorPoint.
+// ── Community Signals — sharers popover ───────────────────────────────
+// Rendered through a portal to document.body with position: fixed at
+// real screen coordinates (from the trigger's getBoundingClientRect()),
+// since .post-card has overflow: hidden and would clip a nested
+// position: absolute popover.
 function SharersPopover({
   postId,
   anchorRect,
@@ -197,8 +188,6 @@ function SharersPopover({
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    // Attach on next frame so the click that OPENED this popover (still
-    // bubbling in the same tick) doesn't immediately close it again.
     const id = requestAnimationFrame(() => {
       document.addEventListener('mousedown', handleClick);
       document.addEventListener('keydown', handleKey);
@@ -210,9 +199,6 @@ function SharersPopover({
     };
   }, [onClose]);
 
-  // Anchored ABOVE the trigger, horizontally centered on it — real pixel
-  // coordinates since this is now a fixed-position portal, not relative
-  // to any (potentially clipping) ancestor.
   const style: React.CSSProperties = {
     position: 'fixed',
     top: anchorRect.top - 8,
@@ -289,11 +275,12 @@ export function PostCard({
   const [anchorPoint, setAnchorPoint] = useState<AnchorPoint | null>(null);
   const likeBtnRef = useRef<HTMLButtonElement>(null);
 
-  // ── UPDATED: Community Signals — sharers popover now tracks the
-  // trigger's screen position (not just open/closed), since it renders
-  // via a portal and needs real coordinates. Null = closed. ──
+  // ── UPDATED: sharesCountRef now points at a <button>, not a <span>,
+  // since the count is its own independent clickable element (see
+  // "post-share-group" below) rather than nested inside the
+  // share/unshare button. ──
   const [sharersAnchor, setSharersAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
-  const sharesCountRef = useRef<HTMLSpanElement>(null);
+  const sharesCountRef = useRef<HTMLButtonElement>(null);
 
   const tags = post.tags ?? extractTags(post.content);
   const images = post.images ?? [];
@@ -323,13 +310,11 @@ export function PostCard({
     }
   };
 
-  // ── UPDATED: opens the sharers popover (via portal) instead of
-  // toggling share. Only makes sense when there's at least one share. ──
   const handleSharesCountClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if ((post.sharesCount ?? 0) === 0) return;
     if (sharersAnchor) {
-      setSharersAnchor(null); // toggle closed
+      setSharersAnchor(null);
       return;
     }
     const rect = sharesCountRef.current?.getBoundingClientRect();
@@ -442,27 +427,31 @@ export function PostCard({
           <span>{post.commentsCount ?? 0}</span>
         </button>
 
-        {/* ── UPDATED: share icon still toggles share/unshare; the count
-            is a separate clickable target that opens "who shared this"
-            (via portal, see SharersPopover) when there's ≥1 share. ── */}
-        <button
-          type="button"
-          className={`post-action-btn${post.sharedByMe ? ' shared' : ''}`}
-          onClick={() => onShare(post._id, post.sharedByMe ?? false)}
-          aria-label={post.sharedByMe ? 'Unshare' : 'Share'}
-          aria-pressed={post.sharedByMe}
-        >
-          <ShareIcon />
-          <span
+        {/* ── UPDATED: share icon and share count are now two independent
+            sibling buttons (not nested), so a click on one can never
+            bubble into the other. The icon still toggles share/unshare;
+            the count opens the sharers popover. ── */}
+        <div className="post-share-group">
+          <button
+            type="button"
+            className={`post-action-btn post-action-btn--share${post.sharedByMe ? ' shared' : ''}`}
+            onClick={() => onShare(post._id, post.sharedByMe ?? false)}
+            aria-label={post.sharedByMe ? 'Unshare' : 'Share'}
+            aria-pressed={post.sharedByMe}
+          >
+            <ShareIcon />
+          </button>
+          <button
+            type="button"
             ref={sharesCountRef}
+            className={`post-share-count${(post.sharesCount ?? 0) > 0 ? ' post-share-count--clickable' : ''}`}
             onClick={handleSharesCountClick}
-            className={(post.sharesCount ?? 0) > 0 ? 'post-action-count--clickable' : undefined}
-            role={(post.sharesCount ?? 0) > 0 ? 'button' : undefined}
+            disabled={(post.sharesCount ?? 0) === 0}
             aria-label={(post.sharesCount ?? 0) > 0 ? 'See who shared this' : undefined}
           >
             {post.sharesCount ?? 0}
-          </span>
-        </button>
+          </button>
+        </div>
 
         {sharersAnchor && (
           <SharersPopover

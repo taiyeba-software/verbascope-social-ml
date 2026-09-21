@@ -887,3 +887,127 @@
     display: none;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   Community Signals — share icon + count as independent buttons
+   Previously the count was a <span> nested inside the share/unshare
+   button, which made click-target separation unreliable (a click on
+   the count could still bubble into the parent button's onShare).
+   Now .post-share-group holds two separate sibling buttons that share
+   the same visual footprint as the other .post-action-btn elements.
+   ────────────────────────────────────────────────────────── */
+
+.post-share-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  border-radius: var(--v-radius-full);
+  transition: all var(--v-transition);
+}
+
+.post-action-btn--share {
+  flex: 0 0 auto;
+  padding-right: 4px;
+}
+
+.post-share-count {
+  background: none;
+  border: none;
+  color: var(--v-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--v-font-sans);
+  padding: 7px 10px 7px 2px;
+  min-height: var(--pc-touch-min);
+  cursor: default;
+  border-radius: var(--v-radius-full);
+  transition: all var(--v-transition);
+}
+
+.post-share-count--clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color var(--v-transition), color var(--v-transition);
+}
+
+.post-share-count--clickable:hover {
+  text-decoration-color: currentColor;
+  color: var(--pc-accent);
+}
+
+.post-share-count:disabled {
+  cursor: default;
+}
+
+.sharers-popover {
+  min-width: 220px;
+  max-width: 280px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--v-bg-card);
+  border: 1px solid var(--v-border);
+  border-radius: var(--v-radius-md);
+  box-shadow: var(--v-shadow-md);
+  padding: 10px;
+  z-index: 1000;
+}
+
+.sharers-popover-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--v-text-muted);
+  padding: 4px 6px 8px;
+}
+
+.sharers-popover-empty {
+  font-size: 0.85rem;
+  color: var(--v-text-muted);
+  padding: 8px 6px;
+}
+
+.sharers-popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sharers-popover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px;
+  border-radius: var(--v-radius-sm);
+}
+
+.sharers-popover-item:hover {
+  background: var(--pc-surface-hover);
+}
+
+.sharers-popover-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--v-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sharers-popover-reason {
+  font-size: 0.75rem;
+  color: var(--v-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 359px) {
+  .post-share-count {
+    display: none;
+  }
+}

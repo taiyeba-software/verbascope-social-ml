@@ -16,6 +16,12 @@ import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+// ── NEW: AI Filter ──
+// Allowed values for GET /api/posts/feed?risk=...
+// Filters by the ML Brain's prediction (mlAnalysis.riskFlag) only.
+// Community-based filtering stays with `signal` (Community Consensus).
+const ALLOWED_RISK_FLAGS = ['green', 'yellow', 'red'];
+
 const extractTags = (text = '') =>
   (text.match(/#([\p{L}\p{N}_]+)/gu) ?? [])
     .map((tag) => tag.slice(1).toLowerCase());
@@ -115,6 +121,12 @@ export const createPost = async (req, res) => {
 };
 
 // ── GET /api/posts/feed ──────────────────────────────────────────────
+// Query params:
+//   page, limit
+//   signal  — Community Consensus filter (existing)
+//   risk    — NEW: AI Filter, by ML Brain prediction: green | yellow | red
+//             (omitted / empty / "all" = no risk filtering)
+// `signal` and `risk` are independent and can be combined.
 export const getFeed = async (req, res) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page)  || 1);
@@ -122,10 +134,11 @@ export const getFeed = async (req, res) => {
     const skip   = (page - 1) * limit;
     const userId = req.user.id;
 
-    const { signal } = req.query;
+    const { signal, risk } = req.query;
     const filter = {};
     let sort = { createdAt: -1 };
 
+    // ── Community Consensus filter (unchanged) ──
     if (signal !== undefined && signal !== '') {
       const isKnownSignal =
         typeof signal === 'string' &&
@@ -143,6 +156,25 @@ export const getFeed = async (req, res) => {
       filter.createdAt = { $gte: getInsightsWindowStart() };
       filter[dbPath]   = { $gt: 0 };
       sort = { [dbPath]: -1, createdAt: -1 };
+    }
+
+    // ── NEW: AI Filter — ML Brain prediction only ──
+    if (risk !== undefined && risk !== '' && risk !== 'all') {
+      const normalizedRisk = typeof risk === 'string' ? risk.toLowerCase() : '';
+
+      if (!ALLOWED_RISK_FLAGS.includes(normalizedRisk)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid risk. Allowed values: ${ALLOWED_RISK_FLAGS.join(', ')}`,
+        });
+      }
+
+      // Match the stored value regardless of casing ("green" / "Green" / "GREEN")
+      // while still allowing an index on mlAnalysis.riskFlag to be used.
+      const capitalized = normalizedRisk.charAt(0).toUpperCase() + normalizedRisk.slice(1);
+      filter['mlAnalysis.riskFlag'] = {
+        $in: [normalizedRisk, capitalized, normalizedRisk.toUpperCase()],
+      };
     }
 
     const posts = await Post.find(filter)

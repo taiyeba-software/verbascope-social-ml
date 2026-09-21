@@ -219,9 +219,18 @@ export type PostSharersResponse = {
 };
 
 export const postService = {
-  getFeed: (page = 1, limit = 10, signal?: string) =>
+  // UPDATED: `risk` (AI Filter — ML Brain prediction: green | yellow | red)
+  // added as the LAST parameter so existing callers that pass
+  // (page, limit, signal) keep working unchanged. Both filters are optional
+  // and omitted from the request when not set.
+  getFeed: (page = 1, limit = 10, signal?: string, risk?: string) =>
     postApi.get('/api/posts/feed', {
-      params: { page, limit, ...(signal ? { signal } : {}) },
+      params: {
+        page,
+        limit,
+        ...(signal ? { signal } : {}),
+        ...(risk ? { risk } : {}),
+      },
     }),
 
   getPost: (id: string) =>

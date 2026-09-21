@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   Home,
-  Compass,
   Bookmark,
   LogOut,
   BellOff,
@@ -21,6 +20,7 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService, tokenStorage } from '@/lib/api';
 import SearchBar from './search/SearchBar';
+import FilterDropdown from './feed/FilterDropdown';
 import './Navbar.css';
 import ThemeToggle from './ThemeToggle';
 
@@ -35,12 +35,17 @@ interface Notification {
   reason?: 'agree' | 'funny' | 'needs_attention' | 'insightful' | 'concerning' | 'educational' | null;
 }
 
-/* ── Nav links ───────────────────────────────────────────── */
+/* ── Nav links ─────────────────────────────────────────────
+   UPDATED: "Explore" removed. The AI Filter is not a link (it opens a
+   dropdown / sheet), so it is rendered separately, right after Feed on
+   desktop and after Bookmarks inside the hamburger menu. ── */
 const NAV_LINKS = [
   { href: '/feed', label: 'Feed', icon: Home },
-  { href: '/explore', label: 'Explore', icon: Compass },
   { href: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
 ] as const;
+
+/* Desktop: AI Filter sits right after this link (Feed · AI Filter · Bookmarks) */
+const FILTER_AFTER_HREF = '/feed';
 
 /* ── Helpers ─────────────────────────────────────────────── */
 const REASON_LABELS: Record<string, string> = {
@@ -196,6 +201,11 @@ export default function Navbar() {
   /* ── Close notification dropdown / mobile menu when clicking outside ── */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      // NEW: the AI Filter's phone bottom sheet is rendered in a portal
+      // (outside menuRef). Clicks inside it must not count as "outside",
+      // otherwise the hamburger closes and unmounts the sheet mid-click.
+      if ((e.target as Element | null)?.closest?.('[data-filter-sheet]')) return;
+
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
@@ -372,12 +382,21 @@ export default function Navbar() {
 
         <ul className="navbar-links">
           {NAV_LINKS.map(({ href, label, icon: Icon }) => (
-            <li key={href}>
-              <Link href={href} className={`navbar-link${isLinkActive(href) ? ' active' : ''}`}>
-                <Icon size={16} strokeWidth={1.9} />
-                <span>{label}</span>
-              </Link>
-            </li>
+            <Fragment key={href}>
+              <li>
+                <Link href={href} className={`navbar-link${isLinkActive(href) ? ' active' : ''}`}>
+                  <Icon size={16} strokeWidth={1.9} />
+                  <span>{label}</span>
+                </Link>
+              </li>
+
+              {/* NEW: AI Filter dropdown, Feed · AI Filter · Bookmarks */}
+              {href === FILTER_AFTER_HREF && (
+                <li>
+                  <FilterDropdown variant="desktop" />
+                </li>
+              )}
+            </Fragment>
           ))}
         </ul>
 
@@ -441,6 +460,14 @@ export default function Navbar() {
                   </Link>
                 </li>
               ))}
+
+              {/* NEW: AI Filter — inline list on tablet, bottom sheet on phones.
+                  onNavigate closes the hamburger after a filter is applied
+                  (pathname doesn't change for /feed → /feed?risk=…, so the
+                  route-change effect above wouldn't do it). */}
+              <li>
+                <FilterDropdown variant="menu" onNavigate={() => setMenuOpen(false)} />
+              </li>
             </ul>
 
             <div className="navbar-mobile-menu-divider" />

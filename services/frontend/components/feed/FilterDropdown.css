@@ -1,0 +1,300 @@
+/* ─────────────────────────────────────────────────────────
+   AI Filter — dropdown, tablet inline list, phone bottom sheet,
+   and the feed banner.
+
+   THEMING: the four --af-* tokens below fall back to your existing
+   CSS variables if they exist under these names, otherwise to neutral
+   defaults. Point them at your real theme variables once (look at
+   Navbar.css for the names it uses) and dark mode will just work.
+   ───────────────────────────────────────────────────────── */
+
+.ai-filter,
+.ai-filter-sheet-root,
+.risk-banner {
+  --af-bg: var(--card-bg, var(--bg-card, var(--surface, #ffffff)));
+  --af-fg: var(--text-primary, var(--text, #111827));
+  --af-muted: var(--text-secondary, var(--text-muted, #6b7280));
+  --af-border: var(--border-color, var(--border, rgba(120, 120, 120, 0.25)));
+  --af-hover: var(--hover-bg, rgba(120, 120, 120, 0.12));
+  --af-accent: var(--accent, var(--primary, #4f46e5));
+}
+
+/* Zero-specificity reset so .navbar-link / .navbar-mobile-menu-link
+   styling wins wherever it defines something. */
+:where(.ai-filter-trigger) {
+  appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ai-filter {
+  position: relative;
+}
+
+.ai-filter-trigger {
+  position: relative;
+}
+
+.ai-filter-chevron {
+  transition: transform 0.15s ease;
+}
+.ai-filter-chevron.open {
+  transform: rotate(180deg);
+}
+
+.ai-filter-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--af-accent);
+  margin-left: 2px;
+}
+
+/* ── Desktop dropdown panel ── */
+.ai-filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 250px;
+  padding: 6px;
+  background: var(--af-bg);
+  color: var(--af-fg);
+  border: 1px solid var(--af-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  z-index: 60;
+}
+
+.ai-filter-panel-title {
+  padding: 8px 10px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--af-muted);
+}
+
+.ai-filter-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--af-border);
+}
+
+.ai-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--af-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ai-filter-option:hover,
+.ai-filter-option:focus-visible {
+  background: var(--af-hover);
+  outline: none;
+}
+.ai-filter-option.selected {
+  font-weight: 600;
+}
+
+.ai-filter-option-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ai-filter-option-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.ai-filter-option-label {
+  font-size: 14px;
+}
+.ai-filter-option-desc {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--af-muted);
+}
+
+.ai-filter-check {
+  margin-left: auto;
+  color: var(--af-accent);
+}
+
+.ai-filter-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--af-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ai-filter-reset:hover:not(:disabled) {
+  background: var(--af-hover);
+  color: var(--af-fg);
+}
+.ai-filter-reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── Hamburger-menu variant ── */
+.ai-filter--menu {
+  width: 100%;
+}
+.ai-filter-trigger--menu {
+  width: 100%;
+  text-align: left;
+}
+.ai-filter-menu-chevron {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.ai-filter-menu-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* Tablet: inline expanded list */
+.ai-filter-inline {
+  margin: 2px 0 6px 18px;
+  padding-left: 10px;
+  border-left: 2px solid var(--af-border);
+}
+
+/* ── Phone: bottom sheet ── */
+.ai-filter-sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+.ai-filter-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.ai-filter-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--af-bg);
+  color: var(--af-fg);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+  animation: ai-filter-sheet-in 0.2s ease-out;
+}
+@keyframes ai-filter-sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.ai-filter-sheet-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 2px;
+  background: var(--af-border);
+}
+.ai-filter-sheet-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.ai-filter-sheet-options {
+  display: flex;
+  flex-direction: column;
+}
+.ai-filter-radio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 4px;
+  font-size: 15px;
+  border-bottom: 1px solid var(--af-border);
+  cursor: pointer;
+}
+.ai-filter-radio input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--af-accent);
+}
+.ai-filter-sheet-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.ai-filter-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-filter-btn--ghost {
+  background: none;
+  color: var(--af-fg);
+  border: 1px solid var(--af-border);
+}
+.ai-filter-btn--primary {
+  background: var(--af-accent);
+  color: #fff;
+  border: 1px solid var(--af-accent);
+}
+
+/* ── Feed banner (used by app/feed/page.tsx) ── */
+.risk-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--af-border);
+  border-left-width: 4px;
+  background: var(--af-bg);
+  color: var(--af-fg);
+}
+.risk-banner--green  { border-left-color: #16a34a; background: rgba(22, 163, 74, 0.10); }
+.risk-banner--yellow { border-left-color: #ca8a04; background: rgba(202, 138, 4, 0.12); }
+.risk-banner--red    { border-left-color: #dc2626; background: rgba(220, 38, 38, 0.10); }
+
+.risk-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+.risk-banner-text span {
+  color: var(--af-muted);
+  font-size: 13px;
+}
+.risk-banner-clear {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--af-fg);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--af-border);
+}
+.risk-banner-clear:hover {
+  background: var(--af-hover);
+}

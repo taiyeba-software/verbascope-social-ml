@@ -16,6 +16,7 @@ import { MobileTrendingBar } from './MobileTrendingBar';
 import { WhoToFollowInline } from './WhoToFollowInline';
 import { Sidebar } from '@/components/feed/Sidebar';
 import { CommunityInsights, InsightBanner, findInsight } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
+import { findRisk } from '@/components/feed/FilterDropdown'; // ── NEW: AI Filter
 import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
 import {
   DEFAULT_COMMENT_STATE,
@@ -50,6 +51,12 @@ function FeedPageContent() {
   const activeInsight = findInsight(searchParams.get('signal'));
   const activeSignal = activeInsight?.slug;
 
+  // ── NEW: AI Filter, driven by the URL (?risk=green|yellow|red).
+  // Filters by the ML Brain's prediction only. Unknown values are ignored,
+  // so /feed?risk=bogus behaves like /feed. ──
+  const activeRiskFilter = findRisk(searchParams.get('risk'));
+  const activeRisk = activeRiskFilter?.value;
+
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -70,9 +77,10 @@ function FeedPageContent() {
   const fetchingRef = useRef(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // ── NEW: bumped every time the filter changes. A response that comes back
-  // for an OLD filter compares its captured version against this and is
-  // discarded, so a slow request can never overwrite the new list. ──
+  // ── NEW: bumped every time a filter (signal OR risk) changes. A response
+  // that comes back for an OLD filter compares its captured version against
+  // this and is discarded, so a slow request can never overwrite the new
+  // list. ──
   const signalVersionRef = useRef(0);
 
   const [openComments, setOpenComments] = useState<OpenComments>({});
@@ -124,12 +132,13 @@ function FeedPageContent() {
       }
       setError(null);
 
-      // ── UPDATED: passes the active Community Insights signal (if any) as a
-      // query param. With no filter, `signal` is undefined and axios omits
-      // it, so the request is identical to before. ──
+      // ── UPDATED: passes the active Community Insights signal and/or the
+      // active AI Filter risk (if any) as query params. With no filter both
+      // are undefined and axios omits them, so the request is identical to
+      // before. ──
       postApi
         .get('/api/posts/feed', {
-          params: { page: targetPage, limit: 10, signal: activeSignal },
+          params: { page: targetPage, limit: 10, signal: activeSignal, risk: activeRisk },
         })
         .then(({ data }) => {
           if (version !== signalVersionRef.current) return; // stale (filter changed)
@@ -157,13 +166,14 @@ function FeedPageContent() {
           setFirstLoadDone(true);
         });
     },
-    [user, activeSignal]
+    [user, activeSignal, activeRisk]
   );
 
-  // Kick off page 1 once the user is known — and again whenever the
-  // Community Insights filter changes (sidebar click, banner "Clear Filter",
-  // browser back/forward). Switching filter keeps this component mounted, so
-  // the old list, page counter and any in-flight request are reset first.
+  // Kick off page 1 once the user is known — and again whenever a filter
+  // changes (Community Insights click, AI Filter pick, banner "Clear
+  // Filter", browser back/forward). Switching filter keeps this component
+  // mounted, so the old list, page counter and any in-flight request are
+  // reset first.
   useEffect(() => {
     signalVersionRef.current += 1;
     fetchingRef.current = false;
@@ -173,7 +183,7 @@ function FeedPageContent() {
     setTotalPages(1);
     if (user) fetchFeed(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeSignal]);
+  }, [user, activeSignal, activeRisk]);
 
   // ── Sentinel via callback ref, not useRef+useEffect. A callback ref
   // fires every time the DOM node actually mounts/unmounts, which is
@@ -423,9 +433,10 @@ function FeedPageContent() {
       <main className="feed-main">
         <CreatePostBox
           onPost={(newPost) => {
-            // ── NEW: a brand-new post has no community marks yet, so it
-            // never belongs in a filtered Community Insights view. ──
-            if (activeSignal) return;
+            // ── NEW: a brand-new post has no community marks yet and no ML
+            // prediction yet, so it never belongs in a filtered view
+            // (Community Insights or AI Filter). ──
+            if (activeSignal || activeRisk) return;
             setPosts((cur) => [{ ...newPost, commentsCount: 0 } as FeedPost, ...cur]);
           }}
         />
@@ -441,6 +452,21 @@ function FeedPageContent() {
 
         {/* ── NEW: active-filter banner ── */}
         {activeInsight && <InsightBanner insight={activeInsight} />}
+
+        {/* ── NEW: AI Filter banner ── */}
+        {activeRiskFilter && (
+          <div className={`risk-banner risk-banner--${activeRiskFilter.value}`} role="status">
+            <div className="risk-banner-text">
+              <strong>
+                {activeRiskFilter.emoji} {activeRiskFilter.bannerTitle}
+              </strong>
+              <span>{activeRiskFilter.bannerText}</span>
+            </div>
+            <Link href="/feed" className="risk-banner-clear">
+              Clear Filter ✕
+            </Link>
+          </div>
+        )}
 
         {loadingInitial ? (
           <FeedSkeleton />
@@ -458,6 +484,16 @@ function FeedPageContent() {
               <div className="feed-empty-icon">{activeInsight.icon}</div>
               <div className="feed-empty-title">{activeInsight.emptyTitle}</div>
               <p>{activeInsight.emptyText}</p>
+              <Link href="/feed" className="insight-banner-clear">
+                Back to all posts
+              </Link>
+            </div>
+          ) : activeRiskFilter ? (
+            // ── NEW: friendly empty state for an AI Filter ──
+            <div className="feed-empty">
+              <div className="feed-empty-icon">{activeRiskFilter.emoji}</div>
+              <div className="feed-empty-title">{activeRiskFilter.emptyTitle}</div>
+              <p>{activeRiskFilter.emptyText}</p>
               <Link href="/feed" className="insight-banner-clear">
                 Back to all posts
               </Link>
@@ -523,7 +559,7 @@ function FeedPageContent() {
       </main>
 
       {/* UPDATED: skeleton only until the FIRST load finishes, so switching
-          Community Insights filters doesn't remount the sidebar each time. */}
+          filters doesn't remount the sidebar each time. */}
       {!firstLoadDone ? (
         <aside className="feed-sidebar">
           <SidebarSkeleton />

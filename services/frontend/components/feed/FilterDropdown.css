@@ -11,12 +11,12 @@
 .ai-filter,
 .ai-filter-sheet-root,
 .risk-banner {
-  --af-bg: var(--card-bg, var(--bg-card, var(--surface, #ffffff)));
-  --af-fg: var(--text-primary, var(--text, #111827));
-  --af-muted: var(--text-secondary, var(--text-muted, #6b7280));
-  --af-border: var(--border-color, var(--border, rgba(120, 120, 120, 0.25)));
-  --af-hover: var(--hover-bg, rgba(120, 120, 120, 0.12));
-  --af-accent: var(--accent, var(--primary, #4f46e5));
+  --af-bg: var(--v-bg-card, #ffffff);
+  --af-fg: var(--v-text-primary, #111827);
+  --af-muted: var(--v-text-muted, #6b7280);
+  --af-border: var(--v-border, rgba(120, 120, 120, 0.25));
+  --af-hover: var(--v-accent-soft, rgba(120, 120, 120, 0.12));
+  --af-accent: var(--v-signal-green, #4f46e5);
 }
 
 /* Zero-specificity reset so .navbar-link / .navbar-mobile-menu-link

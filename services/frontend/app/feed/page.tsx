@@ -16,7 +16,7 @@ import { MobileTrendingBar } from './MobileTrendingBar';
 import { WhoToFollowInline } from './WhoToFollowInline';
 import { Sidebar } from '@/components/feed/Sidebar';
 import { CommunityInsights, InsightBanner, findInsight } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
-import { findRisk } from '@/components/feed/FilterDropdown'; // ── NEW: AI Filter
+import { parseRiskParam, getRiskBannerConfig } from '@/components/feed/FilterDropdown'; // ── NEW: AI Filter (multi-select)
 import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
 import {
   DEFAULT_COMMENT_STATE,
@@ -51,11 +51,14 @@ function FeedPageContent() {
   const activeInsight = findInsight(searchParams.get('signal'));
   const activeSignal = activeInsight?.slug;
 
-  // ── NEW: AI Filter, driven by the URL (?risk=green|yellow|red).
-  // Filters by the ML Brain's prediction only. Unknown values are ignored,
-  // so /feed?risk=bogus behaves like /feed. ──
-  const activeRiskFilter = findRisk(searchParams.get('risk'));
-  const activeRisk = activeRiskFilter?.value;
+  // ── NEW: AI Filter, driven by the URL (?risk=green,yellow — comma
+  // separated, multi-select). Filters by the ML Brain's prediction only.
+  // Unknown values are ignored and all three colors is normalized to "no
+  // filter", same as the param being omitted. `activeRisk` is what's sent
+  // to the API; `activeRiskBanner` has the copy for the banner/empty state. ──
+  const activeRisks = parseRiskParam(searchParams.get('risk'));
+  const activeRisk = activeRisks.length > 0 ? activeRisks.join(',') : undefined;
+  const activeRiskBanner = getRiskBannerConfig(activeRisks);
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -453,14 +456,17 @@ function FeedPageContent() {
         {/* ── NEW: active-filter banner ── */}
         {activeInsight && <InsightBanner insight={activeInsight} />}
 
-        {/* ── NEW: AI Filter banner ── */}
-        {activeRiskFilter && (
-          <div className={`risk-banner risk-banner--${activeRiskFilter.value}`} role="status">
+        {/* ── NEW: AI Filter banner — summarizes whichever color(s) are active ── */}
+        {activeRiskBanner && (
+          <div
+            className={`risk-banner risk-banner--${activeRisks.length === 1 ? activeRisks[0] : 'combo'}`}
+            role="status"
+          >
             <div className="risk-banner-text">
               <strong>
-                {activeRiskFilter.emoji} {activeRiskFilter.bannerTitle}
+                {activeRiskBanner.emoji} {activeRiskBanner.title}
               </strong>
-              <span>{activeRiskFilter.bannerText}</span>
+              <span>{activeRiskBanner.text}</span>
             </div>
             <Link href="/feed" className="risk-banner-clear">
               Clear Filter ✕
@@ -488,12 +494,12 @@ function FeedPageContent() {
                 Back to all posts
               </Link>
             </div>
-          ) : activeRiskFilter ? (
+          ) : activeRiskBanner ? (
             // ── NEW: friendly empty state for an AI Filter ──
             <div className="feed-empty">
-              <div className="feed-empty-icon">{activeRiskFilter.emoji}</div>
-              <div className="feed-empty-title">{activeRiskFilter.emptyTitle}</div>
-              <p>{activeRiskFilter.emptyText}</p>
+              <div className="feed-empty-icon">{activeRiskBanner.emoji}</div>
+              <div className="feed-empty-title">{activeRiskBanner.emptyTitle}</div>
+              <p>{activeRiskBanner.emptyText}</p>
               <Link href="/feed" className="insight-banner-clear">
                 Back to all posts
               </Link>

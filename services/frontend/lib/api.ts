@@ -219,10 +219,11 @@ export type PostSharersResponse = {
 };
 
 export const postService = {
-  // UPDATED: `risk` (AI Filter — ML Brain prediction: green | yellow | red)
-  // added as the LAST parameter so existing callers that pass
-  // (page, limit, signal) keep working unchanged. Both filters are optional
-  // and omitted from the request when not set.
+  // UPDATED: `risk` (AI Filter — ML Brain prediction) added as the LAST
+  // parameter so existing callers that pass (page, limit, signal) keep
+  // working unchanged. `risk` is a comma-separated list of green | yellow |
+  // red, e.g. "green,yellow" — the backend matches ANY of the given colors.
+  // Both filters are optional and omitted from the request when not set.
   getFeed: (page = 1, limit = 10, signal?: string, risk?: string) =>
     postApi.get('/api/posts/feed', {
       params: {

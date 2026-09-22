@@ -3,68 +3,110 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { ChevronDown, ChevronRight, Check, RotateCcw, ShieldCheck } from 'lucide-react';
+import { ChevronDown, ChevronRight, RotateCcw, ShieldCheck } from 'lucide-react';
 import './FilterDropdown.css';
 
 /* ── Risk config (single source of truth) ────────────────────
-   Used by the dropdown, the feed banner and the empty state.
-   `value` is exactly what goes in the URL (?risk=green) and what
-   the backend accepts. ── */
+   `value` is exactly what goes in the URL and what the backend accepts.
+   Canonical order — used for both display and normalizing the URL. ── */
 export type RiskValue = 'green' | 'yellow' | 'red';
 
-export interface RiskFilterConfig {
+export const RISK_ORDER: readonly RiskValue[] = ['green', 'yellow', 'red'] as const;
+
+export interface RiskLevelConfig {
   value: RiskValue;
   emoji: string;
   label: string;
   level: string;
-  bannerTitle: string;
-  bannerText: string;
+}
+
+export const RISK_FILTERS: readonly RiskLevelConfig[] = [
+  { value: 'green',  emoji: '🟢', label: 'Green',  level: 'Low Risk' },
+  { value: 'yellow', emoji: '🟡', label: 'Yellow', level: 'Medium Risk' },
+  { value: 'red',    emoji: '🔴', label: 'Red',    level: 'High Risk' },
+] as const;
+
+export interface RiskBannerConfig {
+  emoji: string;
+  title: string;
+  text: string;
   emptyTitle: string;
   emptyText: string;
 }
 
-export const RISK_FILTERS: readonly RiskFilterConfig[] = [
-  {
-    value: 'green',
+/* Every meaningful combination (3 singles + 3 pairs). The all-three case
+   and the empty case are both treated as "no filter" and never reach this. */
+const BANNER_BY_KEY: Record<string, RiskBannerConfig> = {
+  green: {
     emoji: '🟢',
-    label: 'Green',
-    level: 'Low Risk',
-    bannerTitle: 'Green Feed',
-    bannerText: 'Showing only low-risk posts.',
+    title: 'Green Feed',
+    text: 'Showing only low-risk posts.',
     emptyTitle: 'No green posts yet',
     emptyText: 'No posts have been rated low-risk by the ML Brain so far.',
   },
-  {
-    value: 'yellow',
+  yellow: {
     emoji: '🟡',
-    label: 'Yellow',
-    level: 'Medium Risk',
-    bannerTitle: 'Yellow Feed',
-    bannerText: 'Showing medium-risk posts.',
+    title: 'Yellow Feed',
+    text: 'Showing medium-risk posts.',
     emptyTitle: 'No yellow posts yet',
     emptyText: 'No posts have been rated medium-risk by the ML Brain so far.',
   },
-  {
-    value: 'red',
+  red: {
     emoji: '🔴',
-    label: 'Red',
-    level: 'High Risk',
-    bannerTitle: 'Red Feed',
-    bannerText: 'Showing high-risk posts.',
+    title: 'Red Feed',
+    text: 'Showing high-risk posts.',
     emptyTitle: 'No red posts yet',
     emptyText: 'No posts have been rated high-risk by the ML Brain so far.',
   },
-] as const;
+  'green,yellow': {
+    emoji: '🟢🟡',
+    title: 'Safe Browsing',
+    text: 'Showing Green + Yellow posts — high-risk posts are hidden.',
+    emptyTitle: 'No matching posts yet',
+    emptyText: 'No posts have been rated Green or Yellow by the ML Brain so far.',
+  },
+  'yellow,red': {
+    emoji: '🟡🔴',
+    title: 'Review Mode',
+    text: 'Showing Yellow + Red posts.',
+    emptyTitle: 'No matching posts yet',
+    emptyText: 'No posts have been rated Yellow or Red by the ML Brain so far.',
+  },
+  'green,red': {
+    emoji: '🟢🔴',
+    title: 'Custom Filter',
+    text: 'Showing Green + Red posts.',
+    emptyTitle: 'No matching posts yet',
+    emptyText: 'No posts have been rated Green or Red by the ML Brain so far.',
+  },
+};
 
-/** Returns the matching config, or null for missing / unknown values. */
-export function findRisk(value: string | null | undefined): RiskFilterConfig | null {
-  if (!value) return null;
-  const normalized = value.toLowerCase();
-  return RISK_FILTERS.find((r) => r.value === normalized) ?? null;
+/** Dedupes, drops unknown values, and sorts into canonical (green, yellow, red) order. */
+export function normalizeRisks(values: readonly string[]): RiskValue[] {
+  const set = new Set(
+    values.map((v) => v.trim().toLowerCase()).filter((v): v is RiskValue => RISK_ORDER.includes(v as RiskValue))
+  );
+  return RISK_ORDER.filter((r) => set.has(r));
 }
 
-export function buildFeedHref(risk: RiskValue | null): string {
-  return risk ? `/feed?risk=${risk}` : '/feed';
+/** Parses `?risk=green,yellow`. All 3 colors is normalized to [] (= no filter), same as omitted. */
+export function parseRiskParam(param: string | null): RiskValue[] {
+  if (!param) return [];
+  const risks = normalizeRisks(param.split(','));
+  return risks.length === RISK_ORDER.length ? [] : risks;
+}
+
+export function buildFeedHref(risks: readonly RiskValue[]): string {
+  const normalized = normalizeRisks(risks);
+  if (normalized.length === 0 || normalized.length === RISK_ORDER.length) return '/feed';
+  return `/feed?risk=${normalized.join(',')}`;
+}
+
+/** Banner/empty-state copy for the active selection, or null when there's no active filter. */
+export function getRiskBannerConfig(risks: readonly RiskValue[]): RiskBannerConfig | null {
+  const normalized = normalizeRisks(risks);
+  if (normalized.length === 0 || normalized.length === RISK_ORDER.length) return null;
+  return BANNER_BY_KEY[normalized.join(',')] ?? null;
 }
 
 /* ── Small hook: are we on a phone-sized viewport? ── */
@@ -82,6 +124,10 @@ function useIsPhone(maxWidth = 640) {
   return isPhone;
 }
 
+function sameRisks(a: readonly RiskValue[], b: readonly RiskValue[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
 /* ── Props ── */
 type Variant = 'desktop' | 'menu';
 
@@ -89,80 +135,67 @@ interface FilterDropdownProps {
   /** 'desktop' = navbar dropdown. 'menu' = inside the hamburger menu
       (inline list on tablet, bottom sheet on phones). */
   variant?: Variant;
-  /** Called after a filter is applied — the Navbar uses it to close the hamburger. */
+  /** Called after Apply/Reset — the Navbar uses it to close the hamburger. */
   onNavigate?: () => void;
 }
 
-/* ── Option list shared by the dropdown and the tablet inline list ── */
-function RiskOptionList({
-  selected,
-  onPick,
-  showAll,
+/* ── Checkbox list shared by the dropdown, tablet inline panel and phone sheet ── */
+function RiskCheckboxList({
+  draft,
+  onToggle,
 }: {
-  selected: RiskValue | null;
-  onPick: (risk: RiskValue | null) => void;
-  showAll: boolean;
+  draft: RiskValue[];
+  onToggle: (risk: RiskValue) => void;
 }) {
   return (
-    <div role="menu" aria-label="AI Feed Filter">
-      {showAll && (
-        <button
-          type="button"
-          role="menuitemradio"
-          aria-checked={selected === null}
-          className={`ai-filter-option${selected === null ? ' selected' : ''}`}
-          onClick={() => onPick(null)}
-        >
-          <span className="ai-filter-option-emoji" aria-hidden="true">📰</span>
-          <span className="ai-filter-option-text">
-            <span className="ai-filter-option-label">All Posts</span>
-          </span>
-          {selected === null && <Check size={15} className="ai-filter-check" />}
-        </button>
-      )}
-
-      {RISK_FILTERS.map((r) => (
-        <button
-          key={r.value}
-          type="button"
-          role="menuitemradio"
-          aria-checked={selected === r.value}
-          className={`ai-filter-option${selected === r.value ? ' selected' : ''}`}
-          onClick={() => onPick(r.value)}
-        >
-          <span className="ai-filter-option-emoji" aria-hidden="true">{r.emoji}</span>
-          <span className="ai-filter-option-text">
-            <span className="ai-filter-option-label">{r.label}</span>
-            <span className="ai-filter-option-desc">{r.level}</span>
-          </span>
-          {selected === r.value && <Check size={15} className="ai-filter-check" />}
-        </button>
-      ))}
+    <div className="ai-filter-checklist" role="group" aria-label="Risk levels">
+      {RISK_FILTERS.map((r) => {
+        const checked = draft.includes(r.value);
+        return (
+          <label key={r.value} className={`ai-filter-checkbox-row${checked ? ' checked' : ''}`}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => onToggle(r.value)}
+            />
+            <span className="ai-filter-option-emoji" aria-hidden="true">{r.emoji}</span>
+            <span className="ai-filter-option-text">
+              <span className="ai-filter-option-label">{r.label}</span>
+              <span className="ai-filter-option-desc">{r.level}</span>
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }
 
-/* ── Trigger button content (also used by the Suspense fallback) ── */
+/* ── Trigger button ── */
 function triggerClass(variant: Variant, active: boolean) {
   return variant === 'menu'
     ? `navbar-mobile-menu-link ai-filter-trigger ai-filter-trigger--menu${active ? ' active' : ''}`
     : `navbar-link ai-filter-trigger${active ? ' active' : ''}`;
 }
 
-function TriggerContent({ variant, open }: { variant: Variant; open: boolean }) {
+function TriggerContent({
+  variant,
+  open,
+  count,
+}: {
+  variant: Variant;
+  open: boolean;
+  count: number;
+}) {
   return variant === 'menu' ? (
     <>
       <ShieldCheck size={18} strokeWidth={1.8} />
-      <span>AI Filter</span>
-      <ChevronRight
-        size={16}
-        className={`ai-filter-menu-chevron${open ? ' open' : ''}`}
-      />
+      <span>AI Filter{count > 0 ? ` (${count})` : ''}</span>
+      <ChevronRight size={16} className={`ai-filter-menu-chevron${open ? ' open' : ''}`} />
     </>
   ) : (
     <>
       <ShieldCheck size={16} strokeWidth={1.9} />
-      <span>AI Filter</span>
+      <span>AI Filter{count > 0 ? ` (${count})` : ''}</span>
       <ChevronDown size={14} className={`ai-filter-chevron${open ? ' open' : ''}`} />
     </>
   );
@@ -175,23 +208,38 @@ function FilterDropdownInner({ variant = 'desktop', onNavigate }: FilterDropdown
   const searchParams = useSearchParams();
 
   // Only meaningful on /feed; anywhere else there is no active filter.
-  const activeRisk: RiskValue | null =
-    pathname === '/feed' ? findRisk(searchParams.get('risk'))?.value ?? null : null;
+  const activeRisks: RiskValue[] = pathname === '/feed' ? parseRiskParam(searchParams.get('risk')) : [];
 
   const isPhone = useIsPhone();
-  const [open, setOpen] = useState(false);          // dropdown (desktop) / inline list (tablet)
+  const [open, setOpen] = useState(false);          // dropdown (desktop) / inline panel (tablet)
   const [sheetOpen, setSheetOpen] = useState(false); // bottom sheet (phone)
-  const [draft, setDraft] = useState<RiskValue | null>(activeRisk);
+
+  // Draft selection — the checkboxes the user is currently toggling.
+  // Desktop/tablet stay open across toggles; only Apply commits to the URL.
+  const [draft, setDraft] = useState<RiskValue[]>(activeRisks);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  function apply(risk: RiskValue | null) {
+  function toggleDraft(risk: RiskValue) {
+    setDraft((prev) => (prev.includes(risk) ? prev.filter((r) => r !== risk) : [...prev, risk]));
+  }
+
+  function apply(risks: RiskValue[]) {
     setOpen(false);
     setSheetOpen(false);
-    router.push(buildFeedHref(risk));
+    router.push(buildFeedHref(risks));
     onNavigate?.();
   }
 
-  /* Desktop dropdown: close on outside click / Escape */
+  function openPanel() {
+    setDraft(activeRisks); // start from whatever is currently applied
+    if (isPhone) {
+      setSheetOpen(true);
+    } else {
+      setOpen((prev) => !prev);
+    }
+  }
+
+  /* Desktop dropdown: close on outside click / Escape (without applying) */
   useEffect(() => {
     if (!open || variant !== 'desktop') return;
 
@@ -210,7 +258,7 @@ function FilterDropdownInner({ variant = 'desktop', onNavigate }: FilterDropdown
     };
   }, [open, variant]);
 
-  /* Bottom sheet: Escape closes */
+  /* Bottom sheet: Escape closes without applying */
   useEffect(() => {
     if (!sheetOpen) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -220,14 +268,7 @@ function FilterDropdownInner({ variant = 'desktop', onNavigate }: FilterDropdown
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [sheetOpen]);
 
-  function handleMenuTrigger() {
-    if (isPhone) {
-      setDraft(activeRisk);
-      setSheetOpen(true);
-    } else {
-      setOpen((prev) => !prev);
-    }
-  }
+  const draftDirty = !sameRisks(normalizeRisks(draft), activeRisks);
 
   /* ════════ Desktop: navbar dropdown ════════ */
   if (variant === 'desktop') {
@@ -235,62 +276,82 @@ function FilterDropdownInner({ variant = 'desktop', onNavigate }: FilterDropdown
       <div className="ai-filter" ref={rootRef}>
         <button
           type="button"
-          className={triggerClass('desktop', activeRisk !== null)}
+          className={triggerClass('desktop', activeRisks.length > 0)}
           aria-haspopup="menu"
           aria-expanded={open}
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={openPanel}
         >
-          <TriggerContent variant="desktop" open={open} />
-          {activeRisk && <span className="ai-filter-active-dot" aria-hidden="true" />}
+          <TriggerContent variant="desktop" open={open} count={activeRisks.length} />
         </button>
 
         {open && (
           <div className="ai-filter-panel">
             <div className="ai-filter-panel-title">AI Feed Filter</div>
             <div className="ai-filter-divider" />
-            <RiskOptionList selected={activeRisk} onPick={apply} showAll />
+            <RiskCheckboxList draft={draft} onToggle={toggleDraft} />
             <div className="ai-filter-divider" />
-            <button
-              type="button"
-              className="ai-filter-reset"
-              onClick={() => apply(null)}
-              disabled={activeRisk === null}
-            >
-              <RotateCcw size={14} />
-              <span>Reset Filter</span>
-            </button>
+            <div className="ai-filter-panel-actions">
+              <button
+                type="button"
+                className="ai-filter-reset"
+                onClick={() => {
+                  setDraft([]);
+                  apply([]);
+                }}
+                disabled={activeRisks.length === 0 && draft.length === 0}
+              >
+                <RotateCcw size={14} />
+                <span>Reset</span>
+              </button>
+              <button
+                type="button"
+                className="ai-filter-apply"
+                onClick={() => apply(draft)}
+                disabled={!draftDirty}
+              >
+                Apply
+              </button>
+            </div>
           </div>
         )}
       </div>
     );
   }
 
-  /* ════════ Menu: tablet inline list / phone bottom sheet ════════ */
+  /* ════════ Menu: tablet inline panel / phone bottom sheet ════════ */
   return (
     <div className="ai-filter ai-filter--menu">
       <button
         type="button"
-        className={triggerClass('menu', activeRisk !== null)}
+        className={triggerClass('menu', activeRisks.length > 0)}
         aria-expanded={isPhone ? sheetOpen : open}
-        onClick={handleMenuTrigger}
+        onClick={openPanel}
       >
-        <TriggerContent variant="menu" open={open && !isPhone} />
+        <TriggerContent variant="menu" open={open && !isPhone} count={activeRisks.length} />
       </button>
 
       {/* Tablet: expands inline */}
       {open && !isPhone && (
         <div className="ai-filter-inline">
           <div className="ai-filter-panel-title">AI Feed Filter</div>
-          <RiskOptionList selected={activeRisk} onPick={apply} showAll={false} />
-          <button
-            type="button"
-            className="ai-filter-reset"
-            onClick={() => apply(null)}
-            disabled={activeRisk === null}
-          >
-            <RotateCcw size={14} />
-            <span>Reset</span>
-          </button>
+          <RiskCheckboxList draft={draft} onToggle={toggleDraft} />
+          <div className="ai-filter-panel-actions">
+            <button
+              type="button"
+              className="ai-filter-reset"
+              onClick={() => {
+                setDraft([]);
+                apply([]);
+              }}
+              disabled={activeRisks.length === 0 && draft.length === 0}
+            >
+              <RotateCcw size={14} />
+              <span>Reset</span>
+            </button>
+            <button type="button" className="ai-filter-apply" onClick={() => apply(draft)} disabled={!draftDirty}>
+              Apply
+            </button>
+          </div>
         </div>
       )}
 
@@ -305,38 +366,26 @@ function FilterDropdownInner({ variant = 'desktop', onNavigate }: FilterDropdown
               <div className="ai-filter-sheet-handle" aria-hidden="true" />
               <h3 className="ai-filter-sheet-title">AI Feed Filter</h3>
 
-              <div className="ai-filter-sheet-options" role="radiogroup" aria-label="Risk level">
-                <label className="ai-filter-radio">
-                  <input
-                    type="radio"
-                    name="ai-risk"
-                    checked={draft === null}
-                    onChange={() => setDraft(null)}
-                  />
-                  <span>All Posts</span>
-                </label>
-
-                {RISK_FILTERS.map((r) => (
-                  <label key={r.value} className="ai-filter-radio">
-                    <input
-                      type="radio"
-                      name="ai-risk"
-                      checked={draft === r.value}
-                      onChange={() => setDraft(r.value)}
-                    />
-                    <span>
-                      {r.emoji} {r.label}
-                      <span className="ai-filter-option-desc"> · {r.level}</span>
-                    </span>
-                  </label>
-                ))}
+              <div className="ai-filter-sheet-options">
+                <RiskCheckboxList draft={draft} onToggle={toggleDraft} />
               </div>
 
               <div className="ai-filter-sheet-actions">
-                <button type="button" className="ai-filter-btn ai-filter-btn--ghost" onClick={() => apply(null)}>
+                <button
+                  type="button"
+                  className="ai-filter-btn ai-filter-btn--ghost"
+                  onClick={() => {
+                    setDraft([]);
+                    apply([]);
+                  }}
+                >
                   Reset
                 </button>
-                <button type="button" className="ai-filter-btn ai-filter-btn--primary" onClick={() => apply(draft)}>
+                <button
+                  type="button"
+                  className="ai-filter-btn ai-filter-btn--primary"
+                  onClick={() => apply(draft)}
+                >
                   Apply
                 </button>
               </div>
@@ -357,7 +406,7 @@ export default function FilterDropdown(props: FilterDropdownProps) {
     <Suspense
       fallback={
         <button type="button" className={triggerClass(variant, false)} disabled>
-          <TriggerContent variant={variant} open={false} />
+          <TriggerContent variant={variant} open={false} count={0} />
         </button>
       }
     >

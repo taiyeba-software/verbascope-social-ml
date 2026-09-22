@@ -20,7 +20,26 @@ const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 // Allowed values for GET /api/posts/feed?risk=...
 // Filters by the ML Brain's prediction (mlAnalysis.riskFlag) only.
 // Community-based filtering stays with `signal` (Community Consensus).
+// `risk` is a comma-separated list, e.g. risk=green,yellow — MongoDB
+// matches any post whose riskFlag is one of the given colors ($in).
+// An empty list, or all three colors, is equivalent to no filter.
 const ALLOWED_RISK_FLAGS = ['green', 'yellow', 'red'];
+
+const parseRiskFilter = (rawRisk) => {
+  if (typeof rawRisk !== 'string' || rawRisk.trim() === '') {
+    return { risks: [], invalid: [] };
+  }
+
+  const tokens = rawRisk
+    .split(',')
+    .map((r) => r.trim().toLowerCase())
+    .filter((r) => r !== '');
+
+  const risks = [...new Set(tokens.filter((r) => ALLOWED_RISK_FLAGS.includes(r)))];
+  const invalid = [...new Set(tokens.filter((r) => !ALLOWED_RISK_FLAGS.includes(r)))];
+
+  return { risks, invalid };
+};
 
 const extractTags = (text = '') =>
   (text.match(/#([\p{L}\p{N}_]+)/gu) ?? [])
@@ -124,8 +143,10 @@ export const createPost = async (req, res) => {
 // Query params:
 //   page, limit
 //   signal  — Community Consensus filter (existing)
-//   risk    — NEW: AI Filter, by ML Brain prediction: green | yellow | red
-//             (omitted / empty / "all" = no risk filtering)
+//   risk    — NEW: AI Filter, by ML Brain prediction. Comma-separated list
+//             of green | yellow | red, e.g. risk=green,yellow. Matches a
+//             post if its riskFlag is ANY of the given colors ($in).
+//             Omitted / empty / all three colors = no risk filtering.
 // `signal` and `risk` are independent and can be combined.
 export const getFeed = async (req, res) => {
   try {
@@ -158,23 +179,29 @@ export const getFeed = async (req, res) => {
       sort = { [dbPath]: -1, createdAt: -1 };
     }
 
-    // ── NEW: AI Filter — ML Brain prediction only ──
+    // ── NEW: AI Filter — ML Brain prediction only, multi-select ──
     if (risk !== undefined && risk !== '' && risk !== 'all') {
-      const normalizedRisk = typeof risk === 'string' ? risk.toLowerCase() : '';
+      const { risks, invalid } = parseRiskFilter(risk);
 
-      if (!ALLOWED_RISK_FLAGS.includes(normalizedRisk)) {
+      if (invalid.length > 0) {
         return res.status(400).json({
           success: false,
-          message: `Invalid risk. Allowed values: ${ALLOWED_RISK_FLAGS.join(', ')}`,
+          message: `Invalid risk value(s): ${invalid.join(', ')}. Allowed values: ${ALLOWED_RISK_FLAGS.join(', ')}`,
         });
       }
 
-      // Match the stored value regardless of casing ("green" / "Green" / "GREEN")
-      // while still allowing an index on mlAnalysis.riskFlag to be used.
-      const capitalized = normalizedRisk.charAt(0).toUpperCase() + normalizedRisk.slice(1);
-      filter['mlAnalysis.riskFlag'] = {
-        $in: [normalizedRisk, capitalized, normalizedRisk.toUpperCase()],
-      };
+      // 0 selected (nothing valid survived parsing) or all 3 colors selected
+      // both mean "no filtering" — skip adding the filter clause entirely.
+      if (risks.length > 0 && risks.length < ALLOWED_RISK_FLAGS.length) {
+        // Match the stored value regardless of casing ("green" / "Green" /
+        // "GREEN") while still allowing an index on mlAnalysis.riskFlag.
+        const casedVariants = risks.flatMap((r) => [
+          r,
+          r.charAt(0).toUpperCase() + r.slice(1),
+          r.toUpperCase(),
+        ]);
+        filter['mlAnalysis.riskFlag'] = { $in: casedVariants };
+      }
     }
 
     const posts = await Post.find(filter)

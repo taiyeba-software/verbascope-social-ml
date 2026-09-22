@@ -130,14 +130,52 @@
   color: var(--af-accent);
 }
 
+/* ── Checkbox list (multi-select) ── */
+.ai-filter-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+}
+
+.ai-filter-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ai-filter-checkbox-row:hover {
+  background: var(--af-hover);
+}
+.ai-filter-checkbox-row.checked .ai-filter-option-label {
+  font-weight: 600;
+}
+.ai-filter-checkbox-row input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  accent-color: var(--af-accent);
+  cursor: pointer;
+}
+
+/* ── Panel action row (Reset + Apply) ── */
+.ai-filter-panel-actions {
+  display: flex;
+  gap: 8px;
+  padding: 4px 2px 2px;
+}
+
 .ai-filter-reset {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
   padding: 9px 10px;
   background: none;
-  border: 0;
+  border: 1px solid var(--af-border);
   border-radius: 8px;
   color: var(--af-muted);
   font: inherit;
@@ -149,6 +187,23 @@
   color: var(--af-fg);
 }
 .ai-filter-reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ai-filter-apply {
+  flex: 1;
+  padding: 9px 10px;
+  background: var(--af-accent);
+  border: 1px solid var(--af-accent);
+  border-radius: 8px;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-filter-apply:disabled {
   opacity: 0.45;
   cursor: default;
 }
@@ -274,6 +329,10 @@
 .risk-banner--green  { border-left-color: #16a34a; background: rgba(22, 163, 74, 0.10); }
 .risk-banner--yellow { border-left-color: #ca8a04; background: rgba(202, 138, 4, 0.12); }
 .risk-banner--red    { border-left-color: #dc2626; background: rgba(220, 38, 38, 0.10); }
+/* Multi-color selections (green+yellow, yellow+red, green+red) share a
+   neutral accent-colored treatment rather than picking one color to imply
+   priority over the others. */
+.risk-banner--combo  { border-left-color: var(--af-accent); background: var(--af-hover); }
 
 .risk-banner-text {
   display: flex;

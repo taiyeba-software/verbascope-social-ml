@@ -11,7 +11,7 @@ import { CommentSection, type CommentState } from './CommentSection';
 import { LikeAnimation, type AnchorPoint } from './LikeAnimation';
 import { AISignalCard, type MLAnalysis } from './AISignalCard';
 import { useDwellTracker } from '@/hooks/useDwellTracker';
-import { postService, type SharerEntry } from '@/lib/api';
+import { postService, type CommunityEndorsement } from '@/lib/api'; // ── UPDATED: SharerEntry -> CommunityEndorsement
 import {
   safeAuthorName,
   safeAuthorInitials,
@@ -41,9 +41,6 @@ const REASON_META: Record<string, { icon: string; label: string }> = {
   concerning:      { icon: '⚠️', label: 'Concerning' },
   educational:     { icon: '📚', label: 'Educational' },
 };
-
-const sharerName = (sharer: SharerEntry) =>
-  `${sharer.user?.fullname?.firstName ?? ''} ${sharer.user?.fullname?.lastName ?? ''}`.trim() || 'Someone';
 
 // ── Carousel ─────────────────────────────────────────────────────────
 const AUTO_ADVANCE_MS = 5500;
@@ -149,12 +146,13 @@ function ImageCarousel({ images }: { images: string[] }) {
   );
 }
 
-// ── Community Signals — sharers popover ───────────────────────────────
-// Rendered through a portal to document.body with position: fixed at
-// real screen coordinates (from the trigger's getBoundingClientRect()),
-// since .post-card has overflow: hidden and would clip a nested
-// position: absolute popover.
-function SharersPopover({
+// ── Community Endorsements popover ──────────────────────────────────────
+// ── RENAMED from SharersPopover ── Reads the flat CommunityEndorsement
+// shape directly (displayName/avatar already computed server-side) — no
+// nested user object. Rendered through a portal to document.body with
+// position: fixed at real screen coordinates, since .post-card has
+// overflow: hidden and would clip a nested position: absolute popover.
+function CommunityEndorsementsPopover({
   postId,
   anchorRect,
   onClose,
@@ -163,17 +161,17 @@ function SharersPopover({
   anchorRect: { top: number; left: number; width: number };
   onClose: () => void;
 }) {
-  const [sharers, setSharers] = useState<SharerEntry[] | null>(null);
+  const [endorsements, setEndorsements] = useState<CommunityEndorsement[] | null>(null);
   const [error, setError] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     postService
-      .getPostSharers(postId)
+      .getCommunityEndorsements(postId)
       .then((res) => {
         if (cancelled) return;
-        setSharers(res.data.sharers ?? []);
+        setEndorsements(res.data.endorsements ?? []);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -212,21 +210,21 @@ function SharersPopover({
 
       {error && <div className="sharers-popover-empty">Couldn't load this list.</div>}
 
-      {!error && sharers === null && (
+      {!error && endorsements === null && (
         <div className="sharers-popover-empty">Loading...</div>
       )}
 
-      {!error && sharers !== null && sharers.length === 0 && (
+      {!error && endorsements !== null && endorsements.length === 0 && (
         <div className="sharers-popover-empty">No shares yet.</div>
       )}
 
-      {!error && sharers !== null && sharers.length > 0 && (
+      {!error && endorsements !== null && endorsements.length > 0 && (
         <ul className="sharers-popover-list">
-          {sharers.map((sharer, i) => {
-            const meta = sharer.reason ? REASON_META[sharer.reason] : null;
+          {endorsements.map((entry, i) => {
+            const meta = entry.reason ? REASON_META[entry.reason] : null;
             return (
-              <li key={`${sharer.user?._id ?? i}`} className="sharers-popover-item">
-                <span className="sharers-popover-name">{sharerName(sharer)}</span>
+              <li key={`${entry.userId ?? i}`} className="sharers-popover-item">
+                <span className="sharers-popover-name">{entry.displayName}</span>
                 {meta && (
                   <span className="sharers-popover-reason">
                     {meta.icon} {meta.label}
@@ -275,10 +273,6 @@ export function PostCard({
   const [anchorPoint, setAnchorPoint] = useState<AnchorPoint | null>(null);
   const likeBtnRef = useRef<HTMLButtonElement>(null);
 
-  // ── UPDATED: sharesCountRef now points at a <button>, not a <span>,
-  // since the count is its own independent clickable element (see
-  // "post-share-group" below) rather than nested inside the
-  // share/unshare button. ──
   const [sharersAnchor, setSharersAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const sharesCountRef = useRef<HTMLButtonElement>(null);
 
@@ -427,10 +421,6 @@ export function PostCard({
           <span>{post.commentsCount ?? 0}</span>
         </button>
 
-        {/* ── UPDATED: share icon and share count are now two independent
-            sibling buttons (not nested), so a click on one can never
-            bubble into the other. The icon still toggles share/unshare;
-            the count opens the sharers popover. ── */}
         <div className="post-share-group">
           <button
             type="button"
@@ -454,7 +444,7 @@ export function PostCard({
         </div>
 
         {sharersAnchor && (
-          <SharersPopover
+          <CommunityEndorsementsPopover
             postId={post._id}
             anchorRect={sharersAnchor}
             onClose={() => setSharersAnchor(null)}

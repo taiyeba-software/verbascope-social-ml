@@ -4,7 +4,7 @@ import { validatePost, validateComment } from '../middlewares/validation.middlew
 import { pulse } from '../pulse/pulse.js';
 import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts, getPostSharers } from '../controllers/post.controller.js';
+import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts, getPostCommunityEndorsements } from '../controllers/post.controller.js'; // ── UPDATED: getPostSharers renamed to getPostCommunityEndorsements
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost, getCommunitySignalsSummary } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
@@ -61,9 +61,10 @@ router.delete('/:id/unlike',                  protect,                  unlikePo
 router.post('/:id/share',                     protect,                  sharePost);
 router.delete('/:id/unshare',                 protect,                  unsharePost);
 
-// ── NEW: Community Signals — who shared this post and why (for the
-// PostCard hover/click "who marked this" list). ──
-router.get('/:id/sharers',                    protect,                  getPostSharers);
+// ── UPDATED: renamed from /:id/sharers — returns who shared, why, and
+// when, so "community-endorsements" better describes what's returned
+// than just "sharers". ──
+router.get('/:id/community-endorsements',     protect,                  getPostCommunityEndorsements);
 
 // ── Save routes ──────────────────────────────────────────────────────
 router.post('/:id/save',                      protect,                  savePost);

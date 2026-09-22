@@ -201,28 +201,29 @@ export type CommunityInsightsSummaryResponse = {
   summary: Record<string, number>;
 };
 
-// ── NEW: Community Signals — "who marked it" ──
-export type SharerEntry = {
-  user: {
-    _id: string;
-    fullname: { firstName: string; lastName: string };
-    avatar?: string;
-  };
+// ── RENAMED: Community Signals — "who marked it" ──
+// Endpoint renamed from GET /:id/sharers to GET /:id/community-endorsements,
+// and the response flattened (displayName/avatar computed on the backend)
+// so the frontend never reaches into a nested user object.
+export type CommunityEndorsement = {
+  userId: string;
+  displayName: string;
+  avatar: string | null;
   reason: string | null;
   sharedAt: string | null;
 };
 
-export type PostSharersResponse = {
+export type CommunityEndorsementsResponse = {
   success: boolean;
-  sharers: SharerEntry[];
+  endorsements: CommunityEndorsement[];
   total: number;
 };
 
 export const postService = {
-  // UPDATED: `risk` (AI Filter — ML Brain prediction) added as the LAST
-  // parameter so existing callers that pass (page, limit, signal) keep
-  // working unchanged. `risk` is a comma-separated list of green | yellow |
-  // red, e.g. "green,yellow" — the backend matches ANY of the given colors.
+  // `risk` (AI Filter — ML Brain prediction) added as the LAST parameter
+  // so existing callers that pass (page, limit, signal) keep working
+  // unchanged. `risk` is a comma-separated list of green | yellow | red,
+  // e.g. "green,yellow" — the backend matches ANY of the given colors.
   // Both filters are optional and omitted from the request when not set.
   getFeed: (page = 1, limit = 10, signal?: string, risk?: string) =>
     postApi.get('/api/posts/feed', {
@@ -269,9 +270,9 @@ export const postService = {
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),
 
-  // ── NEW: Community Signals — who shared this post and why. ──
-  getPostSharers: (id: string) =>
-    postApi.get<PostSharersResponse>(`/api/posts/${id}/sharers`),
+  // ── RENAMED: who shared this post, why, and when. ──
+  getCommunityEndorsements: (id: string) =>
+    postApi.get<CommunityEndorsementsResponse>(`/api/posts/${id}/community-endorsements`),
 
   bookmarkPost: (id: string) =>
     postApi.post(`/api/posts/${id}/save`),

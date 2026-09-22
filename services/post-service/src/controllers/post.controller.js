@@ -16,7 +16,7 @@ import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// ── NEW: AI Filter ──
+// ── AI Filter ──
 // Allowed values for GET /api/posts/feed?risk=...
 // Filters by the ML Brain's prediction (mlAnalysis.riskFlag) only.
 // Community-based filtering stays with `signal` (Community Consensus).
@@ -143,7 +143,7 @@ export const createPost = async (req, res) => {
 // Query params:
 //   page, limit
 //   signal  — Community Consensus filter (existing)
-//   risk    — NEW: AI Filter, by ML Brain prediction. Comma-separated list
+//   risk    — AI Filter, by ML Brain prediction. Comma-separated list
 //             of green | yellow | red, e.g. risk=green,yellow. Matches a
 //             post if its riskFlag is ANY of the given colors ($in).
 //             Omitted / empty / all three colors = no risk filtering.
@@ -179,7 +179,7 @@ export const getFeed = async (req, res) => {
       sort = { [dbPath]: -1, createdAt: -1 };
     }
 
-    // ── NEW: AI Filter — ML Brain prediction only, multi-select ──
+    // ── AI Filter — ML Brain prediction only, multi-select ──
     if (risk !== undefined && risk !== '' && risk !== 'all') {
       const { risks, invalid } = parseRiskFilter(risk);
 
@@ -269,13 +269,14 @@ export const getPost = async (req, res) => {
   }
 };
 
-// ── GET /api/posts/:id/sharers ───────────────────────────────────────
-// ── NEW: Community Signals — "who marked it" ──
+// ── GET /api/posts/:id/community-endorsements ─────────────────────────
+// ── RENAMED from getPostSharers ──
 // Returns everyone who shared this post, with the reason they picked
-// (if any) and when, newest first. Its own endpoint rather than bundled
-// into getFeed's response, since it's only needed when a user opens it
-// on a single post — keeps every normal feed page light.
-export const getPostSharers = async (req, res) => {
+// (if any) and when, newest first. Flattened response — displayName and
+// avatar are computed here, so the frontend never has to reach through a
+// nested user object. Its own endpoint rather than bundled into getFeed's
+// response, since it's only needed when a user opens it on a single post.
+export const getPostCommunityEndorsements = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid post ID.' });
@@ -296,7 +297,7 @@ export const getPostSharers = async (req, res) => {
     );
 
     if (entries.length === 0) {
-      return res.status(200).json({ success: true, sharers: [], total: 0 });
+      return res.status(200).json({ success: true, endorsements: [], total: 0 });
     }
 
     const userIds  = [...new Set(entries.map((e) => e.userId))];
@@ -305,14 +306,25 @@ export const getPostSharers = async (req, res) => {
       usersRes.data.users.map((u) => [u._id.toString(), u])
     );
 
-    const sharers = entries
-      .map((e) => ({ user: userMap[e.userId] || null, reason: e.reason, sharedAt: e.sharedAt }))
-      .filter((e) => e.user) // drop anyone auth-service no longer has (deleted account)
+    const endorsements = entries
+      .map((e) => {
+        const user = userMap[e.userId];
+        if (!user) return null; // drop anyone auth-service no longer has (deleted account)
+        const displayName = `${user.fullname?.firstName ?? ''} ${user.fullname?.lastName ?? ''}`.trim() || 'Someone';
+        return {
+          userId: e.userId,
+          displayName,
+          avatar: user.avatar ?? null,
+          reason: e.reason,
+          sharedAt: e.sharedAt,
+        };
+      })
+      .filter(Boolean)
       .sort((a, b) => new Date(b.sharedAt || 0) - new Date(a.sharedAt || 0));
 
-    return res.status(200).json({ success: true, sharers, total: sharers.length });
+    return res.status(200).json({ success: true, endorsements, total: endorsements.length });
   } catch (err) {
-    console.error('getPostSharers error:', err);
+    console.error('getPostCommunityEndorsements error:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });
   }
 };

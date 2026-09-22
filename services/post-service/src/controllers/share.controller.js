@@ -6,17 +6,12 @@ import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 import { VALID_REASONS } from '../constants/shareReasons.js';
+import { getVisibleAuthors } from '../utils/getVisibleAuthors.js'; // ── NEW: Community Insights personalization
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// ── Helper: get the user id out of a sharedBy entry regardless of shape.
-// Old documents store raw ObjectIds; new ones store { user, reason, sharedAt }.
-// See the sharedBy migration note in post.model.js. ──
 const sharerUserId = (entry) => (entry?.user ?? entry)?.toString();
 
-// ── Community Insights shared config ──
-// Defined ONCE here and imported by post.controller.js (getFeed), so the
-// sidebar summary and the filtered feed can never drift apart.
 export const SIGNAL_MAP = {
 	'needs-attention': 'needs_attention',
 	'agree':           'agree',
@@ -58,9 +53,6 @@ export const sharePost = async (req, res) => {
 
 		const reason = VALID_REASONS.includes(req.body.reason) ? req.body.reason : null;
 
-		// ── UPDATED: sharedBy now carries who + which reason + when, not
-		// just a bare user id, so unsharePost can correctly reverse
-		// shareReasons.<reason> and PostCard can show who marked it. ──
 		const update = {
 			$push: { sharedBy: { user: req.user.id, reason, sharedAt: new Date() } },
 			$inc: { sharesCount: 1, ...(reason && { [`shareReasons.${reason}`]: 1 }) },
@@ -127,18 +119,10 @@ export const unsharePost = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'You have not shared this post.' });
 		}
 
-		// ── UPDATED: we now know WHICH reason this user picked, so we
-		// can decrement shareReasons.<reason> instead of leaving it stuck
-		// forever. Only decrement if the count is actually above 0, so a
-		// double-unshare race or already-migrated-away data can never
-		// push it negative. ──
 		const reason = existingEntry.reason ?? null;
 		const currentReasonCount = reason ? (post.shareReasons?.[reason] ?? 0) : 0;
 		const shouldDecrementReason = Boolean(reason) && currentReasonCount > 0;
 
-		// Rebuild sharedBy without this user's entry rather than $pull, since
-		// $pull's query shape can't cleanly match both the old (raw ObjectId)
-		// and new ({ user, reason, sharedAt }) shapes in one filter.
 		const newSharedBy = post.sharedBy.filter(
 			(entry) => sharerUserId(entry) !== req.user.id
 		);
@@ -172,13 +156,24 @@ export const unsharePost = async (req, res) => {
 };
 
 // ── GET /api/posts/community-signals/summary ──────────────────────────
+// ── UPDATED: Community Insights personalization ──
+// Was: aggregated across ALL posts platform-wide. Now scoped to the
+// current user's own posts plus everyone they follow, so the sidebar
+// tells a consistent story with the (also follow-based) main feed rather
+// than surfacing marks from strangers the user has never seen post.
 export const getCommunitySignalsSummary = async (req, res) => {
 	try {
 		const windowStart = getInsightsWindowStart();
 		const reasonKeys  = Object.values(SIGNAL_MAP);
+		const visibleAuthors = await getVisibleAuthors(req);
 
 		const summary = await Post.aggregate([
-			{ $match: { createdAt: { $gte: windowStart } } },
+			{
+				$match: {
+					createdAt: { $gte: windowStart },
+					author: { $in: visibleAuthors },
+				},
+			},
 			{ $project: { shareReasons: { $objectToArray: '$shareReasons' } } },
 			{ $unwind: '$shareReasons' },
 			{ $match: { 'shareReasons.k': { $in: reasonKeys } } },

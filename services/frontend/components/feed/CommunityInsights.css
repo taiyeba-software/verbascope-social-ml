@@ -15,6 +15,15 @@
   white-space: nowrap;
 }
 
+/* ── NEW: subtitle clarifying the widget is follow-scoped, not
+   platform-wide. Sits just under the header row. ── */
+.community-insights .insight-subtitle {
+  font-size: 0.72rem;
+  opacity: 0.55;
+  margin: -4px 0 8px;
+  padding-left: 2px;
+}
+
 .insight-list {
   display: flex;
   flex-direction: column;

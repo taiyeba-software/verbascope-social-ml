@@ -12,17 +12,12 @@ import { io } from '../../server.js';
 import { indexPost, deleteIndexedPost, rebuildSearchIndex } from '../search/postIndex.js';
 import { getAISignal } from '../ml/signalMapper.js';
 import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js';
+import { getVisibleAuthors } from '../utils/getVisibleAuthors.js'; // ── NEW: Community Insights personalization
 
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // ── AI Filter ──
-// Allowed values for GET /api/posts/feed?risk=...
-// Filters by the ML Brain's prediction (mlAnalysis.riskFlag) only.
-// Community-based filtering stays with `signal` (Community Consensus).
-// `risk` is a comma-separated list, e.g. risk=green,yellow — MongoDB
-// matches any post whose riskFlag is one of the given colors ($in).
-// An empty list, or all three colors, is equivalent to no filter.
 const ALLOWED_RISK_FLAGS = ['green', 'yellow', 'red'];
 
 const parseRiskFilter = (rawRisk) => {
@@ -60,12 +55,6 @@ export const addStateFlags = (posts, userId, savedPostIds = new Set()) =>
   posts.map((post) => ({
     ...post,
     likedByMe:  post.likedBy?.some((id) => id.toString() === userId) || false,
-    // ── UPDATED: Community Signals ──
-    // sharedBy entries are now { user, reason, sharedAt } on posts shared
-    // after this change, but documents shared before it still have
-    // sharedBy as raw ObjectIds — `(entry.user ?? entry)` handles both
-    // shapes. See the migration note in post.model.js / the one-time
-    // scripts/migrateSharedBy.js script.
     sharedByMe: post.sharedBy?.some((entry) => (entry.user ?? entry)?.toString() === userId) || false,
     bookmarkedByMe: savedPostIds.has(post._id.toString()),
     isOwner:
@@ -142,12 +131,14 @@ export const createPost = async (req, res) => {
 // ── GET /api/posts/feed ──────────────────────────────────────────────
 // Query params:
 //   page, limit
-//   signal  — Community Consensus filter (existing)
+//   signal  — Community Consensus filter. UPDATED: now follow-scoped —
+//             only counts marks from posts by people the user follows
+//             (plus their own posts), matching Community Insights.
 //   risk    — AI Filter, by ML Brain prediction. Comma-separated list
 //             of green | yellow | red, e.g. risk=green,yellow. Matches a
 //             post if its riskFlag is ANY of the given colors ($in).
 //             Omitted / empty / all three colors = no risk filtering.
-// `signal` and `risk` are independent and can be combined.
+//             UNCHANGED — stays platform-wide, independent of `signal`.
 export const getFeed = async (req, res) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page)  || 1);
@@ -159,7 +150,7 @@ export const getFeed = async (req, res) => {
     const filter = {};
     let sort = { createdAt: -1 };
 
-    // ── Community Consensus filter (unchanged) ──
+    // ── Community Consensus filter (UPDATED: now follow-scoped) ──
     if (signal !== undefined && signal !== '') {
       const isKnownSignal =
         typeof signal === 'string' &&
@@ -173,13 +164,16 @@ export const getFeed = async (req, res) => {
       }
 
       const dbPath = `shareReasons.${SIGNAL_MAP[signal]}`;
+      const visibleAuthors = await getVisibleAuthors(req);
 
       filter.createdAt = { $gte: getInsightsWindowStart() };
-      filter[dbPath]   = { $gt: 0 };
+      filter.author     = { $in: visibleAuthors };
+      filter[dbPath]     = { $gt: 0 };
       sort = { [dbPath]: -1, createdAt: -1 };
     }
 
-    // ── AI Filter — ML Brain prediction only, multi-select ──
+    // ── AI Filter — ML Brain prediction only, multi-select. UNCHANGED,
+    // stays platform-wide and independent of the signal filter above. ──
     if (risk !== undefined && risk !== '' && risk !== 'all') {
       const { risks, invalid } = parseRiskFilter(risk);
 
@@ -190,11 +184,7 @@ export const getFeed = async (req, res) => {
         });
       }
 
-      // 0 selected (nothing valid survived parsing) or all 3 colors selected
-      // both mean "no filtering" — skip adding the filter clause entirely.
       if (risks.length > 0 && risks.length < ALLOWED_RISK_FLAGS.length) {
-        // Match the stored value regardless of casing ("green" / "Green" /
-        // "GREEN") while still allowing an index on mlAnalysis.riskFlag.
         const casedVariants = risks.flatMap((r) => [
           r,
           r.charAt(0).toUpperCase() + r.slice(1),
@@ -270,12 +260,11 @@ export const getPost = async (req, res) => {
 };
 
 // ── GET /api/posts/:id/community-endorsements ─────────────────────────
-// ── RENAMED from getPostSharers ──
-// Returns everyone who shared this post, with the reason they picked
-// (if any) and when, newest first. Flattened response — displayName and
-// avatar are computed here, so the frontend never has to reach through a
-// nested user object. Its own endpoint rather than bundled into getFeed's
-// response, since it's only needed when a user opens it on a single post.
+// ── DELIBERATELY LEFT GLOBAL ── Unlike the summary/feed above, the
+// endorsement list for a single post is NOT follow-scoped: if you open a
+// post and see "7 shares", you should see all 7 people, not just the
+// ones you happen to follow — hiding some would make the endorsement
+// history look incomplete/wrong.
 export const getPostCommunityEndorsements = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -287,9 +276,6 @@ export const getPostCommunityEndorsements = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Post not found.' });
     }
 
-    // Normalize both entry shapes (see sharedBy migration note in
-    // post.model.js) into a single { userId, reason, sharedAt } form
-    // before looking up names.
     const entries = (post.sharedBy || []).map((entry) =>
       entry && typeof entry === 'object' && entry.user
         ? { userId: entry.user.toString(), reason: entry.reason ?? null, sharedAt: entry.sharedAt ?? null }
@@ -309,7 +295,7 @@ export const getPostCommunityEndorsements = async (req, res) => {
     const endorsements = entries
       .map((e) => {
         const user = userMap[e.userId];
-        if (!user) return null; // drop anyone auth-service no longer has (deleted account)
+        if (!user) return null;
         const displayName = `${user.fullname?.firstName ?? ''} ${user.fullname?.lastName ?? ''}`.trim() || 'Someone';
         return {
           userId: e.userId,

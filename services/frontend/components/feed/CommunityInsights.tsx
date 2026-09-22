@@ -18,6 +18,12 @@ import './CommunityInsights.css';
    Post.shareReasons by the backend (VALID_REASONS in
    share.controller.js) — snake_case. `slug` is the URL value and must
    match SIGNAL_MAP in share.controller.js.
+
+   UPDATED: both the summary this widget displays and the filtered feed
+   behind each row are now scoped to the current user's own posts plus
+   everyone they follow (see getVisibleAuthors on the backend), so the
+   sidebar and the main feed tell one consistent story instead of the
+   sidebar surfacing marks from strangers the user has never seen post.
    ────────────────────────────────────────────────────────── */
 
 export const INSIGHTS = [
@@ -152,12 +158,17 @@ export function CommunityInsights({
         <span className="insight-window">This week</span>
       </div>
 
+      {/* ── NEW: clarifies scope now that this is follow-based, not
+          platform-wide — avoids the sidebar and feed telling two
+          different stories. ── */}
+      <div className="insight-subtitle">From people you follow</div>
+
       {!loaded ? (
         <div className="follow-loading">Loading insights...</div>
       ) : visible.length === 0 ? (
         <div className="follow-empty">
           <div className="follow-empty-icon">🌐</div>
-          <div>No community marks yet this week. Share a post with a reason to get things started.</div>
+          <div>No marks yet this week from people you follow. Share a post with a reason to get things started.</div>
         </div>
       ) : (
         <nav

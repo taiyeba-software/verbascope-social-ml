@@ -108,28 +108,10 @@ const loadSummary = (force = false): Promise<Summary> => {
   return summaryCache.promise;
 };
 
-/* ── Real-time refresh ──
-   Community Insights can't be broadcast as shared data the way
-   pulse:update is — each user's summary is scoped to their own
-   following list, so there's no single payload to hand everyone.
-   Instead the backend emits a plain "something changed" signal after
-   a share/unshare that moves a reason count (see
-   broadcastCommunityInsightsUpdate in share.controller.js), and every
-   connected client refetches its OWN scoped summary in response.
-
-   A single module-level socket connection is shared across every
-   mounted CommunityInsights instance (desktop sidebar + mobile inline).
-
-   FIXED: this connection previously omitted `auth.token`. This app's
-   Socket.IO servers require a Bearer token at handshake time (see
-   Architecture_Cookie_to_JWT.md, Step 5) and reject any connection
-   missing one via server-side io.use(...) middleware — so this socket
-   was never actually joining the server at all, for ANY client,
-   including the sharer's own tab. The sharer only ever appeared to see
-   "real-time" updates because a full page reload after sharing
-   triggers a fresh HTTP fetch independent of the socket. A follower's
-   tab, with no reload, just stayed on stale data forever — which is
-   exactly the reported symptom ("only the sharer sees the update"). */
+/* ── Real-time refresh — see share.controller.js's
+   broadcastCommunityInsightsUpdate for the backend side. Requires an
+   authenticated socket handshake (auth.token), same as every other
+   socket connection in this app — see Architecture_Cookie_to_JWT.md. */
 let insightsSocket: Socket | null = null;
 let insightsSocketRefCount = 0;
 
@@ -207,7 +189,11 @@ export function CommunityInsights({
         <span className="insight-window">This week</span>
       </div>
 
-      <div className="insight-subtitle">From people you follow</div>
+      {/* ── UPDATED: scoping is now by SHARER, not author — "posts by
+          people you follow" would be misleading, since the post's
+          AUTHOR can be anyone. This is about whose endorsement you're
+          seeing. ── */}
+      <div className="insight-subtitle">Marked by people you follow</div>
 
       {!loaded ? (
         <div className="follow-loading">Loading insights...</div>

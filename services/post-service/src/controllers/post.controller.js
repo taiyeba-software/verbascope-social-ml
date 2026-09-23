@@ -12,7 +12,7 @@ import { io } from '../../server.js';
 import { indexPost, deleteIndexedPost, rebuildSearchIndex } from '../search/postIndex.js';
 import { getAISignal } from '../ml/signalMapper.js';
 import { SIGNAL_MAP, getInsightsWindowStart } from './share.controller.js';
-import { getVisibleAuthors } from '../utils/getVisibleAuthors.js'; // ── NEW: Community Insights personalization
+import { getVisibleAuthorObjectIds } from '../utils/getVisibleAuthors.js'; // ── UPDATED: was getVisibleAuthors
 
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -131,14 +131,13 @@ export const createPost = async (req, res) => {
 // ── GET /api/posts/feed ──────────────────────────────────────────────
 // Query params:
 //   page, limit
-//   signal  — Community Consensus filter. UPDATED: now follow-scoped —
-//             only counts marks from posts by people the user follows
-//             (plus their own posts), matching Community Insights.
-//   risk    — AI Filter, by ML Brain prediction. Comma-separated list
-//             of green | yellow | red, e.g. risk=green,yellow. Matches a
-//             post if its riskFlag is ANY of the given colors ($in).
-//             Omitted / empty / all three colors = no risk filtering.
-//             UNCHANGED — stays platform-wide, independent of `signal`.
+//   signal  — Community Consensus filter. UPDATED: now scoped by SHARER,
+//             not author — shows posts marked with this reason by
+//             someone the user follows (or the user themself),
+//             regardless of who wrote the post. Window is on sharedAt
+//             (when the mark was made), matching the summary endpoint.
+//   risk    — AI Filter, by ML Brain prediction. UNCHANGED — stays
+//             platform-wide, independent of `signal`.
 export const getFeed = async (req, res) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page)  || 1);
@@ -150,7 +149,11 @@ export const getFeed = async (req, res) => {
     const filter = {};
     let sort = { createdAt: -1 };
 
-    // ── Community Consensus filter (UPDATED: now follow-scoped) ──
+    // ── Community Consensus filter — UPDATED: scoped by SHARER, not
+    // author. Shows posts marked with this reason by someone you follow
+    // (or you), regardless of who wrote the post. Window is on
+    // sharedAt, matching the summary endpoint above, so the two always
+    // agree. ──
     if (signal !== undefined && signal !== '') {
       const isKnownSignal =
         typeof signal === 'string' &&
@@ -164,11 +167,20 @@ export const getFeed = async (req, res) => {
       }
 
       const dbPath = `shareReasons.${SIGNAL_MAP[signal]}`;
-      const visibleAuthors = await getVisibleAuthors(req);
+      const visibleAuthorIds = await getVisibleAuthorObjectIds(req);
 
-      filter.createdAt = { $gte: getInsightsWindowStart() };
-      filter.author     = { $in: visibleAuthors };
-      filter[dbPath]     = { $gt: 0 };
+      filter.sharedBy = {
+        $elemMatch: {
+          user: { $in: visibleAuthorIds },
+          reason: SIGNAL_MAP[signal],
+          sharedAt: { $gte: getInsightsWindowStart() },
+        },
+      };
+      // Sort still uses the post's TOTAL mark count from everyone as a
+      // popularity signal — a post several people you follow all marked
+      // "Insightful" should still rank above one only one person marked,
+      // even though the filter itself only checks for at least one
+      // qualifying mark from your network.
       sort = { [dbPath]: -1, createdAt: -1 };
     }
 
@@ -260,11 +272,8 @@ export const getPost = async (req, res) => {
 };
 
 // ── GET /api/posts/:id/community-endorsements ─────────────────────────
-// ── DELIBERATELY LEFT GLOBAL ── Unlike the summary/feed above, the
-// endorsement list for a single post is NOT follow-scoped: if you open a
-// post and see "7 shares", you should see all 7 people, not just the
-// ones you happen to follow — hiding some would make the endorsement
-// history look incomplete/wrong.
+// ── DELIBERATELY LEFT GLOBAL ── If you open a post and see "7 shares,"
+// you should see all 7 people, not just the ones you happen to follow.
 export const getPostCommunityEndorsements = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {

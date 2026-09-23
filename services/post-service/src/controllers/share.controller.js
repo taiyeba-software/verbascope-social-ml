@@ -6,7 +6,7 @@ import { pulse } from '../pulse/pulse.js';
 import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 import { VALID_REASONS } from '../constants/shareReasons.js';
-import { getVisibleAuthors } from '../utils/getVisibleAuthors.js';
+import { getVisibleAuthorObjectIds } from '../utils/getVisibleAuthors.js'; // ── UPDATED
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -32,12 +32,6 @@ const broadcastPulseUpdate = () => {
 		.catch((err) => console.error('broadcastPulseUpdate error:', err.message));
 };
 
-// ── NEW: Community Insights real-time updates ──
-// Unlike pulse:update, this doesn't broadcast data — Community Insights
-// is scoped differently per user (their own network), so there's no
-// single summary to broadcast to everyone. Instead this tells every
-// connected client "something changed, refetch your own view" —
-// CommunityInsights.tsx listens for this and invalidates its cache.
 const broadcastCommunityInsightsUpdate = () => {
 	io.emit('community-insights:update');
 };
@@ -79,9 +73,6 @@ export const sharePost = async (req, res) => {
 		broadcastPulseUpdate();
 		updateUserPulse(req.user.id, req.params.id, 'share');
 
-		// ── NEW: only worth signaling when a reason was actually picked —
-		// a reasonless share never changes any Community Insights count,
-		// so there's nothing for connected widgets to refetch for. ──
 		if (reason) {
 			broadcastCommunityInsightsUpdate();
 		}
@@ -160,8 +151,6 @@ export const unsharePost = async (req, res) => {
 
 		broadcastPulseUpdate();
 
-		// ── NEW: same signal as sharePost, only when it actually moved
-		// a reason count. ──
 		if (shouldDecrementReason) {
 			broadcastCommunityInsightsUpdate();
 		}
@@ -179,27 +168,34 @@ export const unsharePost = async (req, res) => {
 };
 
 // ── GET /api/posts/community-signals/summary ──────────────────────────
+// ── UPDATED: scoped by SHARER, not author ──
+// Counts marks made BY people you follow (or you), on ANY post — not
+// marks on posts authored by people you follow. This matches the "From
+// people you follow" framing literally: it's about whose endorsement
+// you're seeing, not who wrote the original content.
+//
+// The 7-day window now filters on sharedAt (when the mark was made)
+// rather than the post's createdAt — this also fixes a previously
+// documented limitation where a fresh share on an older post was never
+// counted, since with sharer-scoping the post's own age is no longer
+// the relevant signal.
 export const getCommunitySignalsSummary = async (req, res) => {
 	try {
 		const windowStart = getInsightsWindowStart();
 		const reasonKeys  = Object.values(SIGNAL_MAP);
-		const visibleAuthors = await getVisibleAuthors(req);
-
-		const visibleAuthorIds = visibleAuthors
-			.filter((id) => mongoose.Types.ObjectId.isValid(id))
-			.map((id) => new mongoose.Types.ObjectId(id));
+		const visibleAuthorIds = await getVisibleAuthorObjectIds(req);
 
 		const summary = await Post.aggregate([
+			{ $match: { 'sharedBy.0': { $exists: true } } }, // cheap pre-filter: skip posts with zero shares
+			{ $unwind: '$sharedBy' },
 			{
 				$match: {
-					createdAt: { $gte: windowStart },
-					author: { $in: visibleAuthorIds },
+					'sharedBy.user': { $in: visibleAuthorIds },
+					'sharedBy.reason': { $in: reasonKeys },
+					'sharedBy.sharedAt': { $gte: windowStart },
 				},
 			},
-			{ $project: { shareReasons: { $objectToArray: '$shareReasons' } } },
-			{ $unwind: '$shareReasons' },
-			{ $match: { 'shareReasons.k': { $in: reasonKeys } } },
-			{ $group: { _id: '$shareReasons.k', totalMarked: { $sum: '$shareReasons.v' } } },
+			{ $group: { _id: '$sharedBy.reason', totalMarked: { $sum: 1 } } },
 		]);
 
 		const result = Object.fromEntries(reasonKeys.map((key) => [key, 0]));

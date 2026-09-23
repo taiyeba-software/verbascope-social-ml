@@ -456,12 +456,13 @@ function FeedPageContent() {
         {/* ── NEW: active-filter banner ── */}
         {activeInsight && <InsightBanner insight={activeInsight} />}
 
-        {/* ── NEW: AI Filter banner — summarizes whichever color(s) are active ── */}
+        {/* ── NEW: AI Filter banner — summarizes whichever color(s) are active.
+            Modifier class is e.g. "green" or "green-yellow", matching the
+            specific gradient rules in FilterDropdown.css (not a generic
+            "combo" class — see the comment there for why). ── */}
         {activeRiskBanner && (
-          <div
-            className={`risk-banner risk-banner--${activeRisks.length === 1 ? activeRisks[0] : 'combo'}`}
-            role="status"
-          >
+          <div className={`risk-banner risk-banner--${activeRisks.join('-')}`} role="status">
+
             <div className="risk-banner-text">
               <strong>
                 {activeRiskBanner.emoji} {activeRiskBanner.title}

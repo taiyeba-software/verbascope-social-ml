@@ -11,12 +11,12 @@
 .ai-filter,
 .ai-filter-sheet-root,
 .risk-banner {
-  --af-bg: var(--v-bg-card, #ffffff);
-  --af-fg: var(--v-text-primary, #111827);
-  --af-muted: var(--v-text-muted, #6b7280);
-  --af-border: var(--v-border, rgba(120, 120, 120, 0.25));
-  --af-hover: var(--v-accent-soft, rgba(120, 120, 120, 0.12));
-  --af-accent: var(--v-signal-green, #4f46e5);
+  --af-bg: var(--card-bg, var(--bg-card, var(--surface, #ffffff)));
+  --af-fg: var(--text-primary, var(--text, #111827));
+  --af-muted: var(--text-secondary, var(--text-muted, #6b7280));
+  --af-border: var(--border-color, var(--border, rgba(120, 120, 120, 0.25)));
+  --af-hover: var(--hover-bg, rgba(120, 120, 120, 0.12));
+  --af-accent: var(--accent, var(--primary, #4f46e5));
 }
 
 /* Zero-specificity reset so .navbar-link / .navbar-mobile-menu-link
@@ -329,10 +329,27 @@
 .risk-banner--green  { border-left-color: #16a34a; background: rgba(22, 163, 74, 0.10); }
 .risk-banner--yellow { border-left-color: #ca8a04; background: rgba(202, 138, 4, 0.12); }
 .risk-banner--red    { border-left-color: #dc2626; background: rgba(220, 38, 38, 0.10); }
-/* Multi-color selections (green+yellow, yellow+red, green+red) share a
-   neutral accent-colored treatment rather than picking one color to imply
-   priority over the others. */
-.risk-banner--combo  { border-left-color: var(--af-accent); background: var(--af-hover); }
+
+/* Multi-color selections. Same trick as the singles above: a translucent
+   color wash (not a flat/opaque fill) so it tints whatever the page
+   background already is — light or dark — instead of fighting it. Do NOT
+   swap these for theme tokens like --af-accent/--af-hover; those aren't
+   guaranteed to be light/dark-aware in every theme, which is exactly what
+   caused the unreadable navy box in light mode. A gradient of both
+   selected colors' tints keeps text (var(--af-fg), already theme-correct)
+   readable in both modes, the same way the single-color banners are. */
+.risk-banner--green-yellow {
+  border-left-color: #65a30d;
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(202, 138, 4, 0.12));
+}
+.risk-banner--yellow-red {
+  border-left-color: #ea580c;
+  background: linear-gradient(90deg, rgba(202, 138, 4, 0.12), rgba(220, 38, 38, 0.12));
+}
+.risk-banner--green-red {
+  border-left-color: #6b7280;
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(220, 38, 38, 0.12));
+}
 
 .risk-banner-text {
   display: flex;

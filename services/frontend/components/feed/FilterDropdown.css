@@ -369,15 +369,14 @@
   text-decoration: none;
   padding: 6px 10px;
   border-radius: 8px;
-  /* NEW: a visible-by-default fill, not just a border. A border alone in
-     var(--af-border) was too faint against the banner's dark gradient
-     background, so the button only became visible on hover (when some
-     other hover style happened to add contrast). A neutral, low-opacity
-     black/white wash reads clearly on any banner color in either theme,
-     without waiting for :hover. */
-  background: rgba(127, 127, 127, 0.18);
-  border: 1px solid rgba(127, 127, 127, 0.35);
+  /* NEW: border uses `currentColor`, i.e. exactly the button's own text
+     color (var(--af-fg)) — so the border can never blend into whatever
+     the banner's background happens to be, in either theme, without
+     needing :hover. The fill is a stronger neutral wash than before
+     (0.18 wasn't enough contrast against a dark gradient banner). */
+  background: rgba(127, 127, 127, 0.30);
+  border: 1.5px solid currentColor;
 }
 .risk-banner-clear:hover {
-  background: rgba(127, 127, 127, 0.28);
+  background: rgba(127, 127, 127, 0.42);
 }

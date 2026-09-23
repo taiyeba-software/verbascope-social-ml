@@ -32,6 +32,16 @@ const broadcastPulseUpdate = () => {
 		.catch((err) => console.error('broadcastPulseUpdate error:', err.message));
 };
 
+// ── NEW: Community Insights real-time updates ──
+// Unlike pulse:update, this doesn't broadcast data — Community Insights
+// is scoped differently per user (their own network), so there's no
+// single summary to broadcast to everyone. Instead this tells every
+// connected client "something changed, refetch your own view" —
+// CommunityInsights.tsx listens for this and invalidates its cache.
+const broadcastCommunityInsightsUpdate = () => {
+	io.emit('community-insights:update');
+};
+
 // ── POST /api/posts/:id/share ─────────────────────────────────────────
 export const sharePost = async (req, res) => {
 	try {
@@ -68,6 +78,13 @@ export const sharePost = async (req, res) => {
 		pulse.onPostShared(req.params.id, reason, req.user.id);
 		broadcastPulseUpdate();
 		updateUserPulse(req.user.id, req.params.id, 'share');
+
+		// ── NEW: only worth signaling when a reason was actually picked —
+		// a reasonless share never changes any Community Insights count,
+		// so there's nothing for connected widgets to refetch for. ──
+		if (reason) {
+			broadcastCommunityInsightsUpdate();
+		}
 
 		io.emit('post:update', {
 			postId: req.params.id,
@@ -143,6 +160,12 @@ export const unsharePost = async (req, res) => {
 
 		broadcastPulseUpdate();
 
+		// ── NEW: same signal as sharePost, only when it actually moved
+		// a reason count. ──
+		if (shouldDecrementReason) {
+			broadcastCommunityInsightsUpdate();
+		}
+
 		io.emit('post:update', {
 			postId: req.params.id,
 			sharesCount: updated.sharesCount,
@@ -156,28 +179,12 @@ export const unsharePost = async (req, res) => {
 };
 
 // ── GET /api/posts/community-signals/summary ──────────────────────────
-// ── UPDATED: Community Insights personalization ──
-// Scoped to the current user's own posts plus everyone they follow, so
-// the sidebar tells a consistent story with the (also follow-based)
-// main feed rather than surfacing marks from strangers the user has
-// never seen post.
 export const getCommunitySignalsSummary = async (req, res) => {
 	try {
 		const windowStart = getInsightsWindowStart();
 		const reasonKeys  = Object.values(SIGNAL_MAP);
 		const visibleAuthors = await getVisibleAuthors(req);
 
-		// ── FIX: Post.aggregate() does NOT auto-cast strings to ObjectId
-		// the way Post.find()/Post.findById() do — Mongoose's automatic
-		// query casting only applies to its own query builder methods,
-		// not to raw aggregation pipelines. A $match against `author`
-		// using plain string IDs (what getVisibleAuthors returns) never
-		// matches anything, because MongoDB treats a string and an
-		// ObjectId as different types even when they represent the same
-		// id. This was why the summary stayed at all zeros even after
-		// sharing a qualifying post — cast explicitly before the
-		// pipeline runs. Invalid entries are filtered out defensively
-		// rather than allowed to throw and 500 the whole endpoint. ──
 		const visibleAuthorIds = visibleAuthors
 			.filter((id) => mongoose.Types.ObjectId.isValid(id))
 			.map((id) => new mongoose.Types.ObjectId(id));

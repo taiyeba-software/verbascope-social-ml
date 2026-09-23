@@ -2,28 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { postService } from '@/lib/api';
+import { io, type Socket } from 'socket.io-client';
+import { postService, tokenStorage } from '@/lib/api';
 import './CommunityInsights.css';
 
 /* ──────────────────────────────────────────────────────────
    Community Insights — shared config, widget and banner.
-
-   Lives in its own file so the SAME widget can be rendered in the
-   desktop <Sidebar /> and inline in the mobile feed (inside a
-   `mobile-only` wrapper), and so app/feed/page.tsx can reuse the
-   labels/icons/copy without importing from Sidebar.
-
-   Covers every share reason from the "Why are you passing this forward?"
-   sheet (same order). `reason` values are the keys stored in
-   Post.shareReasons by the backend (VALID_REASONS in
-   share.controller.js) — snake_case. `slug` is the URL value and must
-   match SIGNAL_MAP in share.controller.js.
-
-   UPDATED: both the summary this widget displays and the filtered feed
-   behind each row are now scoped to the current user's own posts plus
-   everyone they follow (see getVisibleAuthors on the backend), so the
-   sidebar and the main feed tell one consistent story instead of the
-   sidebar surfacing marks from strangers the user has never seen post.
    ────────────────────────────────────────────────────────── */
 
 export const INSIGHTS = [
@@ -91,32 +75,89 @@ export const INSIGHTS = [
 
 export type Insight = (typeof INSIGHTS)[number];
 
-/** Returns the matching insight for a URL slug, or null for unknown/missing. */
 export const findInsight = (slug?: string | null): Insight | null =>
   INSIGHTS.find((insight) => insight.slug === slug) ?? null;
 
 /* ── Summary loading ──
-   The widget can be mounted twice (desktop sidebar + mobile inline), so
-   the request is shared through a small module-level cache: any number of
-   instances trigger a single network call per 30 seconds. */
+   Shared cache so multiple mounted instances (desktop + mobile) share
+   one network request. `loadSummary(force)` lets a real-time event
+   bypass the TTL and refetch immediately instead of waiting up to 30s. */
 
 type Summary = Record<string, number>;
 
 const SUMMARY_TTL_MS = 30_000;
 let summaryCache: { at: number; promise: Promise<Summary> } | null = null;
 
-const loadSummary = (): Promise<Summary> => {
-  if (!summaryCache || Date.now() - summaryCache.at > SUMMARY_TTL_MS) {
+const subscribers = new Set<(data: Summary) => void>();
+
+const loadSummary = (force = false): Promise<Summary> => {
+  if (force || !summaryCache || Date.now() - summaryCache.at > SUMMARY_TTL_MS) {
     const promise = postService
       .getCommunitySignalsSummary()
-      .then((res) => res.data.summary ?? {})
+      .then((res) => {
+        const data = res.data.summary ?? {};
+        subscribers.forEach((cb) => cb(data));
+        return data;
+      })
       .catch(() => {
-        summaryCache = null; // let the next mount retry
+        summaryCache = null;
         return {} as Summary;
       });
     summaryCache = { at: Date.now(), promise };
   }
   return summaryCache.promise;
+};
+
+/* ── Real-time refresh ──
+   Community Insights can't be broadcast as shared data the way
+   pulse:update is — each user's summary is scoped to their own
+   following list, so there's no single payload to hand everyone.
+   Instead the backend emits a plain "something changed" signal after
+   a share/unshare that moves a reason count (see
+   broadcastCommunityInsightsUpdate in share.controller.js), and every
+   connected client refetches its OWN scoped summary in response.
+
+   A single module-level socket connection is shared across every
+   mounted CommunityInsights instance (desktop sidebar + mobile inline).
+
+   FIXED: this connection previously omitted `auth.token`. This app's
+   Socket.IO servers require a Bearer token at handshake time (see
+   Architecture_Cookie_to_JWT.md, Step 5) and reject any connection
+   missing one via server-side io.use(...) middleware — so this socket
+   was never actually joining the server at all, for ANY client,
+   including the sharer's own tab. The sharer only ever appeared to see
+   "real-time" updates because a full page reload after sharing
+   triggers a fresh HTTP fetch independent of the socket. A follower's
+   tab, with no reload, just stayed on stale data forever — which is
+   exactly the reported symptom ("only the sharer sees the update"). */
+let insightsSocket: Socket | null = null;
+let insightsSocketRefCount = 0;
+
+const getInsightsSocket = (): Socket => {
+  if (!insightsSocket) {
+    const url = process.env.NEXT_PUBLIC_POST_API_URL || 'http://localhost:3003';
+    insightsSocket = io(url, { auth: { token: tokenStorage.get() } });
+
+    insightsSocket.on('connect', () => {
+      console.log('[CommunityInsights] socket connected', insightsSocket?.id);
+    });
+    insightsSocket.on('connect_error', (err) => {
+      console.log('[CommunityInsights] socket error:', err.message);
+    });
+    insightsSocket.on('community-insights:update', () => {
+      loadSummary(true);
+    });
+  }
+  insightsSocketRefCount += 1;
+  return insightsSocket;
+};
+
+const releaseInsightsSocket = () => {
+  insightsSocketRefCount = Math.max(0, insightsSocketRefCount - 1);
+  if (insightsSocketRefCount === 0 && insightsSocket) {
+    insightsSocket.disconnect();
+    insightsSocket = null;
+  }
 };
 
 /* ── Widget ── */
@@ -125,9 +166,7 @@ export function CommunityInsights({
   activeSlug = null,
   compact = false,
 }: {
-  /** Slug currently applied to the feed, so its row can be highlighted. */
   activeSlug?: string | null;
-  /** Compact 2-column layout for the mobile inline version. */
   compact?: boolean;
 }) {
   const [summary, setSummary] = useState<Summary>({});
@@ -135,17 +174,27 @@ export function CommunityInsights({
 
   useEffect(() => {
     let cancelled = false;
+
     loadSummary().then((data) => {
       if (cancelled) return;
       setSummary(data);
       setLoaded(true);
     });
-    return () => { cancelled = true; };
+
+    const onUpdate = (data: Summary) => {
+      if (cancelled) return;
+      setSummary(data);
+    };
+    subscribers.add(onUpdate);
+    getInsightsSocket();
+
+    return () => {
+      cancelled = true;
+      subscribers.delete(onUpdate);
+      releaseInsightsSocket();
+    };
   }, []);
 
-  // Only categories that actually have community marks this week are shown.
-  // The currently-applied filter is always kept visible so the user can
-  // still see where they are (and switch away) even if its count is 0.
   const visible = INSIGHTS.filter(
     ({ slug, reason }) => (summary[reason] || 0) > 0 || slug === activeSlug
   );
@@ -158,9 +207,6 @@ export function CommunityInsights({
         <span className="insight-window">This week</span>
       </div>
 
-      {/* ── NEW: clarifies scope now that this is follow-based, not
-          platform-wide — avoids the sidebar and feed telling two
-          different stories. ── */}
       <div className="insight-subtitle">From people you follow</div>
 
       {!loaded ? (

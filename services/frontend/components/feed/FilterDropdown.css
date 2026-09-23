@@ -365,7 +365,7 @@
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 600;
-  color:#afb1b5
+  color: #fff;
   text-decoration: none;
   padding: 6px 10px;
   border-radius: 8px;
@@ -374,7 +374,7 @@
      the banner's background happens to be, in either theme, without
      needing :hover. The fill is a stronger neutral wash than before
      (0.18 wasn't enough contrast against a dark gradient banner). */
-  background:rgb(151 141 141 / 30%)
+  background: rgba(127, 127, 127, 0.42);
   border: 1.5px solid currentColor;
 }
 .risk-banner-clear:hover {

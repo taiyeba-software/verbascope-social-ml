@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import type { WeeklyPulse } from './useFeedSocket';
 import { postService, userService } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { CommunityInsights } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
+import { CommunityInsights } from '@/components/feed/CommunityInsights';
 
 interface RecommendedUser {
   _id: string;
@@ -32,15 +32,7 @@ export function Sidebar({
   weeklyPulse,
   activeInsight = null,
 }: {
-  // Live updates arrive via this prop (parent wires it from
-  // useFeedSocket()'s `weeklyPulse`, updated on 'pulse:update'). Sidebar
-  // additionally self-fetches once on mount below so the card has real
-  // data immediately, instead of waiting for the next post/share to
-  // trigger a broadcast.
   weeklyPulse: WeeklyPulse | null;
-  // ── NEW: slug of the Community Insights filter currently applied to the
-  // feed (e.g. 'educational'), used only to highlight the active row.
-  // Optional, so any other place that renders <Sidebar /> keeps working.
   activeInsight?: string | null;
 }) {
   const { user } = useAuth();
@@ -49,9 +41,6 @@ export function Sidebar({
   const [loadingFollow, setLoadingFollow]     = useState<string | null>(null);
   const [loading, setLoading]                 = useState(true);
 
-  // ── NEW: Weekly Pulse initial load ──
-  // Falls back to this until the first 'pulse:update' socket event
-  // arrives (or forever, if nothing has happened since mount).
   const [initialPulse, setInitialPulse] = useState<WeeklyPulse | null>(null);
   const [pulseLoading, setPulseLoading] = useState(true);
   const pulse = weeklyPulse ?? initialPulse;
@@ -91,8 +80,6 @@ export function Sidebar({
           return;
         }
 
-        // The recommendations endpoint already returns fullname/avatar/headline
-        // populated server-side — no need for a second getUsersBulk round trip.
         const merged: RecommendedUser[] = recData.recommendations
           .filter((r) => user && r.userId !== user._id)
           .map((r) => ({
@@ -105,9 +92,26 @@ export function Sidebar({
 
         setRecommendations(merged);
 
+        // ── FIX: getMyFollowing() returns full user objects
+        // ({ fullname, _id, headline, avatar }), NOT plain ID strings.
+        // The previous version did `followData.following.map(String)`,
+        // which stringifies each OBJECT to the literal text
+        // "[object Object]" instead of extracting its _id — so
+        // followingIds never actually contained a real user id, and
+        // `followingIds.has(person._id)` was always false. That's why
+        // "Who to Follow" kept showing an already-followed person with
+        // a "Follow" button again after every reload: the app had no
+        // correct record of who was already followed. ──
         const followRes  = await userService.getMyFollowing();
-        const followData = followRes.data as { success: boolean; following: string[] };
-        setFollowingIds(new Set(followData.following.map(String)));
+        const followData = followRes.data as {
+          success: boolean;
+          following: Array<string | { _id: string }>;
+        };
+        setFollowingIds(
+          new Set(
+            followData.following.map((f) => (typeof f === 'string' ? f : f._id))
+          )
+        );
       } catch (err) {
         console.error('[Sidebar] Failed to load recommendations:', err);
       } finally {
@@ -136,28 +140,17 @@ export function Sidebar({
     }
   };
 
-  // Split into not-yet-followed (shown first) + already-following
   const unfollowed = recommendations.filter((p) => !followingIds.has(p._id));
   const followed   = recommendations.filter((p) =>  followingIds.has(p._id));
   const displayed  = [...unfollowed, ...followed].slice(0, 5);
 
-  // ── Weekly Pulse: is there anything worth showing beyond the status
-  // itself? Quiet weeks intentionally render *only* the explanation line
-  // (no tag, no count) — showing "#anime · 0 posts" during a quiet week
-  // implies there's a story here when there isn't one yet.
   const isQuiet = pulse?.status === '💤 Quiet';
 
   return (
     <aside className="feed-sidebar">
 
-      {/* ── NEW: Community Insights ── */}
       <CommunityInsights activeSlug={activeInsight} />
 
-      {/* ── Trending Now: Weekly Pulse ── */}
-      {/* NOTE: topics are intentionally plain text, not links — the
-          tag pages (/tag/:tagName) currently 500 because the Meilisearch
-          index isn't configured with `tags` as a filterable attribute.
-          Re-add navigation once that's fixed on the search side. */}
       <div className="sidebar-card">
         <div className="sidebar-card-header">
           <div className="sidebar-card-icon">🔥</div>
@@ -180,8 +173,6 @@ export function Sidebar({
             <div className="pulse-signal-badge">{pulse.status}</div>
 
             {isQuiet ? (
-              // Quiet: the explanation IS the content. No tag, no count —
-              // nothing to feature yet.
               <div className="follow-empty">
                 {pulse.explanation ?? 'Not enough activity this week yet.'}
               </div>
@@ -200,8 +191,6 @@ export function Sidebar({
               </div>
             )}
 
-            {/* Already excludes the headline topic (backend dedupes it),
-                so this never repeats the tag shown above. */}
             {pulse.topics.length > 0 && (
               <>
                 <div className="sidebar-section-label">
@@ -224,7 +213,6 @@ export function Sidebar({
         )}
       </div>
 
-      {/* ── Who to Follow ── */}
       <div className="sidebar-card">
         <div className="sidebar-card-header">
           <div className="sidebar-card-icon">👥</div>

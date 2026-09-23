@@ -18,7 +18,19 @@ export const getVisibleAuthors = async (req) => {
     const res = await authClient.get('/api/users/me/following', {
       headers: { Authorization: req.headers.authorization },
     });
-    const followingIds = res.data?.following ?? [];
+
+    // ── FIX: /api/users/me/following returns full user objects
+    // ({ fullname, _id, headline, avatar }), NOT plain ID strings. The
+    // first version of this function assumed `following` was a string[]
+    // and pushed those objects straight into visibleAuthors, which meant
+    // Mongo's `author: { $in: visibleAuthors }` could never match them —
+    // every filtered result silently collapsed to "just me", which is
+    // exactly why Community Insights showed as empty. Normalize to plain
+    // ID strings here regardless of which shape the endpoint returns, so
+    // this keeps working even if that response shape changes later. ──
+    const followingRaw = res.data?.following ?? [];
+    const followingIds = followingRaw.map((f) => (typeof f === 'string' ? f : f._id));
+
     return [userId, ...followingIds];
   } catch (err) {
     console.error('getVisibleAuthors error:', err.message);

@@ -1,7 +1,11 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from threading import Thread
+import hmac
+import os
 import traceback
+from threading import Thread
+
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel, Field
 
 from models.sentiment_sarcasm import SentimentSarcasmModel
 from models.english_sarcasm import EnglishSarcasmModel
@@ -9,7 +13,10 @@ from models.toxicity import ToxicityModel
 from models.english_toxicity import EnglishToxicityModel
 
 from pipelines.analyzer import Analyzer
-from rabbit_consumer import start_consumer
+from rabbit_consumer import get_status, start_consumer
+
+# Load .env first so ML_API_KEY / RABBITMQ_URL are visible below.
+load_dotenv()
 
 
 # --------------------------------------------------
@@ -21,6 +28,30 @@ app = FastAPI(
     version="1.0.0",
     description="Machine Learning service for VerbaScope",
 )
+
+
+# --------------------------------------------------
+# Optional API key for /analyze
+# --------------------------------------------------
+# This service is reachable from the internet (for example through an ngrok
+# tunnel), and /analyze runs CPU-heavy inference. When ML_API_KEY is set, every
+# /analyze call must send it in an "X-API-Key" header. When it is not set the
+# endpoint stays open, which is only appropriate on a trusted local machine.
+
+ML_API_KEY = os.getenv("ML_API_KEY", "").strip()
+
+if not ML_API_KEY:
+    print(
+        "WARNING: ML_API_KEY is not set. /analyze is open to anyone who can "
+        "reach this service. Set ML_API_KEY before exposing it publicly."
+    )
+
+
+def require_api_key(x_api_key: str | None = Header(default=None)):
+    if not ML_API_KEY:
+        return
+    if not x_api_key or not hmac.compare_digest(x_api_key, ML_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 # --------------------------------------------------
@@ -57,9 +88,10 @@ print("ML Brain ready.")
 # --------------------------------------------------
 # RabbitMQ
 # --------------------------------------------------
-# The consumer now shares the same Analyzer instance as the HTTP
-# /analyze endpoint, so both entry points run identical routing/model
-# logic — no separate branching to keep in sync.
+# The consumer shares the same Analyzer instance as the HTTP /analyze
+# endpoint, so both entry points run identical routing/model logic.
+# start_consumer() reconnects by itself; this wrapper only catches a
+# fatal start-up error (for example RABBITMQ_URL not set) and prints it.
 
 def start_rabbitmq_consumer():
     try:
@@ -70,6 +102,7 @@ def start_rabbitmq_consumer():
 
 rabbit_thread = Thread(
     target=start_rabbitmq_consumer,
+    name="rabbit-consumer",
     daemon=True,
 )
 
@@ -81,7 +114,8 @@ rabbit_thread.start()
 # --------------------------------------------------
 
 class AnalyzeRequest(BaseModel):
-    text: str
+    # Upper bound so one huge request cannot tie up the CPU.
+    text: str = Field(..., max_length=10000)
 
 
 class AnalyzeResponse(BaseModel):
@@ -111,13 +145,20 @@ class AnalyzeResponse(BaseModel):
 # --------------------------------------------------
 # Health check
 # --------------------------------------------------
+# "status" still means "the HTTP API is up". The queue consumer's real state is
+# reported separately, so a dead or disconnected consumer is visible instead of
+# hiding behind a constant "ok". No URLs or secrets are included.
 
 @app.get("/health")
 def health():
+    consumer = get_status()
+    consumer["thread_alive"] = rabbit_thread.is_alive()
+
     return {
         "status": "ok",
         "service": "verbascope-ml-brain",
         "model_loaded": True,
+        "queue_consumer": consumer,
     }
 
 
@@ -125,6 +166,10 @@ def health():
 # Text analysis
 # --------------------------------------------------
 
-@app.post("/analyze", response_model=AnalyzeResponse)
+@app.post(
+    "/analyze",
+    response_model=AnalyzeResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def analyze(request: AnalyzeRequest):
     return analyzer.analyze(request.text)

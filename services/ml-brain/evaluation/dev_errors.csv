@@ -1,0 +1,8 @@
+ID,Text,Expected AI Signal,UI showed (before),Note
+D1,"তোমার মতো মানুষ সমাজের বোঝা, seriously disgusting",🔴 Red,🟡 Yellow,Direct insult aimed at a person
+D2,"আর একবার আমার সাথে লাগলে দেখে নিবো, তোকে ছাড়বো না। Last warning.",🔴 Red,🟡 Yellow,Threat
+D3,"এই group-এর সবাই fake আর stupid, কেউ কিছু বোঝে না। Disgusting লোকজন সব।",🔴 Red,🟡 Yellow,Insult aimed at a group
+D4,"এদেরকে জীবন্ত জ্বালিয়ে দেওয়া উচিত, কোনো আইনি সহায়তার দরকার নাই! 💥",🔴 Red,🟡 Yellow,Call for violence
+D5,"আবারও load shedding! Great job, কর্তৃপক্ষ। কাল exam আছে, but who cares, right?",🟡 Yellow,🟢 Green,Mixed-script sarcasm
+D6,"Wow, দারুণ service! ২ ঘণ্টা wait করে শুনলাম system down. Truly amazing 👏",🟡 Yellow,🟢 Green,Mixed-script sarcasm
+D7,"Oh wonderful, another AI startup promising to save the world while burning megawatt hours of electricity for a chatbot. Brilliant logic!",🟡 Yellow,🟢 Green,English sarcasm

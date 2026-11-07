@@ -1,0 +1,19 @@
+ID,Text,Expected AI Signal,Expected,Predicted AI Signal,Language,Pipeline,Correct?
+155,The new update made the app so much easier to use.,🟢 Green,Green,Yellow,English,,False
+157,I'm really disappointed that the flight got delayed again.,🟡 Yellow,Yellow,Green,English,,False
+158,This has been one of the hardest weeks of my life.,🟡 Yellow,Yellow,Green,English,,False
+159,I don't think this plan is going to work out.,🟡 Yellow,Yellow,Green,English,,False
+161,I'm feeling pretty stressed about the upcoming exams.,🟡 Yellow,Yellow,Green,English,,False
+162,"Honestly, the movie was boring and too long.",🟡 Yellow,Yellow,Green,English,,False
+163,I regret not studying harder for that test.,🟡 Yellow,Yellow,Green,English,,False
+165,I'm upset that the project got cancelled at the last minute.,🟡 Yellow,Yellow,Green,English,,False
+166,This product didn't meet my expectations at all.,🟡 Yellow,Yellow,Green,English,,False
+174,"Everyone thinks you're a joke, just admit it.",🔴 Red,Red,Yellow,English,,False
+181,"You better run, because I'm coming for you.",🔴 Red,Red,Yellow,English,,False
+185,Touch my stuff again and you'll regret it forever.,🔴 Red,Red,Yellow,English,,False
+187,"Oh great, another Monday, just what I needed.",🟡 Yellow,Yellow,Green,English,,False
+191,"Oh fantastic, the printer is broken again. Love that.",🟡 Yellow,Yellow,Green,English,,False
+192,Nice job breaking the build right before the demo.,🟡 Yellow,Yellow,Green,English,,False
+193,I just love waiting an hour for a five minute meeting.,🟡 Yellow,Yellow,Green,English,,False
+195,"Great, you 'fixed' it and now nothing works. Well done.",🟡 Yellow,Yellow,Green,English,,False
+196,"Perfect, another delay. Exactly what this project needed.",🟡 Yellow,Yellow,Green,English,,False

@@ -1,0 +1,9 @@
+ID,Text,Expected AI Signal,Expected,Predicted AI Signal,Language,Pipeline,Correct?
+155,The new update made the app so much easier to use.,🟢 Green,Green,Yellow,English,,False
+174,"Everyone thinks you're a joke, just admit it.",🔴 Red,Red,Yellow,English,,False
+181,"You better run, because I'm coming for you.",🔴 Red,Red,Yellow,English,,False
+185,Touch my stuff again and you'll regret it forever.,🔴 Red,Red,Yellow,English,,False
+187,"Oh great, another Monday, just what I needed.",🟡 Yellow,Yellow,Green,English,,False
+191,"Oh fantastic, the printer is broken again. Love that.",🟡 Yellow,Yellow,Green,English,,False
+193,I just love waiting an hour for a five minute meeting.,🟡 Yellow,Yellow,Green,English,,False
+196,"Perfect, another delay. Exactly what this project needed.",🟡 Yellow,Yellow,Green,English,,False

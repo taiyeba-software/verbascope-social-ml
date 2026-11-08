@@ -87,7 +87,7 @@ def run_once(df, url, key, timeout, raw_path):
             flag_field = flag_field or path
             preds.append(label)
             langs.append(resp.get("language") or resp.get("detected_language") or "")
-            pipes.append(resp.get("pipeline") or resp.get("selected_pipeline") or "")
+            pipes.append(resp.get("routing") or resp.get("pipeline") or resp.get("selected_pipeline") or "")
             times.append(dt)
             raw.write(json.dumps({"ID": row.ID, "response": resp}, ensure_ascii=False) + "\n")
             if i % 20 == 0:

@@ -8,6 +8,21 @@ const pulseQueue = 'pulse_events';
 const mlAnalyzeQueue = 'ml_analyze';
 const mlResultQueue = 'ml_results';
 
+// ── FIX (reconnect): the pulse and ML-result handlers are now remembered
+// here. Before, consumePulseEvents() / consumeMLResults() ran only once at
+// server start. After a RabbitMQ connection drop, connect() built a new
+// channel but only re-registered user_created / user_updated, so ML results
+// silently stopped arriving until post-service was restarted. Also, if
+// those functions were called while `channel` was still null, they returned
+// without registering anything at all.
+//
+// `...RegisteredOn` remembers which channel a consumer is attached to, so
+// the same consumer is never registered twice on the same channel.
+let pulseHandler = null;
+let mlResultHandler = null;
+let pulseRegisteredOn = null;
+let mlResultRegisteredOn = null;
+
 const upsertUser = async (payload) => {
 	if (!payload?.id) return;
 
@@ -117,35 +132,66 @@ export const publish = (eventType, data) => {
 	}
 };
 
+// Registers the pulse consumer on the CURRENT channel (once per channel).
+const registerPulseConsumer = async () => {
+	if (!channel || !pulseHandler || pulseRegisteredOn === channel) return;
+
+	const ch = channel; // keep this channel for ack(): `channel` may be replaced after a reconnect
+	const handler = pulseHandler;
+	pulseRegisteredOn = ch;
+
+	try {
+		await ch.assertQueue(pulseQueue, { durable: false });
+		await ch.consume(pulseQueue, (message) => {
+			if (!message) return;
+
+			const event = JSON.parse(message.content.toString());
+			handler(event);
+			ch.ack(message);
+		});
+	} catch (err) {
+		pulseRegisteredOn = null; // allow a later retry
+		throw err;
+	}
+};
+
+// Registers the ML-result consumer on the CURRENT channel (once per channel).
+const registerMLResultConsumer = async () => {
+	if (!channel || !mlResultHandler || mlResultRegisteredOn === channel) return;
+
+	const ch = channel;
+	const handler = mlResultHandler;
+	mlResultRegisteredOn = ch;
+
+	try {
+		await ch.assertQueue(mlResultQueue, { durable: true });
+		await ch.consume(mlResultQueue, async (message) => {
+			if (!message) return;
+
+			try {
+				const result = JSON.parse(message.content.toString());
+				await handler(result);
+				ch.ack(message);
+			} catch (error) {
+				console.error('Failed to process ML result:', error.message);
+				ch.nack(message, false, false);
+			}
+		});
+	} catch (err) {
+		mlResultRegisteredOn = null; // allow a later retry
+		throw err;
+	}
+};
+
+// Same names and arguments as before, so server.js needs no change.
 export const consumePulseEvents = async (onEvent) => {
-	if (!channel) return;
-
-	await channel.assertQueue(pulseQueue, { durable: false });
-	await channel.consume(pulseQueue, (message) => {
-		if (!message) return;
-
-		const event = JSON.parse(message.content.toString());
-		onEvent(event);
-		channel.ack(message);
-	});
+	pulseHandler = onEvent;
+	await registerPulseConsumer();
 };
 
 export const consumeMLResults = async (onResult) => {
-	if (!channel) return;
-
-	await channel.assertQueue(mlResultQueue, { durable: true });
-	await channel.consume(mlResultQueue, async (message) => {
-		if (!message) return;
-
-		try {
-			const result = JSON.parse(message.content.toString());
-			await onResult(result);
-			channel.ack(message);
-		} catch (error) {
-			console.error('Failed to process ML result:', error.message);
-			channel.nack(message, false, false);
-		}
-	});
+	mlResultHandler = onResult;
+	await registerMLResultConsumer();
 };
 
 export const connect = async () => {
@@ -185,6 +231,13 @@ export const connect = async () => {
 
 		await consumeQueue('user_created', upsertUser);
 		await consumeQueue('user_updated', applyUserUpdate);
+
+		// ── FIX: after a reconnect (or if server.js asked for these before the
+		// channel existed), attach the pulse and ML-result consumers to the
+		// new channel. On the very first connect the handlers are still null,
+		// so these calls do nothing and server.js registers them as before.
+		await registerPulseConsumer();
+		await registerMLResultConsumer();
 
 		console.log('RabbitMQ connected (post-service)');
 		return true;

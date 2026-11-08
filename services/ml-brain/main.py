@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from models.sentiment_sarcasm import SentimentSarcasmModel
 from models.english_sarcasm import EnglishSarcasmModel
+from models.english_sentiment import EnglishSentimentModel
 from models.toxicity import ToxicityModel
 from models.english_toxicity import EnglishToxicityModel
 
@@ -66,6 +67,9 @@ bangla_model = SentimentSarcasmModel()
 print("Loading English sarcasm model...")
 english_model = EnglishSarcasmModel()
 
+print("Loading English sentiment model...")
+english_sentiment_model = EnglishSentimentModel()
+
 print("Loading toxicity model...")
 toxicity_model = ToxicityModel()
 
@@ -80,6 +84,7 @@ analyzer = Analyzer(
     english_model=english_model,
     bangla_toxicity_model=toxicity_model,
     english_toxicity_model=english_toxicity_model,
+    english_sentiment_model=english_sentiment_model,
 )
 
 print("ML Brain ready.")

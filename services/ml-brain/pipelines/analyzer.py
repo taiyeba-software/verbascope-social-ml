@@ -1,4 +1,4 @@
-""""
+"""
 pipelines/analyzer.py
 
 Coordinates a single request through the full VerbaScope ML Brain
@@ -42,11 +42,16 @@ class Analyzer:
         english_model,
         bangla_toxicity_model,
         english_toxicity_model,
+        english_sentiment_model=None,
     ):
         self.bangla_model = bangla_model
         self.english_model = english_model
         self.bangla_toxicity_model = bangla_toxicity_model
         self.english_toxicity_model = english_toxicity_model
+        # Optional: if None, English sentiment falls back to "Neutral"
+        # (the old behaviour), so older scripts that build an Analyzer
+        # without it keep working.
+        self.english_sentiment_model = english_sentiment_model
 
     # ------------------------------------------------------------
     # Language-specific pipelines
@@ -59,6 +64,7 @@ class Analyzer:
 
         return {
             "sentiment": result["sentiment"],
+            "sentiment_confidence": None,
             "sarcasm": result["sarcasm"] == "Sarcastic",
             "sarcasm_probability": result["sarcasm_probability"],
             "toxicity": toxicity,
@@ -72,9 +78,17 @@ class Analyzer:
 
         toxicity_result = self.english_toxicity_model.predict(text)
 
+        if self.english_sentiment_model is not None:
+            sentiment_result = self.english_sentiment_model.predict(text)
+            sentiment = sentiment_result["sentiment"]
+            sentiment_confidence = sentiment_result["confidence"]
+        else:
+            sentiment = "Neutral"
+            sentiment_confidence = None
+
         return {
-            # No dedicated English sentiment model yet.
-            "sentiment": "Neutral",
+            "sentiment": sentiment,
+            "sentiment_confidence": sentiment_confidence,
             "sarcasm": result["sarcasm"],
             "sarcasm_probability": result["sarcasm_probability"],
             "toxicity": toxicity_result["score"],
@@ -118,25 +132,35 @@ class Analyzer:
             )
 
         # A single 0-1 "how sure is the model" number for the frontend's
-        # AI Analysis dropdown. This should reflect the confidence of
-        # whichever signal actually drove the result, not a fixed
-        # priority order:
+        # AI Analysis dropdown. It should be the confidence of whichever
+        # signal actually drove the result:
         #   - Medium/High toxicity -> the toxicity model's top-label
         #     score (e.g. "threat" at 0.91), since toxicity is what's
         #     driving the risk flag.
-        #   - Otherwise, for the English pipeline -> the sarcasm
-        #     probability, since toxic-bert's top-label score for a
-        #     LOW-toxicity post (e.g. "toxic": 0.0007 for "Today is
-        #     amazing") is just "how not-toxic is this text" and is
-        #     meaningless as an overall confidence — it isn't the
-        #     confidence of any prediction actually being shown.
+        #   - Sarcasm detected -> the sarcasm probability.
+        #   - Otherwise, English pipeline -> the English sentiment
+        #     model's confidence in its chosen label. (Using the sarcasm
+        #     probability here was misleading: for "I hate this so much"
+        #     it showed 0.33 although the sentiment model was very sure
+        #     the text is Negative. toxic-bert's top-label score is not
+        #     used either: for low-toxicity text it only says "how
+        #     not-toxic is this", not how sure any shown prediction is.)
+        #     If no English sentiment model is loaded, fall back to the
+        #     sarcasm probability as before.
         #   - Otherwise (Bangla/Banglish/Mixed-to-Bangla) -> the
         #     language-detection confidence, since that's the strongest
         #     signal driving which model ran at all.
         if risk.toxicity_level in ("Medium", "High") and toxicity_top_label_score is not None:
             confidence = toxicity_top_label_score
-        elif decision.pipeline == "english":
+        elif analysis["sarcasm"]:
             confidence = analysis["sarcasm_probability"]
+        elif decision.pipeline == "english":
+            sentiment_confidence = analysis["sentiment_confidence"]
+            confidence = (
+                sentiment_confidence
+                if sentiment_confidence is not None
+                else analysis["sarcasm_probability"]
+            )
         else:
             confidence = decision.confidence
 

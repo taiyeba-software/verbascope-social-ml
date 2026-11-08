@@ -1,6 +1,6 @@
 # VerbaScope Frontend
 
-This directory contains the VerbaScope web application. It is a Next.js App Router frontend with React, TypeScript, Axios, Socket.IO, a custom light/dark theme, and shadcn/Radix-style UI primitives. It provides authentication, the social feed, profiles, search, post details, bookmarks, comments, notifications, and real-time pulse updates.
+This directory contains the VerbaScope web application. It is a Next.js App Router frontend with React, TypeScript, Axios, Socket.IO, a server-initialized light/dark theme, and reusable UI primitives. It provides authentication, the social feed, profiles, search, post details, bookmarks, comments, notifications, and real-time pulse and post updates.
 
 ## Architecture Diagram
 
@@ -12,16 +12,19 @@ flowchart LR
     NEXT --> HOOKS[hooks/ reusable React hooks]
     NEXT --> API[lib/api.ts + API clients]
 
-    API --> AUTH[Auth Service\nhttp://localhost:3000]
-    API --> NOTIFY[Notification Service\nhttp://localhost:3001]
-    API --> POST[Post Service\nhttp://localhost:3003]
+    API -->|Bearer JWT + credentials| AUTH[Auth Service]
+    API -->|Bearer JWT + credentials| NOTIFY[Notification Service]
+    API -->|Bearer JWT + credentials| POST[Post Service]
 
-    COMP --> SOCKET[Socket.IO client\npost service events]
+    COMP -->|JWT handshake| SOCKET[Socket.IO clients]
+    SOCKET --> POST
+    SOCKET --> NOTIFY
     COMP --> UI[shadcn / Radix UI primitives]
     NEXT --> STATE[Theme + Auth Providers]
     NEXT --> IMAGES[ImageKit upload URLs and public assets]
 
-    SOCKET --> PULSE[pulse:update\npost:update\npost:ml-analysis]
+    POST -->|pulse:update / post:update / post:ml-analysis / post:deleted| SOCKET
+    NOTIFY -->|notification:new| SOCKET
 ```
 
 ## Project Structure
@@ -92,7 +95,7 @@ frontend/
 
 | Path | Purpose |
 | --- | --- |
-| `app/feed/page.tsx` | Authenticated paginated feed. Coordinates post creation, likes, shares, bookmarks, comments, deletion, trending tags, recommendations, sockets, and loading skeletons. |
+| `app/feed/page.tsx` | Client-loaded authenticated feed. Fetches ten posts per page, appends more using an intersection observer, handles Community Insights and AI-risk filters, optimistic interaction updates, post creation/deletion, comments, and loading/error states. |
 | `app/feed/feed.css` | Feed grid, post/sidebar layout, media carousels, comments, pagination, empty states, share sheet, and responsive rules. |
 | `app/feed/MobileTrendingBar.tsx` | Horizontal mobile trending-tag chips with fallback content. |
 | `app/feed/WhoToFollowInline.tsx` | Mobile recommendations block with follow/unfollow actions and profile links. |
@@ -114,14 +117,14 @@ The landing page is public. `/feed` is guarded by `ProtectedRoute`; bookmarks an
 
 | Path | Purpose |
 | --- | --- |
-| `components/auth-provider.tsx` | Auth context. Hydrates `/api/auth/me` and exposes login, registration, Google login, logout, and profile update operations. |
+| `components/auth-provider.tsx` | Auth context. Hydrates `/api/auth/me` and exposes login, registration, Google login, logout, and user-state update operations; stores issued JWTs for cross-service calls. |
 | `components/ProtectedRoute.tsx` | Guards `/feed` and nested feed paths and shows the full feed skeleton while authentication loads. |
-| `components/theme-provider.tsx` | Synchronizes theme state, the `<html data-theme>` attribute, localStorage, and the `vs-theme` cookie. |
+| `components/theme-provider.tsx` | Starts from the theme resolved by the server and synchronizes React state, the `<html data-theme>` attribute, localStorage, and the `vs-theme` cookie. |
 | `components/ThemeToggle.tsx` | Accessible light/dark sliding switch. |
 | `components/ThemeToggle.css` | Theme switch styling. |
 | `components/Navbar.tsx` | Main navigation, search, theme toggle, notifications, Socket.IO notification updates, mobile menu, profile link, and logout. |
 | `components/Navbar.css` | Navigation styling and responsive mobile menu rules. |
-| `components/CreatePostBox.tsx` | Multipart post composer with up to four image previews, cancellation, and optimistic parent callback. |
+| `components/CreatePostBox.tsx` | Multipart post composer with up to four image previews, a 3,000-character content guard, cancellation, and a parent callback for immediate feed insertion. |
 | `components/CreatePostBox.css` | Composer, upload preview, and form styling. |
 | `components/FeedSkeleton.tsx` | Feed and sidebar shimmer placeholders. |
 | `components/FeedSkeleton.css` | Feed skeleton styling. |
@@ -139,12 +142,12 @@ The landing page is public. `/feed` is guarded by `ProtectedRoute`; bookmarks an
 | `CommentThread.css` | Thread indentation, reply controls, avatar, and sentiment styles. |
 | `ShareSheet.tsx` | Share-reason modal sheet. |
 | `PostMoreMenu.tsx` | Owner-only post deletion menu. |
-| `AISignalCard.tsx` | Displays asynchronous sentiment, sarcasm, toxicity, risk, and user-facing AI signal information. |
-| `Sidebar.tsx` | Trending tags, pulse signal, recommendations, and follow/unfollow controls. |
+| `AISignalCard.tsx` | Displays an analyzing/unavailable state or the risk badge and signal message; its expanded view includes language, sentiment, sarcasm, toxicity level, and confidence. |
+| `Sidebar.tsx` | Weekly pulse topics, Community Insights, recommendations, and follow/unfollow controls. |
 | `LikeAnimation.tsx` | Portal-based remote DotLottie like animation with a timeout fallback. |
 | `icons.tsx` | Inline SVG heart, comment, share, bookmark, globe, send, and chevron icons. |
 | `feedHelpers.ts` | Safe author formatting, avatar fallback/color helpers, relative time, and hashtag extraction. |
-| `useFeedSocket.ts` | Connects to the post-service Socket.IO server for pulse, trending, count, and deletion updates. |
+| `useFeedSocket.ts` | Connects to post-service Socket.IO with the stored JWT; applies weekly pulse updates, post counters, ML analysis, and post deletions to feed state. |
 
 ### `components/profile/`
 
@@ -234,8 +237,8 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 | Path | Purpose |
 | --- | --- |
 | `hooks/useAuth.ts` | Typed wrapper around the auth context. |
-| `hooks/useDwellTracker.ts` | Sends a dwell event after at least three seconds with 50% viewport visibility. |
-| `hooks/useSearch.ts` | Debounced, abortable parallel post and tag search. |
+| `hooks/useDwellTracker.ts` | Sends a dwell event after at least three seconds when at least 50% of a post is visible. |
+| `hooks/useSearch.ts` | Debounces post/tag searches by 300 ms, aborts superseded requests, and maintains dropdown loading/error/results state. |
 | `hooks/useTheme.ts` | Theme context accessor. |
 | `hooks/use-mobile.ts` | Generic mobile media-query hook. |
 | `hooks/use-toast.ts` | Toast reducer and state implementation. |
@@ -244,9 +247,9 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 
 | Path | Purpose |
 | --- | --- |
-| `lib/api.ts` | Axios client abstraction plus auth, user, notification, post, recommendation, bookmark, comment, dwell, and post-search services. Requests include credentials for cookie-based sessions. |
+| `lib/api.ts` | Axios client abstraction plus auth, user, notification, post, recommendation, bookmark, comment, dwell, and post-search services. Browser requests include credentials and attach the locally stored JWT as a Bearer header when present. |
 | `lib/api/posts.ts` | Re-exports `postApi` and `postService`. |
-| `lib/api/search.ts` | Separate fetch-based post search, tag search, and tag-post client; consumes `NEXT_PUBLIC_API_URL`. Navbar search uses the Axios client instead, so search behavior has two frontend implementations. |
+| `lib/api/search.ts` | Fetch-based post/tag search and tag-post client; consumes `NEXT_PUBLIC_API_URL` and attaches the stored Bearer token. Navbar post search uses Axios while its tag suggestions use this fetch client. |
 | `lib/utils.ts` | `cn` helper built with `clsx` and `tailwind-merge`. |
 | `types/index.ts` | User, auth, form, ML signal, post, follower, and API error types. |
 | `types/search.ts` | Search post, tag, and response types. |
@@ -255,7 +258,7 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 
 | Path | Purpose |
 | --- | --- |
-| `styles/globals.css` | Tailwind v4/shadcn variables and base styles. The root layout imports `app/globals.css`, so this stylesheet appears unused by the current application. |
+| `styles/globals.css` | Additional Tailwind/shadcn variables and base styles. The root layout imports `app/globals.css`; this separate stylesheet is not the root global stylesheet. |
 | `public/favicon.jpg` | Dark VerbaScope V logo. |
 | `public/favicon.svg` | Teal/dark V logo SVG. |
 | `public/placeholder.jpg` | Blank placeholder image. |
@@ -278,7 +281,7 @@ The frontend source or local environment references these names:
 | `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` | ImageKit browser upload configuration. |
 | `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` | ImageKit public URL endpoint. |
 
-Defaults used by the API clients are auth `http://localhost:3000`, notification `http://localhost:3001`, post `http://localhost:3003`, and generic search `http://localhost:3003`. Socket.IO URLs are currently hardcoded to `http://localhost:3001` and `http://localhost:3003` rather than being environment-configurable. Keep `.env.local` private.
+Defaults used by the API clients are auth `http://localhost:3000`, notification `http://localhost:3001`, post `http://localhost:3003`, and generic search `http://localhost:3003`. The post and notification Socket.IO URLs use `NEXT_PUBLIC_POST_API_URL` and `NEXT_PUBLIC_NOTIFICATION_API_URL` respectively, with the same localhost defaults. Keep `.env.local` private.
 
 ## Running The Frontend
 
@@ -310,17 +313,45 @@ The UI primitives additionally import packages that are not all declared in `pac
 
 ## Authentication And Runtime Behavior
 
-Authentication is provided by `AuthProvider`, which hydrates the current user from `GET /api/auth/me` and exposes login, registration, Google OAuth, logout, and profile update operations. Axios requests use `withCredentials`, so the auth service's HTTP-only cookies carry the session; the frontend does not store a token in localStorage. Login, registration, and logout call `POST /api/auth/login`, `POST /api/auth/register`, and `POST /api/auth/logout`; successful authentication redirects to `/feed`, while logout redirects to `/`.
+Authentication is provided by `AuthProvider`, which hydrates the current user from `GET /api/auth/me` and exposes login, registration, Google OAuth, logout, and user-state update operations. Login and registration store the returned JWT in `localStorage` under `vs_token`; the Axios request interceptor and the fetch-based search client attach it as `Authorization: Bearer <token>` for calls to services on separate origins. API clients also use `withCredentials`, allowing the auth service's HTTP-only cookie to be sent to the auth origin. Thus the browser uses both mechanisms for their separate purposes: the cookie supports auth-service session requests, while the Bearer header authenticates cross-service HTTP and Socket.IO requests. Logout calls `POST /api/auth/logout`, clears the stored JWT, and redirects to `/`.
 
-The login form collects `rememberMe`, but the current auth client sends only email and password, so the control has no backend effect.
+For Google OAuth, auth-service redirects back to `/feed?token=<jwt>`. The feed page reads and stores that token, then replaces the URL with `/feed` so the query parameter is not left in the address bar/history. The root layout resolves the `vs-theme` cookie server-side, with a dark fallback on first visit when no theme cookie exists.
 
-`ProtectedRoute` centrally guards the feed route, while bookmarks and post detail perform their own redirect checks. Profile, search, and tag pages are not uniformly protected and may issue their own API requests before authentication is resolved.
+`ProtectedRoute` centrally guards `/feed` and nested feed paths, displaying the feed skeleton while auth hydrates and redirecting unauthenticated users to `/auth/login`. Bookmarks and post detail have their own redirect checks. Profile, search, and tag pages are not uniformly protected and may issue their own API requests before authentication is resolved. The login form collects `rememberMe`, but the current auth client sends only email and password, so that control has no backend effect.
 
-The theme is synchronized between React state, localStorage, the `vs-theme` cookie, and the document attribute. The root layout resolves the cookie server-side, with a dark fallback on first visit when no theme cookie exists.
+The root layout reads `vs-theme` with Next.js `cookies()` and writes `data-theme`, background color, and `color-scheme` on the initial HTML. This makes the first server-rendered paint match the saved theme instead of waiting for client JavaScript. `ThemeProvider` then keeps React state, the document attribute, localStorage, and the cookie synchronized when the user toggles the theme.
 
-The application uses Socket.IO for post-service pulse/trending/count/deletion events and notification updates. It also uses browser visibility and timing to send dwell activity after the configured threshold.
+The application opens separate authenticated Socket.IO connections to post-service and notification-service. Post events update feed counters, weekly pulse/topics, ML analysis, and deletions; notification events update the Navbar badge/list. `useDwellTracker` observes each post and sends a dwell event once after a single visible interval of at least three seconds with at least 50% of the post in view.
 
-Post text analysis is asynchronous. Feed cards show an analyzing state until the post service receives ML results, then render the mapped risk signal, sentiment, sarcasm, toxicity, and explanation. Image-only posts do not have text analysis.
+Post text analysis is asynchronous. A text post initially shows an analyzing state; when analysis arrives, the frontend handles the separate `post:ml-analysis` event and updates the matching card. The card displays a risk badge and signal message, with an expanded breakdown for language, sentiment, sarcasm, toxicity level, and confidence. Although the payload also contains explanation and raw score fields, this card does not render them. Image-only posts show that analysis is unavailable.
+
+## Interview Questions
+
+### 1. Feed Page And Real-Time Updates: “How does the feed load, and how do WebSockets update post cards?”
+
+`app/feed/page.tsx` is a client-loaded page, not a server-side feed fetch. After `AuthProvider` resolves the current user, it requests `GET /api/posts/feed` with page 1 and a limit of 10. An `IntersectionObserver` requests later pages as the user approaches the bottom; later results are appended with duplicate IDs removed. Community Insights and AI-risk selections are passed as query parameters, and a request-version guard discards responses from superseded filters. Like, share, and bookmark actions update the UI optimistically and roll back if their API request fails.
+
+`components/feed/useFeedSocket.ts` opens a Socket.IO connection to the post-service URL with the stored JWT in the handshake's `auth.token`. `post:update` patches like/comment/share counts, `post:deleted` removes a post, and `pulse:update` updates the weekly pulse and topic chips. ML results use the distinct `post:ml-analysis` event; the payload's saved `mlAnalysis` object is nested and camel-cased, and the hook merges it into the matching post. `PostCard.tsx` then renders the updated `AISignalCard` without a page refresh. The ML event is not handled as `post:update`.
+
+### 2. Navbar Live Search: “How does search avoid excessive calls and stale results?”
+
+`components/search/SearchBar.tsx` delegates request state to `hooks/useSearch.ts`. The hook waits 300 ms after typing, cancels an in-flight request when a newer query supersedes it, and requests post results and tag suggestions concurrently. Post results use the Axios `postService.search()` client; tag suggestions use `lib/api/search.ts` and `fetch`. Both clients attach the stored Bearer token. The bar supports arrow-key selection, Enter navigation, Escape, and click-outside dismissal. Results route to a post or tag page, or to `/search` for the full result list; this implementation searches posts and tags, not people.
+
+### 3. Route Protection And OAuth: “How are tokens stored and protected pages handled?”
+
+`AuthProvider` calls `/api/auth/me` to hydrate the user and saves the token returned by email/password login and registration through `tokenStorage` (defined in `lib/api.ts`, not a separate `tokenStorage.ts`). Axios attaches `Authorization: Bearer <token>` to browser requests and sends credentials; the fetch-based tag-search client adds the same Bearer header explicitly. Google OAuth returns to `/feed?token=...`; the feed page stores the token and removes the query string with `history.replaceState`. `ProtectedRoute` protects `/feed` paths, while bookmarks and post details perform local auth redirects rather than being centrally guarded. The HTTP-only auth cookie remains scoped to the auth origin and is not a substitute for the Bearer header sent to other services.
+
+### 4. Post Composer And Multipart Uploads: “How are image previews and uploads handled?”
+
+`components/CreatePostBox.tsx` creates browser blob URLs for previews and revokes a preview URL when that image is removed or the draft is cancelled. The file input accepts JPEG, PNG, WebP, and GIF and allows multiple selections; the component caps the draft at four images. It enforces the 3,000-character text limit in the UI, then submits `content` and each image under the `images` field in `FormData` to `POST /api/posts`. It does not send a `tags` field or perform a client-side 5 MB file-size check; the server remains responsible for upload validation and size limits. On success, it clears the composer and calls the parent callback, which prepends the new post in the unfiltered feed.
+
+### 5. Theme Initialization: “How does the app avoid a light/dark flash on first render?”
+
+`app/layout.tsx` reads the `vs-theme` cookie on the server and stamps the selected `data-theme`, background, and `color-scheme` onto the initial `<html>` element; a first visit defaults to dark. `ThemeProvider` receives that same initial theme and, after hydration or a toggle, synchronizes the document attribute, localStorage, and the cookie used by the next server render. `ThemeToggle.tsx` uses the theme context and waits until mount before rendering its selected-state appearance.
+
+### 6. Notification Badge: “How does the Navbar receive new notifications?”
+
+`components/Navbar.tsx` fetches the current user's notifications and unread count from notification-service, then connects to that service's Socket.IO endpoint with the JWT in the handshake. The server associates the verified socket with the user's room; the client does not send an untrusted room-join event. On `notification:new`, the Navbar prepends the normalized notification and increments the unread badge without reloading the page.
 
 ## Testing And Diagnostics
 
@@ -338,7 +369,6 @@ No authored automated test files or test scripts were found in this folder. `tsc
 - `ProfilePosts` passes no-op handlers for some sharing, bookmarking, and comment-deletion actions, so profile posts do not expose the full feed interaction set.
 - Tag pages do not render the shared navbar.
 - The login `rememberMe` value is collected but not sent to the auth service.
-- Socket.IO endpoints use hardcoded ports.
 - The root favicon metadata declares the wrong MIME type for `favicon.jpg`.
 - There is no authored frontend test suite.
 

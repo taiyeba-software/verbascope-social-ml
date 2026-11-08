@@ -4,24 +4,38 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 MODEL_NAME = "unitary/toxic-bert"
 
-# Converts a 0.0-1.0 probability into your existing 1-5 toxicity scale,
-# so risk_engine.calculate_signal() and everything downstream (Mongo
-# schema, signal mapper, frontend) needs zero changes.
+# ---------------------------------------------------------------------
+# Probability bands -> 1-5 toxicity scale
+# ---------------------------------------------------------------------
+# risk_engine.calculate_signal() treats score >= 2.0 as Medium (Yellow)
+# and score >= 3.5 as High (Red). This English model can only return
+# whole numbers, so a score of 2 would always be read as Medium. To keep
+# the two files consistent, score 2 is NOT used: below MEDIUM_FROM the
+# score is 1 (Low), so low-probability text no longer turns Yellow by
+# itself (sentiment / sarcasm can still make it Yellow in the risk engine).
+#
+#   probability < MEDIUM_FROM  -> 1  (Low)
+#   MEDIUM_FROM .. HIGH_FROM   -> 3  (Medium)
+#   HIGH_FROM   .. SEVERE_FROM -> 4  (High)
+#   >= SEVERE_FROM             -> 5  (High)
+MEDIUM_FROM = 0.40
+HIGH_FROM = 0.60
+SEVERE_FROM = 0.80
+
+
 def _score_to_scale(score: float) -> int:
-    if score < 0.20:
+    if score < MEDIUM_FROM:
         return 1
-    if score < 0.40:
-        return 2
-    if score < 0.60:
+    if score < HIGH_FROM:
         return 3
-    if score < 0.80:
+    if score < SEVERE_FROM:
         return 4
     return 5
 
 
 _LEVEL_BY_SCALE = {
     1: "Low",
-    2: "Low",
+    2: "Medium",  # not produced any more; matches risk_engine (>= 2.0)
     3: "Medium",
     4: "High",
     5: "High",
@@ -37,7 +51,9 @@ _LABEL_EXPLANATIONS = {
     "toxic": "Toxic language detected.",
 }
 
-EXPLAIN_THRESHOLD = 0.50
+# Same cut-off as the Medium band, so the explanation text and the
+# Medium/Yellow decision can never disagree.
+EXPLAIN_THRESHOLD = MEDIUM_FROM
 
 
 class EnglishToxicityModel:
@@ -67,7 +83,7 @@ class EnglishToxicityModel:
 
         Returns:
         {
-            "score": int,              # 1-5, same scale as the Bangla model
+            "score": int,              # 1, 3, 4 or 5 (see bands above)
             "level": str,               # "Low" / "Medium" / "High"
             "top_label": str,           # e.g. "threat"
             "top_label_score": float,   # 0.0-1.0

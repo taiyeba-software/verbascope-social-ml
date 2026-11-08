@@ -1,0 +1,51 @@
+ID,Text,Expected AI Signal,Expected,Predicted AI Signal,Language,Pipeline,Correct?
+147,Thank you so much for helping me today!,🟢 Green,Green,Green,English,,True
+148,"What a beautiful morning, I love this weather.",🟢 Green,Green,Green,English,,True
+149,"Congratulations on your graduation, well deserved!",🟢 Green,Green,Green,English,,True
+150,I really enjoyed the concert last night.,🟢 Green,Green,Green,English,,True
+151,"Great job on the presentation, the team loved it.",🟢 Green,Green,Green,English,,True
+152,"Have a wonderful day, see you soon!",🟢 Green,Green,Green,English,,True
+153,This restaurant has the best food in town.,🟢 Green,Green,Green,English,,True
+154,I'm so proud of how far you've come.,🟢 Green,Green,Green,English,,True
+155,The new update made the app so much easier to use.,🟢 Green,Green,Yellow,English,,False
+156,Looking forward to seeing everyone at the reunion.,🟢 Green,Green,Green,English,,True
+157,I'm really disappointed that the flight got delayed again.,🟡 Yellow,Yellow,Yellow,English,,True
+158,This has been one of the hardest weeks of my life.,🟡 Yellow,Yellow,Yellow,English,,True
+159,I don't think this plan is going to work out.,🟡 Yellow,Yellow,Yellow,English,,True
+160,The customer service here was quite slow today.,🟡 Yellow,Yellow,Yellow,English,,True
+161,I'm feeling pretty stressed about the upcoming exams.,🟡 Yellow,Yellow,Yellow,English,,True
+162,"Honestly, the movie was boring and too long.",🟡 Yellow,Yellow,Yellow,English,,True
+163,I regret not studying harder for that test.,🟡 Yellow,Yellow,Yellow,English,,True
+164,The traffic this morning was absolutely frustrating.,🟡 Yellow,Yellow,Yellow,English,,True
+165,I'm upset that the project got cancelled at the last minute.,🟡 Yellow,Yellow,Yellow,English,,True
+166,This product didn't meet my expectations at all.,🟡 Yellow,Yellow,Yellow,English,,True
+167,"You are such an idiot, I can't believe you did that.",🔴 Red,Red,Red,English,,True
+168,"Shut up, nobody asked for your stupid opinion.",🔴 Red,Red,Red,English,,True
+169,You're completely useless and everyone knows it.,🔴 Red,Red,Red,English,,True
+170,Only a moron would think that's a good idea.,🔴 Red,Red,Red,English,,True
+171,You're a pathetic excuse for a teammate.,🔴 Red,Red,Red,English,,True
+172,"Get lost, you worthless piece of garbage.",🔴 Red,Red,Red,English,,True
+173,You're too dumb to understand basic instructions.,🔴 Red,Red,Red,English,,True
+174,"Everyone thinks you're a joke, just admit it.",🔴 Red,Red,Yellow,English,,False
+175,"You disgust me, I can't stand being around you.",🔴 Red,Red,Red,English,,True
+176,"What a loser, you can't do anything right.",🔴 Red,Red,Red,English,,True
+177,I will kill a man for sure.,🔴 Red,Red,Red,English,,True
+178,I'm going to find you and hurt you badly.,🔴 Red,Red,Red,English,,True
+179,"Watch your back, I'll make you pay for this.",🔴 Red,Red,Red,English,,True
+180,I will burn your house down if you do that again.,🔴 Red,Red,Red,English,,True
+181,"You better run, because I'm coming for you.",🔴 Red,Red,Yellow,English,,False
+182,I'll break every bone in your body.,🔴 Red,Red,Red,English,,True
+183,Say that again and I will end you.,🔴 Red,Red,Red,English,,True
+184,I swear I will make your life a living hell.,🔴 Red,Red,Red,English,,True
+185,Touch my stuff again and you'll regret it forever.,🔴 Red,Red,Yellow,English,,False
+186,"I'm going to hunt you down, mark my words.",🔴 Red,Red,Red,English,,True
+187,"Oh great, another Monday, just what I needed.",🟡 Yellow,Yellow,Green,English,,False
+188,"Wow, thanks for absolutely nothing.",🟡 Yellow,Yellow,Yellow,English,,True
+189,"Yeah right, like that's ever going to happen.",🟡 Yellow,Yellow,Yellow,English,,True
+190,"Sure, because that plan worked out so well last time.",🟡 Yellow,Yellow,Yellow,English,,True
+191,"Oh fantastic, the printer is broken again. Love that.",🟡 Yellow,Yellow,Green,English,,False
+192,Nice job breaking the build right before the demo.,🟡 Yellow,Yellow,Yellow,English,,True
+193,I just love waiting an hour for a five minute meeting.,🟡 Yellow,Yellow,Green,English,,False
+194,"Oh sure, blame me for your mistake, that makes sense.",🟡 Yellow,Yellow,Yellow,English,,True
+195,"Great, you 'fixed' it and now nothing works. Well done.",🟡 Yellow,Yellow,Yellow,English,,True
+196,"Perfect, another delay. Exactly what this project needed.",🟡 Yellow,Yellow,Green,English,,False

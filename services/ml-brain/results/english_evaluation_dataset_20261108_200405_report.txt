@@ -1,0 +1,29 @@
+Dataset: evaluation\english_evaluation_dataset.csv
+Run time: 20261108_200405 | endpoint: http://127.0.0.1:8000/analyze | risk field used: risk_flag
+Test-set size: 50 (skipped 0)
+Class counts (expected): Green=10, Yellow=20, Red=20
+
+Confusion matrix (rows = expected, columns = predicted):
+             pred Green  pred Yellow  pred Red
+true Green            9            1         0
+true Yellow           4           16         0
+true Red              0            3        17
+
+              precision    recall  f1-score   support
+
+       Green      0.692     0.900     0.783        10
+      Yellow      0.800     0.800     0.800        20
+         Red      1.000     0.850     0.919        20
+
+    accuracy                          0.840        50
+   macro avg      0.831     0.850     0.834        50
+weighted avg      0.858     0.840     0.844        50
+
+Accuracy: 0.840
+Macro-F1: 0.834
+Red<->Green confusions (either direction): 0
+
+HTTP round-trip per post on this machine, model inference included (seconds): median=0.355, p95=0.477, max=11.236
+Routing seen: english=50
+
+Files: results\english_evaluation_dataset_20261108_200405_results.csv, results\english_evaluation_dataset_20261108_200405_errors.csv, results\english_evaluation_dataset_20261108_200405_raw.jsonl

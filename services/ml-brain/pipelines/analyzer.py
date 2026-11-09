@@ -11,20 +11,43 @@ This is the ONLY place that knows how to turn a RouteDecision's
 toxicity top-label detail into the explanation text, and compute the
 single "confidence" number used by the frontend. Both main.py (the
 HTTP layer) and rabbit_consumer.py (the queue layer) call
-`Analyzer.analyze()` and get back an identical result — no branching
+`Analyzer.analyze()` and get back an identical result -- no branching
 logic is duplicated between them. This matters in practice: duplicated
 routing/branching logic across main.py and rabbit_consumer.py is what
 caused rabbit_consumer.py to silently break (still referencing old
 RouteDecision fields like `.sentiment_sarcasm_model`) after router.py
 was refactored. With a single Analyzer, that class of bug can't
-reappear — there's only one place to update.
+reappear -- there's only one place to update.
 
-Each language-specific "_run_*_pipeline" method returns the same shape
-of result so analyze() doesn't need to know which one ran.
+Each "_run_*_pipeline" method returns the same shape of result so
+analyze() doesn't need to know which one ran.
+
+Code-mixed posts (9 Nov change): a post that contains BOTH Bangla-script
+letters and English words goes through `_run_mixed_pipeline`, which
+splits it into sentences and lets every model read only the text it
+understands (Bangla models: the whole sentence; English models: the
+English words). See pipelines/mixed_runner.py and mixed_aggregate.py.
+Pure Bangla, pure English and pure-Latin (Banglish) posts use the old
+pipelines unchanged.
 """
 
 from routing.router import route
+from routing.segmenter import BANGLA_CHAR, LATIN_WORD
 from risk.risk_engine import calculate_signal
+from pipelines.mixed_runner import run_segments
+from pipelines.mixed_aggregate import aggregate_segments
+from pipelines.lexicon import scan_lexicon
+
+
+MIXED_NOTE = (
+    "Code-mixed text analysed sentence by sentence: Bangla models read "
+    "the full sentence, English models read the English words."
+)
+
+
+def _is_code_mixed(text: str) -> bool:
+    """True when the post has Bangla-script letters AND English words."""
+    return bool(BANGLA_CHAR.search(text)) and bool(LATIN_WORD.search(text))
 
 
 class Analyzer:
@@ -32,7 +55,7 @@ class Analyzer:
     Runs text through routing, the appropriate language models, and the
     risk engine. Holds references to already-loaded models so it can be
     constructed once at startup (in main.py) and reused for every
-    request — both HTTP (/analyze) and the RabbitMQ consumer share the
+    request -- both HTTP (/analyze) and the RabbitMQ consumer share the
     same instance.
     """
 
@@ -97,6 +120,10 @@ class Analyzer:
             "toxicity_explanation": toxicity_result["explanation"],
         }
 
+    def _run_mixed_pipeline(self, text: str) -> dict:
+        segments = run_segments(self, text)
+        return aggregate_segments(segments)
+
     # ------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------
@@ -104,10 +131,28 @@ class Analyzer:
     def analyze(self, text: str) -> dict:
         decision = route(text)
 
-        if decision.pipeline == "bangla":
+        mixed = _is_code_mixed(text)
+
+        if mixed:
+            analysis = self._run_mixed_pipeline(text)
+        elif decision.pipeline == "bangla":
             analysis = self._run_bangla_pipeline(text)
         else:
             analysis = self._run_english_pipeline(text)
+
+        # Safety floor: a small rule list for threats / abuse / self-harm
+        # phrases the models can miss. It can only RAISE toxicity.
+        # Scope: ONLY Bangla-script + English code-mixed posts, so pure
+        # Bangla, pure English and Banglish posts behave exactly as before.
+        lexicon_hit = scan_lexicon(text) if mixed else None
+        if lexicon_hit and lexicon_hit["score"] > analysis["toxicity"]:
+            analysis = dict(analysis)
+            analysis["toxicity"] = lexicon_hit["score"]
+            analysis["toxicity_top_label"] = lexicon_hit["label"]
+            analysis["toxicity_top_label_score"] = None   # rules have no probability
+            analysis["toxicity_explanation"] = lexicon_hit["explanation"]
+        else:
+            lexicon_hit = None
 
         risk = calculate_signal(
             sentiment=analysis["sentiment"],
@@ -125,7 +170,9 @@ class Analyzer:
         # (score=5.00) overrides sentiment (Neutral) and sarcasm. Top
         # signal: threat (0.91)."
         explanation = risk.explanation
-        if toxicity_top_label and risk.toxicity_level in ("Medium", "High"):
+        if lexicon_hit and risk.toxicity_level in ("Medium", "High"):
+            explanation = f"{explanation} {lexicon_hit['explanation']}"
+        elif toxicity_top_label and risk.toxicity_level in ("Medium", "High"):
             explanation = (
                 f"{explanation} Top signal: {toxicity_top_label} "
                 f"({toxicity_top_label_score:.2f})."
@@ -134,26 +181,30 @@ class Analyzer:
         # A single 0-1 "how sure is the model" number for the frontend's
         # AI Analysis dropdown. It should be the confidence of whichever
         # signal actually drove the result:
-        #   - Medium/High toxicity -> the toxicity model's top-label
-        #     score (e.g. "threat" at 0.91), since toxicity is what's
-        #     driving the risk flag.
+        #   - Medium/High toxicity from toxic-bert -> its top-label score
+        #     (e.g. "threat" at 0.91).
         #   - Sarcasm detected -> the sarcasm probability.
+        #   - Code-mixed text -> the English sentiment model's confidence
+        #     when that model chose the sentiment, otherwise the
+        #     language-detection confidence (the Bangla sentiment model
+        #     gives no usable confidence).
         #   - Otherwise, English pipeline -> the English sentiment
-        #     model's confidence in its chosen label. (Using the sarcasm
-        #     probability here was misleading: for "I hate this so much"
-        #     it showed 0.33 although the sentiment model was very sure
-        #     the text is Negative. toxic-bert's top-label score is not
-        #     used either: for low-toxicity text it only says "how
-        #     not-toxic is this", not how sure any shown prediction is.)
-        #     If no English sentiment model is loaded, fall back to the
-        #     sarcasm probability as before.
-        #   - Otherwise (Bangla/Banglish/Mixed-to-Bangla) -> the
-        #     language-detection confidence, since that's the strongest
-        #     signal driving which model ran at all.
+        #     model's confidence in its chosen label. If no English
+        #     sentiment model is loaded, fall back to the sarcasm
+        #     probability as before.
+        #   - Otherwise (Bangla/Banglish) -> the language-detection
+        #     confidence.
         if risk.toxicity_level in ("Medium", "High") and toxicity_top_label_score is not None:
             confidence = toxicity_top_label_score
         elif analysis["sarcasm"]:
             confidence = analysis["sarcasm_probability"]
+        elif mixed:
+            sentiment_confidence = analysis["sentiment_confidence"]
+            confidence = (
+                sentiment_confidence
+                if sentiment_confidence is not None
+                else decision.confidence
+            )
         elif decision.pipeline == "english":
             sentiment_confidence = analysis["sentiment_confidence"]
             confidence = (
@@ -171,7 +222,7 @@ class Analyzer:
             "language_confidence": decision.confidence,
             "routing": decision.pipeline,
             "low_confidence_routing": decision.low_confidence,
-            "routing_note": decision.note,
+            "routing_note": MIXED_NOTE if mixed else decision.note,
 
             "sentiment": analysis["sentiment"],
             "sarcasm": analysis["sarcasm"],

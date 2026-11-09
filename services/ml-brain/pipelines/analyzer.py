@@ -27,8 +27,7 @@ letters and English words goes through `_run_mixed_pipeline`, which
 splits it into sentences and lets every model read only the text it
 understands (Bangla models: the whole sentence; English models: the
 English words). See pipelines/mixed_runner.py and mixed_aggregate.py.
-Pure Bangla, pure English and pure-Latin (Banglish) posts use the old
-pipelines unchanged.
+Pure Bangla and pure English posts use the old pipelines unchanged.
 """
 
 from routing.router import route
@@ -143,7 +142,7 @@ class Analyzer:
         # Safety floor: a small rule list for threats / abuse / self-harm
         # phrases the models can miss. It can only RAISE toxicity.
         # Scope: ONLY Bangla-script + English code-mixed posts, so pure
-        # Bangla, pure English and Banglish posts behave exactly as before.
+        # Bangla and pure English posts behave exactly as before.
         lexicon_hit = scan_lexicon(text) if mixed else None
         if lexicon_hit and lexicon_hit["score"] > analysis["toxicity"]:
             analysis = dict(analysis)
@@ -192,7 +191,7 @@ class Analyzer:
         #     model's confidence in its chosen label. If no English
         #     sentiment model is loaded, fall back to the sarcasm
         #     probability as before.
-        #   - Otherwise (Bangla/Banglish) -> the language-detection
+        #   - Otherwise (Bangla) -> the language-detection
         #     confidence.
         if risk.toxicity_level in ("Medium", "High") and toxicity_top_label_score is not None:
             confidence = toxicity_top_label_score

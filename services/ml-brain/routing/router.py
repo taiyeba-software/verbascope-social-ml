@@ -1,4 +1,4 @@
-""""
+"""
 router.py
 
 Language-aware pipeline routing for VerbaScope's ML Brain.
@@ -6,7 +6,7 @@ Language-aware pipeline routing for VerbaScope's ML Brain.
 Version 3 change (SRP cleanup): the router no longer knows anything
 about model names. Previously RouteDecision exposed
 `sentiment_sarcasm_model` / `toxicity_model` strings, which meant the
-router had to know which concrete models existed for each language —
+router had to know which concrete models existed for each language --
 that's an implementation detail of the pipeline layer, not a routing
 decision.
 
@@ -15,15 +15,18 @@ Now the router's only job is to answer one question: which pipeline
 (pipelines/analyzer.py) is the only place that knows which models back
 each pipeline.
 
-Routing logic (unchanged from the previous version, just described in
-terms of pipelines now):
+Supported text: Bangla, English, and Bangla-English code-mixed.
+Romanized Bangla ("Banglish") is not a supported category; it is Latin
+script, so the detector labels it "English" and it takes the English
+route. Results for such text are not reliable.
+
+Routing logic:
   * "Bangla"   -> "bangla" pipeline
   * "English"  -> "english" pipeline
-  * "Banglish" -> "english" pipeline (temporary fallback — romanized
-                  Bangla tokenizes better with English transformers
-                  than with BanglaBERT), low_confidence=True
   * "Mixed"    -> whichever script dominates by character count,
                   low_confidence=True
+                  (the Analyzer sends code-mixed posts to its own
+                  sentence-by-sentence pipeline regardless)
   * "Unknown"  -> "bangla" pipeline (no linguistic signal to route on
                   at all), low_confidence=True
 """
@@ -63,7 +66,7 @@ def _decide(decision: LanguageDecision) -> tuple[str, bool, str]:
     """
     Given a LanguageDecision, pick (pipeline_name, low_confidence, note).
     Kept separate from route() so the branching logic is easy to read
-    and unit-test on its own. Returns pipeline *names* only — never
+    and unit-test on its own. Returns pipeline *names* only -- never
     model names.
     """
 
@@ -79,15 +82,6 @@ def _decide(decision: LanguageDecision) -> tuple[str, bool, str]:
             ENGLISH_PIPELINE,
             False,
             "Native English route.",
-        )
-
-    if decision.language == "Banglish":
-        return (
-            ENGLISH_PIPELINE,
-            True,
-            "No dedicated Banglish pipeline exists yet. Romanized "
-            "Bangla tokenizes better with English models, so this is "
-            "routed to the English pipeline as a temporary fallback.",
         )
 
     if decision.language == "Mixed":
@@ -129,7 +123,7 @@ def _decide(decision: LanguageDecision) -> tuple[str, bool, str]:
 def route(text: str) -> RouteDecision:
     """
     Determine which pipeline should process the given text.
-    Purely a routing decision — no models are touched here.
+    Purely a routing decision -- no models are touched here.
     """
 
     decision = detect_language(text)

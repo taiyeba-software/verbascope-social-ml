@@ -34,18 +34,13 @@
   padding: 0 0 60px;
 }
 
+/* Plain row on the page background — no box, no sticky band. It lines up
+   with the card's edges and scrolls away with the page. */
 .post-page-header {
   display: flex;
   align-items: center;
-  gap: var(--vs-space-md);
-  padding: var(--vs-space-md) 0;
-  position: sticky;
-  /* sit just below the 64px sticky navbar instead of sliding under it */
-  top: 64px;
-  /* soft backdrop so post text doesn't show through while scrolling */
-  background: color-mix(in srgb, var(--vs-surface) 85%, transparent);
-  backdrop-filter: blur(8px);
-  z-index: 5;
+  gap: var(--vs-space-sm);
+  padding: var(--vs-space-lg) 2px var(--vs-space-md);
 }
 
 .post-page-back-btn {
@@ -168,7 +163,7 @@
   }
 
   .post-page-header {
-    padding: var(--vs-space-sm) 0;
+    padding: var(--vs-space-md) 2px var(--vs-space-sm);
   }
 }
 

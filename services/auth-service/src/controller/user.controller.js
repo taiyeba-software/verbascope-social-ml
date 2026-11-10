@@ -5,24 +5,46 @@ import { uploadToImageKit, deleteOldAvatars } from '../utils/imagekit.js';
 import { generateAvatarFileName } from '../middlewares/avatarUpload.middleware.js';
 import { publishToQueue } from '../broker/rabbit.js';
 
+// Fire-and-forget helpers that can never throw or reject into the request.
+function safeDeleteOldAvatars(userId, keepFileId) {
+  try {
+    Promise.resolve(deleteOldAvatars(userId, keepFileId)).catch((err) => {
+      console.error('[user.controller] avatar cleanup failed:', err?.message || err);
+    });
+  } catch (err) {
+    console.error('[user.controller] avatar cleanup failed:', err?.message || err);
+  }
+}
+
+function safePublishUserUpdated(user) {
+  try {
+    Promise.resolve(
+      publishToQueue('user_updated', {
+        id: user._id,
+        fullname: user.fullname,
+        avatar: user.avatar,
+      })
+    ).catch(() => {});
+  } catch {
+    // broker not ready - never break the request
+  }
+}
+
 // GET /api/users/:id - Public Profile Info
 export const getUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Frontend contract (see userService.getUserProfile in api.ts): id can
-    // be a real ObjectId, or the literal "me" for the logged-in user's own
-    // profile. This route always runs behind authenticateToken, so
-    // req.user is guaranteed to exist here.
-    const targetId = id === 'me' ? req.user.id : id;
+    // `id` can be a real ObjectId or the literal "me".
+    // req.user is the decoded JWT payload ({ id, iat, exp }) - it does NOT
+    // contain followers/following, so never read those from it.
+    const viewerId = String(req.user?.id || '');
+    const targetId = id === 'me' ? viewerId : id;
 
     if (!mongoose.isValidObjectId(targetId)) {
       return res.status(400).json({ success: false, message: 'Invalid user id' });
     }
 
-    // Only pull the fields the public profile response actually needs.
-    // Excludes password (as before) plus email/role/googleID/interests,
-    // none of which belong in a public-facing profile payload.
     const user = await userModel
       .findById(targetId)
       .select('fullname avatar headline bio followers following createdAt');
@@ -31,25 +53,16 @@ export const getUserProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const followersCount = user.followers ? user.followers.length : 0;
-    const followingCount = user.following ? user.following.length : 0;
+    // FIX: older documents (or ones created by Google sign-in) may not have
+    // these arrays at all. Treat missing as empty instead of crashing with
+    // "Cannot read properties of undefined (reading 'some')".
+    const followers = Array.isArray(user.followers) ? user.followers : [];
+    const following = Array.isArray(user.following) ? user.following : [];
 
-    // BUG FIX: `followers` is an array of Mongoose ObjectId instances,
-    // while req.user.id is a string. Array.prototype.includes() does a
-    // strict equality check, so ObjectId.includes(string) is always
-    // false — isFollowing never returned true for anyone. Compare via
-    // .toString() on each element instead.
-    let isFollowing = false;
-    if (req.user) {
-      isFollowing = user.followers.some(
-        (followerId) => followerId.toString() === req.user.id.toString()
-      );
-    }
+    const isFollowing = viewerId
+      ? followers.some((followerId) => String(followerId) === viewerId)
+      : false;
 
-    // Return only the whitelisted shape — not the full followers/following
-    // ObjectId arrays (those are what followersCount/followingCount are
-    // derived from, not something the profile response should expose
-    // directly), and map createdAt -> joinedAt.
     return res.status(200).json({
       success: true,
       user: {
@@ -58,22 +71,19 @@ export const getUserProfile = async (req, res) => {
         avatar: user.avatar,
         headline: user.headline,
         bio: user.bio,
-        followersCount,
-        followingCount,
+        followersCount: followers.length,
+        followingCount: following.length,
         joinedAt: user.createdAt,
         isFollowing,
       },
     });
   } catch (error) {
+    console.error('[user.controller] getUserProfile error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // PATCH /api/users/profile - Update Bio, Headline, Name, and (optionally) Avatar together
-//
-// Accepts multipart/form-data so the frontend can send text fields and an
-// optional avatar file in one request — see updateAvatar below for the
-// avatar-only endpoint, which stays for backwards compatibility.
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -85,17 +95,11 @@ export const updateProfile = async (req, res) => {
     if (firstName) updateFields['fullname.firstName'] = firstName;
     if (lastName) updateFields['fullname.lastName'] = lastName;
 
-    // Optional: this route can also carry an avatar file (field name
-    // "avatar") when the frontend uses one combined "Save profile" action
-    // instead of a separate avatar upload step. Wire avatarUpload
-    // middleware onto this route only if you want that combined UX —
-    // see routes file comment.
     if (req.file) {
       const fileName = generateAvatarFileName(userId, req.file.originalname);
       const { url, fileId } = await uploadToImageKit(req.file.buffer, fileName, '/avatars');
       updateFields.avatar = url;
-      // Fire-and-forget: don't block the response on cleanup.
-      deleteOldAvatars(userId, fileId);
+      safeDeleteOldAvatars(userId, fileId);
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -106,16 +110,11 @@ export const updateProfile = async (req, res) => {
       .findByIdAndUpdate(userId, { $set: updateFields }, { new: true })
       .select('-password');
 
-    // ── keep post-service's local User copy in sync ──
-    // Only fullname/avatar are relevant to other services (bio/headline
-    // aren't consumed anywhere else today), but we always send the
-    // current values so a partial update never overwrites good data
-    // with stale data on the consumer side.
-    publishToQueue('user_updated', {
-      id: updatedUser._id,
-      fullname: updatedUser.fullname,
-      avatar: updatedUser.avatar,
-    }).catch(() => {});
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    safePublishUserUpdated(updatedUser);
 
     return res.status(200).json({
       success: true,
@@ -123,6 +122,7 @@ export const updateProfile = async (req, res) => {
       user: updatedUser,
     });
   } catch (error) {
+    console.error('[user.controller] updateProfile error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -142,8 +142,6 @@ export const updateAvatar = async (req, res) => {
     try {
       uploadResult = await uploadToImageKit(req.file.buffer, fileName, '/avatars');
     } catch (uploadErr) {
-      // Distinguish "ImageKit is down / rejected the file" from a generic
-      // 500 so the frontend can show "try again" instead of a vague error.
       console.error('Avatar upload to ImageKit failed:', uploadErr);
       return res.status(502).json({
         success: false,
@@ -158,25 +156,11 @@ export const updateAvatar = async (req, res) => {
       .select('-password');
 
     if (!updatedUser) {
-      // Extremely unlikely (authenticateToken already verified the user
-      // exists), but if it happens, don't leave an orphaned ImageKit file
-      // with nothing pointing to it.
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // New avatar is already saved and will be returned below — cleanup
-    // runs after the response-critical work is done and never blocks it.
-    deleteOldAvatars(userId, fileId);
-
-    // ── keep post-service's local User copy in sync ──
-    // Without this, post-service (and anything else consuming
-    // user_created/user_updated) keeps showing whatever avatar the user
-    // had at signup — which is usually none — forever.
-    publishToQueue('user_updated', {
-      id: updatedUser._id,
-      fullname: updatedUser.fullname,
-      avatar: updatedUser.avatar,
-    }).catch(() => {});
+    safeDeleteOldAvatars(userId, fileId);
+    safePublishUserUpdated(updatedUser);
 
     return res.status(200).json({
       success: true,
@@ -185,6 +169,7 @@ export const updateAvatar = async (req, res) => {
       user: updatedUser,
     });
   } catch (error) {
+    console.error('[user.controller] updateAvatar error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -193,10 +178,19 @@ export const updateAvatar = async (req, res) => {
 export const followUser = async (req, res) => {
   try {
     const targetUserId = req.params.id;
-    const currentUserId = req.user.id;
+    const currentUserId = String(req.user.id);
+
+    if (!mongoose.isValidObjectId(targetUserId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user id' });
+    }
 
     if (targetUserId === currentUserId) {
       return res.status(400).json({ success: false, message: 'You cannot follow yourself' });
+    }
+
+    const target = await userModel.exists({ _id: targetUserId });
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     await userModel.findByIdAndUpdate(currentUserId, { $addToSet: { following: targetUserId } });
@@ -204,6 +198,7 @@ export const followUser = async (req, res) => {
 
     return res.status(200).json({ success: true, message: 'User followed successfully' });
   } catch (error) {
+    console.error('[user.controller] followUser error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -212,13 +207,18 @@ export const followUser = async (req, res) => {
 export const unfollowUser = async (req, res) => {
   try {
     const targetUserId = req.params.id;
-    const currentUserId = req.user.id;
+    const currentUserId = String(req.user.id);
+
+    if (!mongoose.isValidObjectId(targetUserId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user id' });
+    }
 
     await userModel.findByIdAndUpdate(currentUserId, { $pull: { following: targetUserId } });
     await userModel.findByIdAndUpdate(targetUserId, { $pull: { followers: currentUserId } });
 
     return res.status(200).json({ success: true, message: 'User unfollowed successfully' });
   } catch (error) {
+    console.error('[user.controller] unfollowUser error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -226,9 +226,12 @@ export const unfollowUser = async (req, res) => {
 // GET /api/users/me/following
 export const getMyFollowing = async (req, res) => {
   try {
-    const user = await userModel.findById(req.user.id).populate('following', '_id fullname avatar headline');
-    return res.status(200).json({ success: true, following: user ? user.following : [] });
+    const user = await userModel
+      .findById(req.user.id)
+      .populate('following', '_id fullname avatar headline');
+    return res.status(200).json({ success: true, following: user?.following ?? [] });
   } catch (error) {
+    console.error('[user.controller] getMyFollowing error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -243,7 +246,7 @@ export const getUsersBulk = async (req, res) => {
       return res.status(200).json({ success: true, users: [] });
     }
 
-    const validIds = ids.filter((id) => id && id.length === 24);
+    const validIds = ids.filter((id) => id && mongoose.isValidObjectId(id));
 
     const users = await userModel
       .find({ _id: { $in: validIds } })
@@ -254,6 +257,7 @@ export const getUsersBulk = async (req, res) => {
       users,
     });
   } catch (error) {
+    console.error('[user.controller] getUsersBulk error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

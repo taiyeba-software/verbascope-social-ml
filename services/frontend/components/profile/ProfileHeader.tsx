@@ -60,6 +60,7 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   /* ── Fetch the profile ── */
   useEffect(() => {
@@ -71,7 +72,11 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
       .getUserProfile(userId)
       .then((res: any) => {
         if (cancelled) return;
-        const fetched: PublicProfile = res.data.user;
+        const fetched: PublicProfile = res.data?.user || res?.data;
+        if (!fetched) {
+          setNotFound(true);
+          return;
+        }
         setProfile(fetched);
         setEditHeadline(fetched.headline ?? '');
         setEditBio(fetched.bio ?? '');
@@ -80,7 +85,8 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
         // no need to recompute it from a raw array on the client.
         setIsFollowing(fetched.isFollowing ?? false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Failed to load profile:', err);
         if (!cancelled) setNotFound(true);
       })
       .finally(() => {
@@ -102,7 +108,8 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
 
   const myId = currentUser?._id ?? currentUser?.id;
   const profileId = profile?._id ?? profile?.id;
-  const isOwnProfile = !!myId && !!profileId && myId === profileId;
+  const isOwnProfile =
+    !!myId && (userId === 'me' || (!!profileId && String(myId) === String(profileId)));
 
   /* ── Follow / unfollow ── */
   async function handleFollowToggle() {
@@ -252,20 +259,20 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
       formData.append('avatar', file);
 
       const res: any = await userService.updateAvatar(formData);
-      const updated: User = res.data.user;
+      const updated: User = res.data?.user;
+      const newAvatar = updated?.avatar || res.data?.avatar || previewUrl;
 
       // Same reasoning as saveEdit above: only merge the field this
       // endpoint actually changes, keep the counts we already fetched.
-      setProfile((prev) => (prev ? { ...prev, avatar: updated.avatar } : prev));
-      setAvatarPreview(null); // real CDN url from `updated.avatar` takes over
+      setProfile((prev) => (prev ? { ...prev, avatar: newAvatar } : prev));
+      setAvatarPreview(null); // real CDN url takes over
 
       // This is the "sync everywhere" step: pushing the updated user into
       // the shared auth context means Navbar (and anything else reading
       // useAuth().user) re-renders with the new avatar immediately,
-      // with no page reload — same mechanism already used for bio/headline
-      // edits above.
-      if (isOwnProfile) {
-        updateUser(updated);
+      // with no page reload.
+      if (isOwnProfile && updated) {
+        updateUser({ ...updated, avatar: newAvatar });
       }
 
       // Fire-and-forget: the avatar update has already fully succeeded
@@ -313,7 +320,10 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
   const followerCount = profile.followersCount ?? 0;
   const followingCount = profile.followingCount ?? 0;
   const fullName = `${profile.fullname?.firstName ?? ''} ${profile.fullname?.lastName ?? ''}`.trim();
-  const displayedAvatar = avatarPreview ?? profile.avatar;
+  const rawAvatar = profile?.avatar;
+  const displayedAvatar =
+    avatarPreview ||
+    (rawAvatar && typeof rawAvatar === 'string' && rawAvatar.trim() !== '' ? rawAvatar : null);
 
   return (
     <div className="profile-header">
@@ -352,8 +362,13 @@ export default function ProfileHeader({ userId }: ProfileHeaderProps) {
                 : undefined
             }
           >
-            {displayedAvatar ? (
-              <img src={displayedAvatar} alt={fullName} className="profile-avatar-img" />
+            {displayedAvatar && !imageLoadFailed ? (
+              <img
+                src={displayedAvatar}
+                alt={fullName}
+                className="profile-avatar-img"
+                onError={() => setImageLoadFailed(true)}
+              />
             ) : (
               <span className="profile-avatar-initials">{initialsOf(profile)}</span>
             )}

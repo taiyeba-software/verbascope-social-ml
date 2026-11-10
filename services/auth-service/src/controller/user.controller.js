@@ -18,11 +18,12 @@ function safeDeleteOldAvatars(userId, keepFileId) {
 
 function safePublishUserUpdated(user) {
   try {
+    const raw = user?.toObject ? user.toObject() : user;
     Promise.resolve(
       publishToQueue('user_updated', {
-        id: user._id,
-        fullname: user.fullname,
-        avatar: user.avatar,
+        id: raw?._id,
+        fullname: raw?.fullname,
+        avatar: raw?.avatar || '',
       })
     ).catch(() => {});
   } catch {
@@ -47,7 +48,8 @@ export const getUserProfile = async (req, res) => {
 
     const user = await userModel
       .findById(targetId)
-      .select('fullname avatar headline bio followers following createdAt');
+      .select('fullname avatar headline bio followers following createdAt')
+      .lean();
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -68,9 +70,9 @@ export const getUserProfile = async (req, res) => {
       user: {
         _id: user._id,
         fullname: user.fullname,
-        avatar: user.avatar,
-        headline: user.headline,
-        bio: user.bio,
+        avatar: user.avatar || '',
+        headline: user.headline || '',
+        bio: user.bio || '',
         followersCount: followers.length,
         followingCount: following.length,
         joinedAt: user.createdAt,

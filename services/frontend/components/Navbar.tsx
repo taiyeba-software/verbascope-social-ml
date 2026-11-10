@@ -430,7 +430,7 @@ export default function Navbar() {
             className={`navbar-user${isProfileActive ? ' active' : ''}`}
           >
             <div className="navbar-user-avatar">
-              {user?.avatar ? (
+              {user?.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' ? (
                 <img src={user.avatar} alt={displayName} className="navbar-user-avatar-img" />
               ) : (
                 initials
@@ -478,7 +478,7 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
             >
               <div className="navbar-mobile-avatar-small">
-                {user?.avatar ? (
+                {user?.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' ? (
                   <img src={user.avatar} alt={displayName} className="navbar-mobile-avatar-img" />
                 ) : (
                   initials

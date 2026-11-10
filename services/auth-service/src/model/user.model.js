@@ -27,9 +27,33 @@ const userSchema = new mongoose.Schema(
             type: String,
         },
         role: {
-        type: String,
-        default: "user"
-        }
+            type: String,
+            default: "user"
+        },
+        bio: {
+            type: String,
+            default: ""
+        },
+        headline: {
+            type: String,
+            default: ""
+        },
+        avatar: {
+            type: String,
+            default: ""
+        },
+        followers: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'user'
+            }
+        ],
+        following: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'user'
+            }
+        ]
     },
     { timestamps: true }
 );

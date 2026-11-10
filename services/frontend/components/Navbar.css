@@ -138,18 +138,7 @@
   border: 1px solid rgba(13, 45, 58, 0.08);
   transition: border-color 0.18s ease, background 0.18s ease;
 }
-  flex: 1;
-  min-width: 0;
-  max-width: 420px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  height: 38px;
-  border-radius: var(--vs-radius-full, 9999px);
-  background: rgba(13, 45, 58, 0.05);
-  border: 1px solid rgba(13, 45, 58, 0.08);
-  transition: border-color 0.18s ease, background 0.18s ease;
+
 }
 
 .navbar-search:focus-within {

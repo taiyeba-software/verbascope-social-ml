@@ -54,10 +54,15 @@ body {
   gap: 0 var(--vs-space-lg);
 }
 
-/* Pages with no sidebar (e.g. /bookmarks): one centred column at every size */
+/* Pages with no sidebar (e.g. /bookmarks): one column at every size.
+   FIX: this used to also set `max-width: 900px`, which shrank the whole
+   grid — and therefore the navbar, which is a grid child — so the search
+   bar got squeezed next to the theme toggle. The grid now keeps the same
+   max-width as the feed (1280px, 1360px on ≥1440px) so the navbar is
+   exactly as wide as on /feed; only the content column is narrowed
+   (see `.feed-layout--single .feed-main` below). */
 .feed-layout.feed-layout--single {
   grid-template-columns: minmax(0, 1fr);
-  max-width: 900px;
 }
 
 .feed-layout > nav {
@@ -71,6 +76,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--vs-space-md);
+}
+
+/* Sidebar-less pages: keep the post column a comfortable width and centred
+   under the full-width navbar. 860px ≈ the feed column's width beside the
+   340px sidebar, so cards look the same on /feed and /bookmarks. */
+.feed-layout--single .feed-main {
+  width: 100%;
+  max-width: 860px;
+  margin-inline: auto;
 }
 
 .feed-sidebar {
@@ -1286,7 +1300,9 @@ body {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
 
-  /* .feed-layout--single is more specific, so it keeps its own width */
+  /* .feed-layout--single is more specific, so it keeps its single column
+     (and, since it no longer sets its own max-width, the same 1360px as
+     the feed — the navbar stays the same width on both pages). */
 }
 
 /* ── Medium + Small (≤1024px): single column, sidebar hidden ── */
@@ -1310,7 +1326,8 @@ body {
 
   /* Keep posts a comfortable reading width on tablets instead of
      stretching them across the whole screen. */
-  .feed-main {
+  .feed-main,
+  .feed-layout--single .feed-main {
     width: 100%;
     max-width: 720px;
     margin-inline: auto;

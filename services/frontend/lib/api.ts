@@ -1,18 +1,63 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type { SearchResponse } from '@/types/search';
 import type { WeeklyPulse } from '@/components/feed/useFeedSocket';
+
+/* ──────────────────────────────────────────────────────────
+   Google OAuth token capture
+   ──────────────────────────────────────────────────────────
+   auth-service redirects to /feed?token=... after Google login.
+   This runs when the module is first imported in the browser - i.e.
+   BEFORE AuthProvider's first GET /api/auth/me - so that call already
+   carries the Bearer token. (Previously the token was only stored by
+   the feed page, which isn't mounted until /me has finished, so /me
+   went out without a token, failed, and bounced the user to login.)
+   The feed page's own effect still strips ?token= from the URL.
+   ────────────────────────────────────────────────────────── */
+
+if (typeof window !== 'undefined') {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken && window.location.pathname.startsWith('/feed')) {
+      localStorage.setItem('vs_token', urlToken);
+    }
+  } catch {
+    // storage unavailable - ignore
+  }
+}
 
 /* ──────────────────────────────────────────────────────────
    API Client Configuration
    ────────────────────────────────────────────────────────── */
 
-const API_TIMEOUT = 10000;
+// Render free instances can take 30-60s to wake up, so be generous.
+const API_TIMEOUT = 20000;
+
+// Retried only for GET requests, and only for "server not ready" failures
+// (502/503/504 or no response at all) - never for 401/4xx.
+const RETRY_DELAYS_MS = [2000, 5000, 10000];
+const RETRYABLE_STATUSES = [502, 503, 504];
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type RetryableConfig = InternalAxiosRequestConfig & { __retryCount?: number };
 
 interface ApiConfig {
   baseURL: string;
   timeout?: number;
   withCredentials?: boolean;
 }
+
+export interface CleanApiError {
+  status: number | null;
+  statusText: string;
+  message: string;
+  code: string | null;
+  data: unknown;
+}
+
+/** True only when the server explicitly rejected the credentials. */
+export const isUnauthorizedError = (err: unknown): boolean =>
+  (err as CleanApiError | undefined)?.status === 401;
 
 class ApiClient {
   private client: AxiosInstance;
@@ -40,17 +85,32 @@ class ApiClient {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error: AxiosError) => {
+        const cfg = error.config as RetryableConfig | undefined;
         const status = error.response?.status ?? null;
+
+        // ── Retry transient failures (cold start / gateway errors) ──
+        const method = (cfg?.method || 'get').toLowerCase();
+        const noResponse = !error.response && error.code !== 'ERR_CANCELED';
+        const transient = noResponse || (status !== null && RETRYABLE_STATUSES.includes(status));
+        const attempt = cfg?.__retryCount ?? 0;
+
+        if (cfg && method === 'get' && transient && attempt < RETRY_DELAYS_MS.length) {
+          cfg.__retryCount = attempt + 1;
+          await sleep(RETRY_DELAYS_MS[attempt]);
+          return this.client.request(cfg);
+        }
+
         const statusText = error.response?.statusText ?? '';
+        const responseData = error.response?.data as { message?: string } | undefined;
         const message =
-          error.response?.data?.message ||
+          responseData?.message ||
           error.message ||
           'An unexpected network or API error occurred.';
         const code = error.code ?? null;
         const data = error.response?.data ?? null;
 
-        const cleanError = {
+        const cleanError: CleanApiError = {
           status,
           statusText,
           message,
@@ -61,7 +121,7 @@ class ApiClient {
         const EXPECTED_VALIDATION_STATUSES = [400, 401, 422];
 
         if (
-          !EXPECTED_VALIDATION_STATUSES.includes(status) &&
+          !(status !== null && EXPECTED_VALIDATION_STATUSES.includes(status)) &&
           process.env.NODE_ENV === 'development'
         ) {
           console.error('[API Error]', message, cleanError);
@@ -167,7 +227,12 @@ export const userService = {
     }),
 };
 
-export const googleAuthUrl = `${process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3000'}/api/auth/google`;
+// NOTE: this uses NEXT_PUBLIC_AUTH_URL while authApi uses
+// NEXT_PUBLIC_AUTH_API_URL. If only one of them is set on Vercel, the other
+// silently falls back to localhost:3000. Set BOTH to the auth-service URL.
+export const googleAuthUrl = `${
+  process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:3000'
+}/api/auth/google`;
 
 /* ──────────────────────────────────────────────────────────
    Notification Service Methods
@@ -202,9 +267,6 @@ export type CommunityInsightsSummaryResponse = {
 };
 
 // ── RENAMED: Community Signals — "who marked it" ──
-// Endpoint renamed from GET /:id/sharers to GET /:id/community-endorsements,
-// and the response flattened (displayName/avatar computed on the backend)
-// so the frontend never reaches into a nested user object.
 export type CommunityEndorsement = {
   userId: string;
   displayName: string;
@@ -220,11 +282,6 @@ export type CommunityEndorsementsResponse = {
 };
 
 export const postService = {
-  // `risk` (AI Filter — ML Brain prediction) added as the LAST parameter
-  // so existing callers that pass (page, limit, signal) keep working
-  // unchanged. `risk` is a comma-separated list of green | yellow | red,
-  // e.g. "green,yellow" — the backend matches ANY of the given colors.
-  // Both filters are optional and omitted from the request when not set.
   getFeed: (page = 1, limit = 10, signal?: string, risk?: string) =>
     postApi.get('/api/posts/feed', {
       params: {
@@ -270,7 +327,6 @@ export const postService = {
   unsharePost: (id: string) =>
     postApi.delete(`/api/posts/${id}/unshare`),
 
-  // ── RENAMED: who shared this post, why, and when. ──
   getCommunityEndorsements: (id: string) =>
     postApi.get<CommunityEndorsementsResponse>(`/api/posts/${id}/community-endorsements`),
 

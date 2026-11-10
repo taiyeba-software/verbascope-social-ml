@@ -38,6 +38,9 @@ router.get('/google/failure', (req, res) => {
 });
 
 router.get('/me', authenticateToken, authController.getMe);
-router.post('/logout', authenticateToken, authController.logout);
+
+// Public on purpose: logging out with an expired/invalid token must still
+// clear the cookie instead of failing with 401.
+router.post('/logout', authController.logout);
 
 export default router;

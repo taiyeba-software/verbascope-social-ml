@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService, authApi, tokenStorage } from '@/lib/api';
+import { authService, authApi, tokenStorage, isUnauthorizedError } from '@/lib/api';
 import type { AuthResponse, LoginFormData, RegisterFormData, User } from '@/types';
 
 interface AuthContextValue {
@@ -19,6 +19,41 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/* ── Last-known-user cache ──
+   If /me fails for a temporary reason (cold start, 502/503, offline) we
+   keep the user signed in with this cached copy instead of kicking them
+   to the login page. It is only used when a token is present, and is
+   cleared on logout or a real 401. */
+const USER_CACHE_KEY = 'vs_user';
+
+const userCache = {
+  get: (): User | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(USER_CACHE_KEY);
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch {
+      return null;
+    }
+  },
+  set: (user: User) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    } catch {
+      // storage full / unavailable - ignore
+    }
+  },
+  clear: () => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(USER_CACHE_KEY);
+    } catch {
+      // ignore
+    }
+  },
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -31,27 +66,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hydrateSession = useCallback(async () => {
     try {
+      // api.ts already retries 502/503/504/timeouts with backoff, so by the
+      // time an error reaches here it is either a definite rejection or the
+      // server has stayed unreachable for a long while.
       const response = await authService.getCurrentUser();
       const result = response.data as AuthResponse;
 
       if (result.success && result.user) {
-        console.log('✅ Session hydrated:', result.user.email);
         setUser(result.user);
+        userCache.set(result.user);
       } else {
-        console.log('ℹ️ No active session (expected on first visit)');
+        // Server answered 200 but says no user - treat as signed out.
+        tokenStorage.clear();
+        userCache.clear();
         setUser(null);
       }
     } catch (err: unknown) {
-      const status = (err as any)?.status;
-      const message = (err as any)?.message || 'Unknown error';
-
-      if (status === 401 || status === 404) {
-        console.log('ℹ️ No active session or user no longer exists');
+      if (isUnauthorizedError(err) || (err as { status?: number })?.status === 404) {
+        // The ONLY case where we sign the user out: the server explicitly
+        // rejected the credentials (or the account no longer exists).
+        tokenStorage.clear();
+        userCache.clear();
+        setUser(null);
       } else {
-        console.error('[API Error]', message);
+        // Temporary failure (502/503/504, timeout, offline): do NOT clear
+        // the token. Keep the user signed in from cache if we have one.
+        console.warn('[auth] /me unavailable, keeping session:', (err as { message?: string })?.message);
+        const cached = tokenStorage.get() ? userCache.get() : null;
+        setUser(cached);
       }
-
-      setUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -76,15 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         });
 
-        // NEW: auth-service now also returns `token` in the JSON body
-        // (in addition to setting the cookie). Store it so lib/api.ts's
-        // request interceptor can attach it as a Bearer header on calls
-        // to post-service / notification-service, which never receive
-        // the cookie since they're on separate onrender.com subdomains.
         const result = response.data as AuthResponse & { token?: string };
 
         if (result.success && result.user) {
           if (result.token) tokenStorage.set(result.token);
+          userCache.set(result.user);
           setUser(result.user);
           router.push('/feed');
         } else {
@@ -111,11 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await authService.login(data.email, data.password);
 
-        // NEW: same as register — persist the returned token for Bearer auth.
         const result = response.data as AuthResponse & { token?: string };
 
         if (result.success && result.user) {
           if (result.token) tokenStorage.set(result.token);
+          userCache.set(result.user);
           setUser(result.user);
           router.push('/feed');
         } else {
@@ -144,7 +183,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Logout request failed:', err);
     } finally {
-      // Safely disconnect global socket if attached to window
       if (typeof window !== 'undefined' && (window as any).socket) {
         try {
           (window as any).socket.disconnect();
@@ -153,10 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // NEW: clear the stored Bearer token along with the cookie/session,
-      // otherwise a stale token would keep authenticating post-service /
-      // notification-service calls after "logout".
       tokenStorage.clear();
+      userCache.clear();
 
       setUser(null);
       setError(null);
@@ -165,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const updateUser = useCallback((updated: User) => {
+    userCache.set(updated);
     setUser(updated);
   }, []);
 

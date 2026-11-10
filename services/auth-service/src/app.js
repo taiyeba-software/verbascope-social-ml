@@ -3,12 +3,18 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import config from './config/config.js';
 import passport from './config/passport.js';
 
 // initialize express app
 const app = express();
 
+// Render terminates TLS at its proxy; trust it so req.secure / req.ip are right.
+app.set('trust proxy', 1);
+
 app.use(morgan('dev'));
+
+const normalize = (url) => url.trim().replace(/\/+$/, '');
 
 const defaultAllowedOrigins = [
   'http://localhost:3002',
@@ -17,17 +23,25 @@ const defaultAllowedOrigins = [
   'http://127.0.0.1:3000',
 ];
 
-const allowedOrigins = process.env.CLIENT_URL
-  ? [process.env.CLIENT_URL, ...defaultAllowedOrigins]
-  : defaultAllowedOrigins;
+// Optional extra origins: ALLOWED_ORIGINS="https://a.vercel.app,https://b.vercel.app"
+const extraOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .filter(Boolean)
+  .map(normalize);
+
+const allowedOrigins = new Set([
+  config.CLIENT_URL,
+  ...extraOrigins,
+  ...defaultAllowedOrigins,
+]);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow Postman and server-to-server requests
+      // Allow Postman, UptimeRobot and server-to-server requests
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.has(normalize(origin))) {
         return callback(null, true);
       }
 

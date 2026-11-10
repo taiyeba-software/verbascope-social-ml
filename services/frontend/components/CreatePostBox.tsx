@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './CreatePostBox.css';
 import { postService } from '@/lib/api';
 import type { Post } from '@/types';
@@ -20,6 +20,9 @@ interface PreviewFile {
 // the disable-Post-button check, and the pre-flight guard below.
 const MAX_CONTENT_LENGTH = 3000;
 
+// The counter turns amber once the user is within 10% of the limit.
+const NEAR_LIMIT_THRESHOLD = Math.floor(MAX_CONTENT_LENGTH * 0.9);
+
 export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
   const { user } = useAuth();
   const [content, setContent] = useState('');
@@ -31,8 +34,41 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
   // and retry instead of losing their draft.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOverLimit = content.length > MAX_CONTENT_LENGTH;
+  const isNearLimit = !isOverLimit && content.length >= NEAR_LIMIT_THRESHOLD;
+
+  /* ── Auto-grow textarea ──────────────────────────────────────────────
+     ONE field is used for both states: a compact one-line pill while
+     collapsed, and a textarea that grows with the text once expanded
+     (CSS max-height decides when it starts scrolling). Because the same
+     element is used for both, the text can never appear twice and the
+     keyboard never closes on mobile when the box expands. ── */
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    if (!isExpanded) {
+      // collapsed: let the CSS height (the one-line pill) apply
+      el.style.height = '';
+      return;
+    }
+
+    el.style.height = 'auto';
+    const borders = el.offsetHeight - el.clientHeight;
+    el.style.height = `${el.scrollHeight + borders}px`;
+  }, [isExpanded]);
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [content, resizeTextarea]);
+
+  // Wrapping changes when the window is resized or the device rotates
+  useEffect(() => {
+    window.addEventListener('resize', resizeTextarea);
+    return () => window.removeEventListener('resize', resizeTextarea);
+  }, [resizeTextarea]);
 
   const updateContent = (value: string) => {
     setContent(value);
@@ -62,6 +98,7 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (isSubmitting) return;
     if (!content.trim() && previews.length === 0) return;
 
     // ── Client-side guard ──
@@ -90,6 +127,7 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
 
       if (data.success) {
         setContent('');
+        previews.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
         setPreviews([]);
         setIsExpanded(false);
         onPost?.({
@@ -126,6 +164,23 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
     }
   };
 
+  const handleCancel = () => {
+    setIsExpanded(false);
+    setContent('');
+    setErrorMessage(null);
+    previews.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+    setPreviews([]);
+    textareaRef.current?.blur();
+  };
+
+  // Ctrl/Cmd + Enter posts, like most composers. Plain Enter adds a new line.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   const initials = user
     ? `${user?.fullname?.firstName?.[0] ?? ''}${user?.fullname?.lastName?.[0] ?? ''}`.toUpperCase() || 'U'
     : 'U';
@@ -139,33 +194,70 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
 
   const firstName = user?.fullname?.firstName ?? 'there';
 
+  const counterClass = [
+    'create-post-char-counter',
+    isOverLimit ? 'is-over-limit' : '',
+    isNearLimit ? 'is-near-limit' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <form className="create-post-box" onSubmit={handleSubmit}>
+    <form
+      className={`create-post-box${isExpanded ? ' is-expanded' : ''}`}
+      onSubmit={handleSubmit}
+    >
       <div className="create-post-header">
         <div className="create-post-avatar">
           {avatarUrl ? <img src={avatarUrl} alt={firstName} /> : initials}
         </div>
-        <input
-          type="text"
+
+        {/* The one and only text field (see the auto-grow note above). */}
+        <textarea
+          ref={textareaRef}
           className="create-post-input"
+          aria-label="Write a post"
           placeholder={`What's on your mind, ${firstName}?`}
           value={content}
+          rows={1}
           onChange={(e) => updateContent(e.target.value)}
           onFocus={() => setIsExpanded(true)}
+          onKeyDown={handleKeyDown}
         />
-        <button
-          type="button"
-          className="create-post-media-btn"
-          title="Add image"
-          onClick={() => { setIsExpanded(true); fileInputRef.current?.click(); }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <rect x="3" y="3" width="18" height="18" rx="3" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </button>
+
+        {/* Collapsed state only — once expanded, the image button lives in
+            the footer so there is never a duplicate. */}
+        {!isExpanded && (
+          <button
+            type="button"
+            className="create-post-media-btn"
+            title="Add image"
+            aria-label="Add image"
+            onClick={() => {
+              setIsExpanded(true);
+              fileInputRef.current?.click();
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </button>
+        )}
       </div>
+
+      {/* Hidden real file input. It is always mounted, so the collapsed
+          image button above can open the picker immediately (when it lived
+          inside the expanded block, the first click found no input yet). */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
 
       {isExpanded && (
         <div className="create-post-expanded">
@@ -175,20 +267,6 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
               <span>{errorMessage}</span>
             </div>
           )}
-
-          <textarea
-            className="create-post-textarea"
-            placeholder="Share your thoughts..."
-            value={content}
-            onChange={(e) => updateContent(e.target.value)}
-            rows={4}
-          />
-
-          {/* ── Live character counter — turns red past the limit so the
-              user sees the problem before ever clicking Post. ── */}
-          <div className={`create-post-char-counter${isOverLimit ? ' is-over-limit' : ''}`}>
-            {content.length} / {MAX_CONTENT_LENGTH}
-          </div>
 
           {/* Image previews */}
           {previews.length > 0 && (
@@ -211,19 +289,11 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
 
           <div className="create-post-actions">
             <div className="create-post-tools">
-              {/* Hidden real file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                multiple
-                style={{ display: 'none' }}
-                onChange={handleFileChange}
-              />
               <button
                 type="button"
                 className="tool-btn"
                 title={previews.length >= 4 ? 'Maximum 4 images' : 'Add image'}
+                aria-label="Add image"
                 disabled={previews.length >= 4}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -240,18 +310,14 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
                   device's native emoji keyboard (Android / iOS). */}
             </div>
 
+            {/* Live character counter — amber near the limit, red past it,
+                so the user sees the problem before ever clicking Post. */}
+            <span className={counterClass}>
+              {content.length} / {MAX_CONTENT_LENGTH}
+            </span>
+
             <div className="create-post-buttons">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setIsExpanded(false);
-                  setContent('');
-                  setErrorMessage(null);
-                  previews.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
-                  setPreviews([]);
-                }}
-              >
+              <button type="button" className="btn btn-ghost" onClick={handleCancel}>
                 Cancel
               </button>
               <button

@@ -1,11 +1,13 @@
 /* Create Post Box Component */
 
 .create-post-box {
-	/* Background of an input while it has focus.
+	/* Background of the field while it has focus.
 	   Light theme: white (unchanged). Dark theme: set below — it used to be a
 	   hard-coded `white`, which made the light dark-mode text unreadable. */
 	--cpb-focus-bg: #ffffff;
 	--cpb-focus-ring: rgba(14, 159, 171, 0.1);
+	--cpb-warn: #b45309;
+	--cpb-danger: #dc2626;
 
 	background: var(--vs-surface);
 	border: 1px solid var(--vs-border-card);
@@ -21,7 +23,11 @@
 [data-theme='dark'] .create-post-box {
 	--cpb-focus-bg: #2b3d57;
 	--cpb-focus-ring: rgba(45, 212, 191, 0.22);
+	--cpb-warn: #fbbf24;
+	--cpb-danger: #f87171;
 }
+
+/* ── Header row: avatar + the text field (+ image button when collapsed) ── */
 
 .create-post-header {
 	display: flex;
@@ -29,7 +35,14 @@
 	gap: var(--vs-space-md);
 }
 
+/* Expanded: the field is tall, so the avatar sits at the top beside it */
+.create-post-box.is-expanded .create-post-header {
+	align-items: flex-start;
+}
+
 .create-post-avatar {
+	position: relative;
+	overflow: hidden;
 	width: 44px;
 	height: 44px;
 	border-radius: 50%;
@@ -43,8 +56,30 @@
 	flex-shrink: 0;
 }
 
+.create-post-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: inherit;
+	display: block;
+}
+
+.create-post-box.is-expanded .create-post-avatar {
+	margin-top: 2px;
+}
+
+/* ── The text field ──
+   A single <textarea> used for both states.
+   Collapsed → a one-line pill.
+   Expanded  → grows with the text (height is set from JS) and only starts
+   scrolling once it reaches max-height. */
+
 .create-post-input {
 	flex: 1;
+	min-width: 0;
+	display: block;
+	resize: none;
+	height: 46px;
 	background: var(--vs-surface-hover);
 	border: 1px solid var(--vs-border);
 	border-radius: var(--vs-radius-full);
@@ -52,21 +87,35 @@
 	color: var(--vs-text-primary);
 	font-family: 'DM Sans', sans-serif;
 	font-size: 0.95rem;
+	line-height: 1.4;
 	outline: none;
-	transition: all var(--vs-transition);
+	overflow: hidden;
 	cursor: text;
+	transition: border-color var(--vs-transition), background var(--vs-transition),
+		box-shadow var(--vs-transition), border-radius var(--vs-transition);
 }
 
-.create-post-input::placeholder,
-.create-post-textarea::placeholder {
+.create-post-input::placeholder {
 	color: var(--vs-text-muted);
 }
 
-.create-post-input:focus,
-.create-post-textarea:focus {
+.create-post-input:focus {
 	border-color: var(--vs-teal);
 	background: var(--cpb-focus-bg);
 	box-shadow: 0 0 0 3px var(--cpb-focus-ring);
+}
+
+.create-post-box.is-expanded .create-post-input {
+	min-height: 104px;
+	/* fallbacks first: browsers without dvh/min() keep the previous line */
+	max-height: 440px;
+	max-height: min(55vh, 440px);
+	max-height: min(55dvh, 440px);
+	border-radius: var(--vs-radius-md);
+	padding: 14px 16px;
+	line-height: 1.6;
+	overflow-y: auto;
+	scrollbar-width: thin;
 }
 
 .create-post-media-btn {
@@ -90,6 +139,8 @@
 	background: var(--vs-teal-light);
 }
 
+/* ── Expanded area: errors, previews, footer ── */
+
 .create-post-expanded {
 	margin-top: var(--vs-space-md);
 	display: flex;
@@ -110,37 +161,6 @@
 	}
 }
 
-.create-post-textarea {
-	resize: none;
-	width: 100%;
-	min-height: 120px;
-	background: var(--vs-surface-hover);
-	border: 1px solid var(--vs-border);
-	border-radius: var(--vs-radius-md);
-	padding: 14px 16px;
-	color: var(--vs-text-primary);
-	font-family: 'DM Sans', sans-serif;
-	font-size: 0.95rem;
-	line-height: 1.6;
-	outline: none;
-	transition: all var(--vs-transition);
-}
-
-/* Live character counter under the textarea */
-
-.create-post-char-counter {
-	text-align: right;
-	font-size: 0.78rem;
-	color: var(--vs-text-muted);
-	font-family: 'DM Sans', sans-serif;
-	margin-top: -6px;
-}
-
-.create-post-char-counter.is-over-limit {
-	color: #dc2626;
-	font-weight: 700;
-}
-
 /* Friendly validation/error banner — replaces alert() popups */
 
 .create-post-error-banner {
@@ -149,7 +169,7 @@
 	gap: 8px;
 	background: rgba(220, 38, 38, 0.08);
 	border: 1px solid rgba(220, 38, 38, 0.35);
-	color: #dc2626;
+	color: var(--cpb-danger);
 	border-radius: var(--vs-radius-md);
 	padding: 10px 14px;
 	font-family: 'DM Sans', sans-serif;
@@ -157,13 +177,15 @@
 	line-height: 1.4;
 }
 
+/* ── Footer: [image]  ……  [counter] [Cancel] [Post] ── */
+
 .create-post-actions {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--vs-space-sm) var(--vs-space-md);
 	padding-top: var(--vs-space-md);
 	border-top: 1px solid var(--vs-border);
-	gap: var(--vs-space-md);
 }
 
 .create-post-tools {
@@ -173,12 +195,13 @@
 }
 
 .tool-btn {
+	position: relative;
 	background: transparent;
 	border: none;
 	color: var(--vs-text-secondary);
 	cursor: pointer;
-	width: 36px;
-	height: 36px;
+	width: 40px;
+	height: 40px;
 	border-radius: 50%;
 	transition: all var(--vs-transition);
 	display: flex;
@@ -191,10 +214,54 @@
 	background: var(--vs-teal-light);
 }
 
+.tool-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.tool-btn:disabled:hover {
+	color: var(--vs-text-secondary);
+	background: transparent;
+}
+
+/* Image count badge on the tool button */
+
+.image-count-badge {
+	position: absolute;
+	top: 2px;
+	right: 0;
+	font-size: 9px;
+	font-weight: 700;
+	color: var(--vs-teal);
+	line-height: 1;
+	pointer-events: none;
+}
+
+/* Live character counter — sits beside the buttons, so it can never be
+   clipped by the field's scrollbar or edge */
+
+.create-post-char-counter {
+	margin-left: auto;
+	font-size: 0.78rem;
+	color: var(--vs-text-muted);
+	font-family: 'DM Sans', sans-serif;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.create-post-char-counter.is-near-limit {
+	color: var(--cpb-warn);
+	font-weight: 600;
+}
+
+.create-post-char-counter.is-over-limit {
+	color: var(--cpb-danger);
+	font-weight: 700;
+}
+
 .create-post-buttons {
 	display: flex;
 	gap: var(--vs-space-sm);
-	margin-left: auto;
 }
 
 .create-post-buttons .btn {
@@ -232,39 +299,6 @@
 .create-post-buttons .btn-ghost:hover:not(:disabled) {
 	background: var(--vs-surface-hover);
 	color: var(--vs-text-primary);
-}
-
-@media (max-width: 640px) {
-	.create-post-box {
-		padding: var(--vs-space-sm);
-	}
-
-	.create-post-header {
-		gap: var(--vs-space-sm);
-	}
-
-	.create-post-avatar {
-		width: 38px;
-		height: 38px;
-	}
-
-	.create-post-input {
-		padding: 10px 14px;
-	}
-
-	.create-post-actions {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
-	.create-post-buttons {
-		width: 100%;
-		margin-left: 0;
-	}
-
-	.create-post-buttons .btn {
-		flex: 1;
-	}
 }
 
 /* Image Preview Grid */
@@ -319,45 +353,76 @@
 	background: rgba(220, 38, 38, 0.85);
 }
 
-/* Image count badge on the tool button */
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════ */
 
-.tool-btn {
-	position: relative;
+/* ── Tablet (≤1024px): don't let the field push the footer off-screen ── */
+@media (max-width: 1024px) {
+	.create-post-box.is-expanded .create-post-input {
+		max-height: 380px;
+		max-height: min(45vh, 380px);
+		max-height: min(45dvh, 380px);
+	}
 }
 
-.image-count-badge {
-	position: absolute;
-	top: 2px;
-	right: 2px;
-	font-size: 9px;
-	font-weight: 700;
-	color: var(--vs-teal);
-	line-height: 1;
-	pointer-events: none;
-}
+/* ── Phones (≤640px) ──
+   The on-screen keyboard covers about 40% of the screen, so the field is
+   capped lower to keep the footer (counter + Post) reachable.
+   Footer becomes two rows:  [image] ……… [counter]
+                             [   Cancel   ] [    Post    ] */
+@media (max-width: 640px) {
+	.create-post-box {
+		padding: var(--vs-space-sm);
+	}
 
-/* Disabled tool button state */
+	.create-post-header {
+		gap: var(--vs-space-sm);
+	}
 
-.tool-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-}
+	.create-post-avatar {
+		width: 36px;
+		height: 36px;
+		font-size: 0.85rem;
+	}
 
-.tool-btn:disabled:hover {
-	color: var(--vs-text-secondary);
-	background: transparent;
-}
+	.create-post-input {
+		height: 44px;
+		padding: 10px 14px;
+	}
 
-.create-post-avatar {
-	position: relative;
-	overflow: hidden;
-	flex-shrink: 0;
-}
+	.create-post-box.is-expanded .create-post-input {
+		min-height: 96px;
+		max-height: 320px;
+		max-height: min(40vh, 320px);
+		max-height: min(40dvh, 320px);
+		padding: 12px 14px;
+	}
 
-.create-post-avatar img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	border-radius: inherit;
-	display: block;
+	.create-post-expanded {
+		margin-top: var(--vs-space-sm);
+		gap: var(--vs-space-sm);
+	}
+
+	.create-post-actions {
+		padding-top: var(--vs-space-sm);
+	}
+
+	.create-post-tools {
+		order: 1;
+	}
+
+	.create-post-char-counter {
+		order: 2;
+	}
+
+	.create-post-buttons {
+		order: 3;
+		width: 100%;
+	}
+
+	.create-post-buttons .btn {
+		flex: 1;
+		min-height: 44px; /* comfortable touch target */
+	}
 }

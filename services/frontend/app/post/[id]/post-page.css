@@ -1,75 +1,101 @@
+/* ──────────────────────────────────────────────────────────
+   Post detail page
+
+   Layout mirrors app/feed/feed.css so the navbar and the post column
+   have the same widths as /feed and /bookmarks:
+     Large   ≥ 1025px  shell 1280px (1360px ≥1440px), post column 860px
+     Medium  641–1024  full-bleed navbar, post column 720px
+     Small   ≤ 640px   full-width column, 12px gutters
+   ────────────────────────────────────────────────────────── */
+
 .post-page-shell {
+  /* Side gutter, shared by the shell padding and the full-bleed navbar
+     below so the two can never drift apart. */
+  --post-gutter: var(--vs-space-lg);
+
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
+  /* Same cap as .feed-layout — this is what keeps the navbar from
+     stretching across the whole screen. */
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--post-gutter);
 }
 
 .post-page-main {
   width: 100%;
-  max-width: 600px;
+  min-width: 0;
+  /* ≈ the feed column's width beside the 340px sidebar, so the post card
+     is the same size here as in the feed. */
+  max-width: 860px;
   margin: 0 auto;
-  padding: 0 var(--v-space-md) 60px;
+  padding: 0 0 60px;
 }
 
 .post-page-header {
   display: flex;
   align-items: center;
-  gap: var(--v-space-md);
-  padding: var(--v-space-md) 0;
+  gap: var(--vs-space-md);
+  padding: var(--vs-space-md) 0;
   position: sticky;
-  top: 0;
-  background: var(--v-bg-page, var(--v-bg-body));
+  /* sit just below the 64px sticky navbar instead of sliding under it */
+  top: 64px;
+  /* soft backdrop so post text doesn't show through while scrolling */
+  background: color-mix(in srgb, var(--vs-surface) 85%, transparent);
+  backdrop-filter: blur(8px);
   z-index: 5;
 }
 
 .post-page-back-btn {
   background: none;
   border: none;
-  color: var(--v-text-primary);
+  color: var(--vs-text-primary);
   font-size: 1.25rem;
   cursor: pointer;
   padding: 6px 10px;
-  border-radius: var(--v-radius-full);
-  transition: background var(--v-transition);
+  border-radius: var(--vs-radius-full);
+  transition: background var(--vs-transition);
   line-height: 1;
 }
 
 .post-page-back-btn:hover {
-  background: var(--v-signal-green-bg);
+  background: var(--vs-teal-light);
 }
 
 .post-page-title {
   flex: 1;
   font-weight: 700;
   font-size: 1.05rem;
-  color: var(--v-text-primary);
+  color: var(--vs-text-primary);
 }
 
 .post-page-copy-link-btn {
   background: none;
-  border: 1px solid var(--v-border);
-  color: var(--v-text-secondary);
+  border: 1px solid var(--vs-border);
+  color: var(--vs-text-secondary);
   font-size: 0.8rem;
   font-weight: 600;
   padding: 6px 12px;
-  border-radius: var(--v-radius-full);
+  border-radius: var(--vs-radius-full);
   cursor: pointer;
-  transition: all var(--v-transition);
+  transition: all var(--vs-transition);
 }
 
 .post-page-copy-link-btn:hover {
-  border-color: var(--v-signal-green);
-  color: var(--v-signal-green);
+  border-color: var(--vs-teal);
+  color: var(--vs-teal);
 }
 
 .post-page-skeleton {
   height: 260px;
-  border-radius: var(--v-radius-lg);
+  border-radius: var(--vs-radius-lg);
   background: linear-gradient(
     90deg,
-    var(--v-bg-card) 25%,
-    rgba(255, 255, 255, 0.06) 37%,
-    var(--v-bg-card) 63%
+    var(--vs-surface-hover) 25%,
+    var(--vs-surface) 37%,
+    var(--vs-surface-hover) 63%
   );
   background-size: 400% 100%;
   animation: post-page-shimmer 1.4s ease infinite;
@@ -87,19 +113,63 @@
 .post-page-not-found {
   text-align: center;
   padding: 80px 20px;
-  color: var(--v-text-muted);
+  color: var(--vs-text-muted);
 }
 
 .post-page-not-found-icon {
   font-size: 2.5rem;
-  margin-bottom: var(--v-space-md);
+  margin-bottom: var(--vs-space-md);
 }
 
 .post-page-not-found-title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--v-text-primary);
+  color: var(--vs-text-primary);
   margin-bottom: 6px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Large screens (≥1440px): a little more room, like the feed ── */
+@media (min-width: 1440px) {
+  .post-page-shell {
+    max-width: 1360px;
+  }
+}
+
+/* ── Medium + Small (≤1024px) ── */
+@media (max-width: 1024px) {
+  .post-page-shell {
+    --post-gutter: var(--vs-space-md);
+  }
+
+  /* Full-bleed navbar: the shell has side padding, so without this the
+     navbar would be inset. It also keeps the notification dropdown (which
+     is positioned against the navbar) lined up with the screen edges. */
+  .post-page-shell > nav {
+    margin-inline: calc(-1 * var(--post-gutter));
+  }
+
+  .post-page-main {
+    max-width: 720px;
+  }
+}
+
+/* ── Small screens (≤640px) ── */
+@media (max-width: 640px) {
+  .post-page-shell {
+    --post-gutter: 12px;
+  }
+
+  .post-page-main {
+    padding-bottom: 40px;
+  }
+
+  .post-page-header {
+    padding: var(--vs-space-sm) 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

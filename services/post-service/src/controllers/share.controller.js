@@ -21,7 +21,7 @@ export const SIGNAL_MAP = {
 	'educational':     'educational',
 };
 
-export const INSIGHTS_WINDOW_DAYS = 7;
+export const INSIGHTS_WINDOW_DAYS = 30;
 
 export const getInsightsWindowStart = () =>
 	new Date(Date.now() - INSIGHTS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -174,7 +174,7 @@ export const unsharePost = async (req, res) => {
 // people you follow" framing literally: it's about whose endorsement
 // you're seeing, not who wrote the original content.
 //
-// The 7-day window now filters on sharedAt (when the mark was made)
+// The 30-day (1 month) window now filters on sharedAt (when the mark was made)
 // rather than the post's createdAt — this also fixes a previously
 // documented limitation where a fresh share on an older post was never
 // counted, since with sharer-scoping the post's own age is no longer

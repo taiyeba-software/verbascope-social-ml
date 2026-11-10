@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import authClient from './authClient.js';
 
 // ── Community Insights personalization ──
-// Returns the IDs that should count toward "this week's" Community
+// Returns the IDs that should count toward "this month's" Community
 // Insights and the signal-filtered feed: the current user's own posts plus
 // everyone they follow.
 export const getVisibleAuthors = async (req) => {

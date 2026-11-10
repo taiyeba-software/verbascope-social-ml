@@ -248,7 +248,7 @@ All routes below are mounted under `/api/posts`. Protected routes accept a valid
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/posts/pulse/trending` | Yes | Gets the current week's trending topic and activity summary. |
+| `GET` | `/api/posts/pulse/trending` | Yes | Gets the current month's trending topic and activity summary. |
 | `GET` | `/api/posts/pulse/signal` | No | Gets the live pulse signal object. |
 | `GET` | `/api/posts/community-signals/summary` | Yes | Summarizes recent share reasons from the current user and followed users. |
 | `GET` | `/api/posts/:id/community-endorsements` | Yes | Lists people who shared/marked a post and their reason/time. |
@@ -308,7 +308,7 @@ RabbitMQ is used for asynchronous communication between the post service and the
 - Post indexing is started asynchronously after post creation. Search documents include post content, normalized content, tags, author name/avatar, language, word count, image count, and creation time; they do not currently include post counters or ML-analysis fields.
 - Search supports full-text queries, tag facet suggestions, and exact tag filtering. Search/tag-facet errors currently return an empty successful result; tag-detail errors return HTTP 500.
 - Pulse data is seeded from the database on startup and then updated in real time from likes, comments, shares, and ML-driven events.
-- The Community Consensus filter uses share reasons from the previous seven days by the current user and users they follow, regardless of who authored the post. The AI risk filter is platform-wide and independent of Community Consensus.
+- The Community Consensus filter uses share reasons from the previous 30 days (1 month) by the current user and users they follow, regardless of who authored the post. The AI risk filter is platform-wide and independent of Community Consensus.
 
 ### 🔍 Full-Text Search System (Meilisearch Integration)
 

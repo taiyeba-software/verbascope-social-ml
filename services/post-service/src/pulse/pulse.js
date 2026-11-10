@@ -23,7 +23,7 @@ const MOOD_MESSAGES = {
   calm:         'No strong sentiment detected.',
 };
 
-// ── NEW: Weekly Pulse feature ────────────────────────────────────────
+// ── Monthly Pulse / Trending feature ──────────────────────────────────
 // Human-readable labels for the shareReasons keys stored on Post docs.
 const REASON_LABELS = {
   agree:           'Agree',
@@ -34,10 +34,16 @@ const REASON_LABELS = {
   educational:     'Educational',
 };
 
-// Monday 00:00:00 of the current week (local server time). When Monday
-// arrives this naturally rolls forward — no cron job, no cleanup, no
-// deleted data. Historical posts stay in Mongo for feeds/search/analytics;
-// only this query's $gte filter changes.
+// Rolling 30-day window (1 month) for trending activity. Using a rolling
+// 30-day window rather than a strict calendar-month boundary ensures there
+// is always a full month of data visible (e.g. at the start of a calendar month).
+export const TRENDING_WINDOW_DAYS = 30;
+
+export function getTrendingWindowStart(days = TRENDING_WINDOW_DAYS) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+// Monday 00:00:00 of the current week (kept for weekly backward compatibility if needed)
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay(); // 0 (Sun) .. 6 (Sat)
@@ -71,10 +77,10 @@ function getPulseStatus(percentage, postCount) {
 // entire card content — no tag/count shown, per the simplified mock
 // (there's nothing meaningful to report yet, so don't pretend there is).
 const STATUS_EXPLANATIONS = {
-  '💤 Quiet':               'Not enough activity this week yet.',
+  '💤 Quiet':               'Not enough activity this month yet.',
   '💬 Active Discussion':   'Community is actively discussing this topic.',
-  '🔥 Trending':            'Most discussed topic this week.',
-  '⚡ Engagement Surge':    "This topic is dominating this week's discussion.",
+  '🔥 Trending':            'Most discussed topic this month.',
+  '⚡ Engagement Surge':    "This topic is dominating this month's discussion.",
 };
 
 export const pulse = {
@@ -205,22 +211,19 @@ export const pulse = {
       .map(([tag, count]) => ({ tag, count }));
   },
 
-  // ── NEW: Weekly Pulse (this week's #1 topic + why + how big) ────────
-  // Mongo aggregation over this week's posts, grouped by pulseTopic.
+  // ── Monthly Pulse (this month's #1 topic + why + how big) ───────────
+  // Mongo aggregation over the last 30 days of posts, grouped by pulseTopic.
   // Independent of getSignal()/getTrending() above — those stay as your
   // live "last few minutes" in-memory pulse, this is a separate
-  // "this week's story" view computed straight from the DB, so a
+  // "this month's story" view computed straight from the DB, so a
   // server restart never loses it.
   //
   // Score per post = likesCount + commentsCount*2 + sharesCount*3
-  // (no `saves`/`dwell` fields exist on Post yet, so those two terms
-  // from the original plan are dropped rather than faked — add them
-  // back here the moment those fields exist on the schema).
-  async getWeeklyPulse(topN = 5) {
-    const weekStart = startOfWeek();
+  async getMonthlyPulse(topN = 5) {
+    const windowStart = getTrendingWindowStart();
 
     const results = await Post.aggregate([
-      { $match: { createdAt: { $gte: weekStart } } },
+      { $match: { createdAt: { $gte: windowStart } } },
       {
         $addFields: {
           engagementScore: {
@@ -245,18 +248,16 @@ export const pulse = {
           educational:     { $sum: '$shareReasons.educational' },
         },
       },
-      // ── FIX: tiebreak on postCount. When every post this week has 0
+      // ── Tiebreak on postCount. When every post this month has 0
       // engagement, every topic's `score` ties at 0 and Mongo's tie order
       // is arbitrary — not related to how many posts a topic actually
-      // has. A 2-post "general" bucket could otherwise outrank a 21-post
-      // real topic. Sorting on postCount as a secondary key means a
+      // has. Sorting on postCount as a secondary key means a
       // well-populated topic wins over a near-empty one whenever scores
-      // are tied (the common case early in a week, or with low-traffic
-      // communities).
+      // are tied.
       { $sort: { score: -1, postCount: -1 } },
     ]);
 
-    // No posts this week at all — return an empty-but-valid shape so the
+    // No posts this month at all — return an empty-but-valid shape so the
     // frontend never has to special-case "no data".
     if (results.length === 0) {
       return {
@@ -298,24 +299,14 @@ export const pulse = {
     const status = getPulseStatus(percentage, top.postCount);
     const explanation = STATUS_EXPLANATIONS[status];
 
-    // ── NEW: a single, ready-to-render "how big" string. Only the
-    // Engagement Surge bucket is percentage-driven, so that's the only
-    // case where a percentage is meaningful to show — everywhere else
-    // (Quiet/Active/Trending) a raw post count is the honest number.
-    // Fixes the "~0% of this week's activity" problem: a 0%-of-score
-    // topic with real posts now reads "21 posts this week" instead of a
-    // percentage that told the reader nothing.
+    // Ready-to-render "how big" string. Engagement Surge shows percentage,
+    // otherwise the raw post count for the month is displayed.
     const activityLabel = status === '⚡ Engagement Surge'
-      ? `${percentage}% of this week's discussions`
-      : `${top.postCount} post${top.postCount === 1 ? '' : 's'} this week`;
+      ? `${percentage}% of this month's discussions`
+      : `${top.postCount} post${top.postCount === 1 ? '' : 's'} this month`;
 
     // Separate "top by post count" list for the compact "Popular Topics"
-    // section — deliberately NOT the same ordering as the score-sorted
-    // `results` above, since a topic can have lots of short posts but a
-    // low engagement score, or vice versa.
-    // ── FIX: exclude the headline topic itself, so it doesn't appear
-    // twice on the card (once as the featured story, once again in the
-    // list below it).
+    // section — excluding the headline topic itself.
     const topics = [...results]
       .filter((r) => r._id !== top._id)
       .sort((a, b) => b.postCount - a.postCount)
@@ -334,6 +325,11 @@ export const pulse = {
       rank: 1,
       topics,
     };
+  },
+
+  // Backward compatibility alias for weekly callers
+  async getWeeklyPulse(topN = 5) {
+    return this.getMonthlyPulse(topN);
   },
 
   resetForSeed() {

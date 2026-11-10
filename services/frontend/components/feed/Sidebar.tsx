@@ -164,7 +164,7 @@ export function Sidebar({
         {!pulseLoading && (!pulse || !pulse.topic) && !isQuiet && (
           <div className="follow-empty">
             <div className="follow-empty-icon">💤</div>
-            <div>No standout topic yet this week — be the first to start one.</div>
+            <div>No standout topic yet this month — be the first to start one.</div>
           </div>
         )}
 
@@ -174,7 +174,7 @@ export function Sidebar({
 
             {isQuiet ? (
               <div className="follow-empty">
-                {pulse.explanation ?? 'Not enough activity this week yet.'}
+                {pulse.explanation ?? 'Not enough activity this month yet.'}
               </div>
             ) : (
               <div className="trending-list">

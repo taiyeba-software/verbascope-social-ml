@@ -398,15 +398,17 @@ export const deletePost = async (req, res) => {
 };
 
 // ── GET /api/posts/pulse/trending ────────────────────────────────────
-export const getWeeklyPulse = async (req, res) => {
+export const getMonthlyPulse = async (req, res) => {
   try {
-    const weeklyPulse = await pulse.getWeeklyPulse();
-    return res.status(200).json({ success: true, ...weeklyPulse });
+    const monthlyPulse = await (pulse.getMonthlyPulse ? pulse.getMonthlyPulse() : pulse.getWeeklyPulse());
+    return res.status(200).json({ success: true, ...monthlyPulse });
   } catch (err) {
-    console.error('getWeeklyPulse error:', err);
+    console.error('getMonthlyPulse error:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
+
+export const getWeeklyPulse = getMonthlyPulse;
 
 // ── POST /api/posts/admin/reanalyze ──────────────────────────────────
 export const reanalyzeStalePosts = async (req, res) => {

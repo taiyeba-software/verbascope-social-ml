@@ -17,9 +17,9 @@ export const INSIGHTS = [
     label: 'Needs Attention',
     icon: '🚨',
     bannerTitle: 'Needs Attention Posts',
-    bannerText: 'Showing posts from this week frequently marked by the community.',
+    bannerText: 'Showing posts from this month frequently marked by the community.',
     emptyTitle: 'No posts need attention',
-    emptyText: 'Nothing has been marked by the community this week.',
+    emptyText: 'Nothing has been marked by the community this month.',
   },
   {
     slug: 'agree',
@@ -27,9 +27,9 @@ export const INSIGHTS = [
     label: 'I Agree',
     icon: '✅',
     bannerTitle: 'Posts the Community Agrees With',
-    bannerText: 'Showing posts from this week the community agreed with.',
+    bannerText: 'Showing posts from this month the community agreed with.',
     emptyTitle: 'No agreed-with posts yet',
-    emptyText: 'Nothing has been marked "I agree" this week.',
+    emptyText: 'Nothing has been marked "I agree" this month.',
   },
   {
     slug: 'funny',
@@ -37,7 +37,7 @@ export const INSIGHTS = [
     label: 'Funny',
     icon: '😄',
     bannerTitle: 'Funny Posts',
-    bannerText: 'Showing posts from this week the community found funny.',
+    bannerText: 'Showing posts from this month the community found funny.',
     emptyTitle: 'No Funny posts yet',
     emptyText: 'Be the first to share one with the community.',
   },
@@ -47,7 +47,7 @@ export const INSIGHTS = [
     label: 'Insightful',
     icon: '💡',
     bannerTitle: 'Insightful Posts',
-    bannerText: 'Showing posts from this week the community found insightful.',
+    bannerText: 'Showing posts from this month the community found insightful.',
     emptyTitle: 'No Insightful posts yet',
     emptyText: 'Be the first to share one with the community.',
   },
@@ -57,8 +57,8 @@ export const INSIGHTS = [
     label: 'Concerning',
     icon: '⚠️',
     bannerTitle: 'Concerning Posts',
-    bannerText: 'Showing posts from this week the community found concerning.',
-    emptyTitle: 'No Concerning posts this week',
+    bannerText: 'Showing posts from this month the community found concerning.',
+    emptyTitle: 'No Concerning posts this month',
     emptyText: 'Nothing has been marked as concerning right now.',
   },
   {
@@ -67,7 +67,7 @@ export const INSIGHTS = [
     label: 'Educational',
     icon: '📚',
     bannerTitle: 'Educational Posts',
-    bannerText: 'Showing posts from this week the community found educational.',
+    bannerText: 'Showing posts from this month the community found educational.',
     emptyTitle: 'No Educational posts yet',
     emptyText: 'Be the first to share one with the community.',
   },
@@ -186,7 +186,7 @@ export function CommunityInsights({
       <div className="sidebar-card-header">
         <div className="sidebar-card-icon">🌐</div>
         <h3 className="sidebar-card-title">Community Insights</h3>
-        <span className="insight-window">This week</span>
+        <span className="insight-window">This month</span>
       </div>
 
       {/* ── UPDATED: scoping is now by SHARER, not author — "posts by
@@ -200,7 +200,7 @@ export function CommunityInsights({
       ) : visible.length === 0 ? (
         <div className="follow-empty">
           <div className="follow-empty-icon">🌐</div>
-          <div>No marks yet this week from people you follow. Share a post with a reason to get things started.</div>
+          <div>No marks yet this month from people you follow. Share a post with a reason to get things started.</div>
         </div>
       ) : (
         <nav

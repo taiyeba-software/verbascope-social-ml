@@ -282,8 +282,16 @@ export function PostCard({
   const authorAvatarUrl = getAuthorAvatarUrl(post.author);
   const hasText = !!post.content?.trim();
 
-  const authorId = post.author && typeof post.author === 'object' ? (post.author as { _id?: string })._id : undefined;
+  const authorId =
+    typeof post.author === 'string'
+      ? post.author
+      : (post.author as { _id?: string; id?: string })?._id ||
+        (post.author as { _id?: string; id?: string })?.id;
   const authorHref = authorId ? `/profile/${authorId}` : undefined;
+
+  const isOwner = Boolean(
+    post.isOwner || (currentUserId && authorId && String(currentUserId) === String(authorId))
+  );
 
   const goToPost = () => {
     if (disableCardLink) return;
@@ -369,7 +377,7 @@ export function PostCard({
             </div>
           </div>
         </div>
-        <PostMoreMenu postId={post._id} isOwner={post.isOwner} onDelete={onDelete} />
+        <PostMoreMenu postId={post._id} isOwner={isOwner} onDelete={onDelete} />
       </div>
 
       {post.content && (

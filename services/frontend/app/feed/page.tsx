@@ -440,7 +440,17 @@ function FeedPageContent() {
             // prediction yet, so it never belongs in a filtered view
             // (Community Insights or AI Filter). ──
             if (activeSignal || activeRisk) return;
-            setPosts((cur) => [{ ...newPost, commentsCount: 0 } as FeedPost, ...cur]);
+            setPosts((cur) => [
+              {
+                ...newPost,
+                isOwner: true,
+                likedByMe: false,
+                sharedByMe: false,
+                bookmarkedByMe: false,
+                commentsCount: 0,
+              } as FeedPost,
+              ...cur,
+            ]);
           }}
         />
 

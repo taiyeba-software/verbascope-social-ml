@@ -115,13 +115,14 @@ export const createPost = async (req, res) => {
     });
     const author = usersRes.data.users?.[0] || null;
 
-    const populatedPost = { ...newPost.toObject(), author };
+    const populatedPost = { ...newPost.toObject(), author: author || { _id: newPost.author.toString() } };
+    const [postWithState] = addStateFlags([populatedPost], req.user.id);
 
     indexPost(newPost, author).catch((err) =>
       console.error('indexPost error:', err.message)
     );
 
-    return res.status(201).json({ success: true, post: populatedPost });
+    return res.status(201).json({ success: true, post: postWithState });
   } catch (err) {
     console.error('createPost error:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });

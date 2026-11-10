@@ -92,7 +92,10 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
         setContent('');
         setPreviews([]);
         setIsExpanded(false);
-        onPost?.(data.post);
+        onPost?.({
+          ...data.post,
+          isOwner: true,
+        });
       }
     } catch (err: any) {
       // ── Friendly, user-facing message instead of a raw error dump ──

@@ -8,6 +8,12 @@
   position: relative;
   flex: 1;
   min-width: 0;
+  max-width: none; /* allow full width */
+  width: 100%;
+}
+  position: relative;
+  flex: 1;
+  min-width: 0;
   max-width: 420px;
 }
 
@@ -266,6 +272,12 @@ html[data-theme='dark'] .search-result-list::-webkit-scrollbar-thumb {
    same breakpoint Navbar.css already uses for .navbar-search { max-width: none } ── */
 @media (max-width: 767px) {
   .navbar-search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: none; /* allow full width */
+  width: 100%;
+}
     max-width: none;
   }
 }

@@ -1,0 +1,51 @@
+ID,Category,Text,Why this Label?,Expected Sentiment,Expected Sarcasm,Expected Toxicity,Expected AI Signal,UI Signal Text,Special Flags,Status,Model Prediction,Correct?,Exclude,Note,Source
+101,Code-Mixed,আজকের presentation টা সত্যিই amazing ছিল,Positive appreciation with English word,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+102,Code-Mixed,"এই UI design টা জঘন্য, extremely bad user experience",Constructive/harsh feedback with mild toxicity,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+103,Code-Mixed,"তোর মত stupid ছাগল জীবনে দেখি নাই, দেখে নিবো তোকে।",Direct abusive insult and threat in mixed language,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+104,Code-Mixed,"হ্যাঁ ভাই তুমি তো বিশাল expert, সব বিষয়ে তোমার জ্ঞান অসাধারণ!",Sarcastic praise using English word expert,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+105,Code-Mixed,"নতুন iPhone-এর camera quality দারুণ, highly recommended!",Positive product review,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+106,Code-Mixed,"এই গ্রুপে সবাই শুধু fake news ছড়ায়, disgusting behavior",Negative complaint about group members,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+107,Code-Mixed,"আজকে আবহাওয়া খুব pleasant, mood দারুণ!",Simple daily update with English words,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+108,Code-Mixed,"তোকে খুন করে ফেলবো, stupid idiot irgendwo",Direct violent threat with insult,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+109,Code-Mixed,"কী সুন্দর system, বারবার crash করে!",Sarcastic comment about system crashing,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+110,Code-Mixed,"রেস্তোরাঁর food taste ছিল pathetic, একদম money waste",Negative review of food service,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+111,Code-Mixed,আমাদের team-এর সবাই খুব hardworking এবং helpful,Positive team appreciation,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+112,Code-Mixed,তোর মত worthless মানুষকে রাস্তায় পিটিয়ে মারবো।,Direct threat of physical violence,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+113,Code-Mixed,"তোমার কথা শুনে তো আমি ধন্য হয়ে গেলাম, genius speaker!",Sarcastic response to a speaker,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+114,Code-Mixed,আজকের event-এর management ছিল একদম top notch,Event praise with English slang,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+115,Code-Mixed,"প্রজেক্টের deadline কাছাকাছি, ভীষণ stress লাগছে",Expressing emotional stress/anxiety,Negative,No,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+116,Code-Mixed,"তুই একটা scammer, তোর আসল রূপ বের করে ছাড়বো।",Direct accusation and targeted harassment,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+117,Code-Mixed,"মাশাল্লাহ, কী চমৎকার logic আপনার!",Sarcastic logic criticism,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+118,Code-Mixed,আপনার সাথে কথা বলে ভীষণ happy অনুভব করছি,Expressing happiness and gratitude,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+119,Code-Mixed,"সার্ভার ডাউন, useless developer টিম!",Aggressive criticism of developers,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+120,Code-Mixed,"চুপ কর না হলে তোর মুখ সেলাই করে দেব, shut up!",Violent threat combined with English shut up,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+121,Code-Mixed,"অনলাইন ক্লাসে নেটওয়ার্কের অবস্থা দারুণ, ১ সেকেন্ড পর পর disonnect হয়!",Sarcastic complaint about network,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+122,Code-Mixed,"আমাদের নতুন app launch সম্পন্ন হয়েছে, stay tuned!",Product announcement,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+123,Code-Mixed,এই প্রোডাক্টের quality খুবই cheap এবং horrible,Negative e-commerce review,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+124,Code-Mixed,"তোকে একদম শেষ করে দেব, mind my words!",Explicit life threat in English-Bangla,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+125,Code-Mixed,"এত সুন্দর অভিনয়, চোখ দিয়ে পানি চলে এলো, Oscar দেওয়া উচিত!",Sarcastic drama criticism,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+126,Code-Mixed,বন্ধুর সাথে ল্যাপটপ কিনতে গিয়ে দারুণ experience হলো,Positive shopping experience,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+127,Code-Mixed,"কাস্টমার সার্ভিস একদম hopeless, ১ ঘণ্টাও লাইনে অপেক্ষা করা লাগে।",Frustrated customer review,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+128,Code-Mixed,তোর কলিজা টেনে ছিঁড়ে ফেলবো idiot,Severe physical violence threat,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+129,Code-Mixed,"হ্যাঁ ভাই তোমরা তো ধোয়া তুলসী পাতা, নোবেল প্রাইজ পাওয়া উচিত!",Sarcastic moral high-ground mock,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+130,Code-Mixed,"আজকের workshop টা অনেক informative ছিল, ধন্যবাদ!",Positive feedback for workshop,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+131,Code-Mixed,"পড়াশোনায় মন নেই, রেজাল্ট দেখে depression বাড়লো",Emotional/mental health expression,Negative,No,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+132,Code-Mixed,তোর মত ফালতু মানুষকে লাথি মেরে বের করা দরকার।,Abusive threat of physical ejection,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+133,Code-Mixed,"কী চমৎকার ট্রাফিক ব্যবস্থা, ২ কিলোমিটার যেতে ২ ঘণ্টা লাগে!",Sarcastic traffic complaint,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+134,Code-Mixed,"নতুন রেসিপি ট্রাই করলাম, taste ছিল দারুণ Yummy!",Food experience post,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+135,Code-Mixed,"এই পেইজটা ফ্রড, কেউ টাকা পাঠাবেন না, complete fraud!",Scam warning/accusation,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+136,Code-Mixed,"তোকে এসিড মারবো, তোর চেহারা নষ্ট করবো।",Severe violent attack threat,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+137,Code-Mixed,"কী সুন্দর সিদ্ধান্ত, দেশের ১২ টা বাজিয়ে দিল!",Sarcastic political comment,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+138,Code-Mixed,আজকের সূর্যোদয় দেখে মনটা একদম fresh হয়ে গেল,Nature post with English word fresh,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+139,Code-Mixed,"ইন্টারনেট স্পিড ১ Mbps, 5G-এর নামে ধোঁকাবাজি!",Service provider complaint,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+140,Code-Mixed,তোর পুরো পরিবারকে শেষ করে দেব cheat,Family threat with insult,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+141,Code-Mixed,"তুমি এত জ্ঞানী যে তোমার কথা আমার মাথায় ঢোকে না, Einstein!",Sarcastic genius mock,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+142,Code-Mixed,"আমাদের প্রজেক্টের চেষ্টা সফল হয়েছে, feeling proud!",Achievement celebration,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+143,Code-Mixed,"সিকিউরিটি সিস্টেম এত দুর্বল, হাঁসের মত হ্যাক হয়!",System vulnerability complaint,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+144,Code-Mixed,তোর বাড়ি জ্বালিয়ে দেব bastard,Arson threat with severe abusive word,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+145,Code-Mixed,"কী দুর্দান্ত রোড কন্ট্রাকশন, প্রতি সপ্তাহে গর্ত তৈরি হয়!",Sarcastic infrastructure criticism,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+146,Code-Mixed,বন্ধুদের সাথে ট্যুর দিয়ে খুব relaxed অনুভব করছি,Travel relaxation post,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic
+147,Code-Mixed,"অফিসের বসটা একটা psychopath, প্রচণ্ড mental torture করে।",Workplace complaint,Negative,No,Medium,🟡 Yellow,,,Ready,,,,,Synthetic
+148,Code-Mixed,তোর রক্ত খাবো তুই একটা শয়তান,Extremely severe threat,Negative,No,High,🔴 Red,,,Ready,,,,,Synthetic
+149,Code-Mixed,"কী সুন্দর মোবাইল, ৩ দিনেই display হাওয়া!",Sarcastic product review,Negative,Yes,Low,🟡 Yellow,,,Ready,,,,,Synthetic
+150,Code-Mixed,"অবশেষে গ্র্যাজুয়েশন সম্পন্ন হলো, super excited for the future!",Graduation celebration post,Positive,No,Low,🟢 Green,,,Ready,,,,,Synthetic

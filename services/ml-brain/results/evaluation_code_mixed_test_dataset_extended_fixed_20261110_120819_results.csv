@@ -1,0 +1,51 @@
+ID,Text,Expected AI Signal,Expected,Predicted AI Signal,Language,Pipeline,Correct?
+101,আজকের presentation টা সত্যিই amazing ছিল,🟢 Green,Green,Green,Mixed,english,True
+102,"এই UI design টা জঘন্য, extremely bad user experience",🟡 Yellow,Yellow,Yellow,Mixed,english,True
+103,"তোর মত stupid ছাগল জীবনে দেখি নাই, দেখে নিবো তোকে।",🔴 Red,Red,Yellow,Mixed,bangla,False
+104,"হ্যাঁ ভাই তুমি তো বিশাল expert, সব বিষয়ে তোমার জ্ঞান অসাধারণ!",🟡 Yellow,Yellow,Green,Bangla,bangla,False
+105,"নতুন iPhone-এর camera quality দারুণ, highly recommended!",🟢 Green,Green,Green,Mixed,english,True
+106,"এই গ্রুপে সবাই শুধু fake news ছড়ায়, disgusting behavior",🟡 Yellow,Yellow,Yellow,Mixed,english,True
+107,"আজকে আবহাওয়া খুব pleasant, mood দারুণ!",🟢 Green,Green,Yellow,Mixed,bangla,False
+108,"তোকে খুন করে ফেলবো, stupid idiot irgendwo",🔴 Red,Red,Red,Mixed,english,True
+109,"কী সুন্দর system, বারবার crash করে!",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+110,"রেস্তোরাঁর food taste ছিল pathetic, একদম money waste",🟡 Yellow,Yellow,Yellow,Mixed,english,True
+111,আমাদের team-এর সবাই খুব hardworking এবং helpful,🟢 Green,Green,Green,Mixed,english,True
+112,তোর মত worthless মানুষকে রাস্তায় পিটিয়ে মারবো।,🔴 Red,Red,Red,Mixed,bangla,True
+113,"তোমার কথা শুনে তো আমি ধন্য হয়ে গেলাম, genius speaker!",🟡 Yellow,Yellow,Green,Mixed,bangla,False
+114,আজকের event-এর management ছিল একদম top notch,🟢 Green,Green,Green,Mixed,english,True
+115,"প্রজেক্টের deadline কাছাকাছি, ভীষণ stress লাগছে",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+116,"তুই একটা scammer, তোর আসল রূপ বের করে ছাড়বো।",🔴 Red,Red,Yellow,Mixed,bangla,False
+117,"মাশাল্লাহ, কী চমৎকার logic আপনার!",🟡 Yellow,Yellow,Green,Mixed,bangla,False
+118,আপনার সাথে কথা বলে ভীষণ happy অনুভব করছি,🟢 Green,Green,Green,Mixed,bangla,True
+119,"সার্ভার ডাউন, useless developer টিম!",🟡 Yellow,Yellow,Yellow,Mixed,english,True
+120,"চুপ কর না হলে তোর মুখ সেলাই করে দেব, shut up!",🔴 Red,Red,Yellow,Mixed,bangla,False
+121,"অনলাইন ক্লাসে নেটওয়ার্কের অবস্থা দারুণ, ১ সেকেন্ড পর পর disonnect হয়!",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+122,"আমাদের নতুন app launch সম্পন্ন হয়েছে, stay tuned!",🟢 Green,Green,Yellow,Mixed,bangla,False
+123,এই প্রোডাক্টের quality খুবই cheap এবং horrible,🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+124,"তোকে একদম শেষ করে দেব, mind my words!",🔴 Red,Red,Yellow,Mixed,bangla,False
+125,"এত সুন্দর অভিনয়, চোখ দিয়ে পানি চলে এলো, Oscar দেওয়া উচিত!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+126,বন্ধুর সাথে ল্যাপটপ কিনতে গিয়ে দারুণ experience হলো,🟢 Green,Green,Yellow,Mixed,bangla,False
+127,"কাস্টমার সার্ভিস একদম hopeless, ১ ঘণ্টাও লাইনে অপেক্ষা করা লাগে।",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+128,তোর কলিজা টেনে ছিঁড়ে ফেলবো idiot,🔴 Red,Red,Yellow,Mixed,bangla,False
+129,"হ্যাঁ ভাই তোমরা তো ধোয়া তুলসী পাতা, নোবেল প্রাইজ পাওয়া উচিত!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+130,"আজকের workshop টা অনেক informative ছিল, ধন্যবাদ!",🟢 Green,Green,Green,Mixed,bangla,True
+131,"পড়াশোনায় মন নেই, রেজাল্ট দেখে depression বাড়লো",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+132,তোর মত ফালতু মানুষকে লাথি মেরে বের করা দরকার।,🔴 Red,Red,Yellow,Bangla,bangla,False
+133,"কী চমৎকার ট্রাফিক ব্যবস্থা, ২ কিলোমিটার যেতে ২ ঘণ্টা লাগে!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+134,"নতুন রেসিপি ট্রাই করলাম, taste ছিল দারুণ Yummy!",🟢 Green,Green,Yellow,Mixed,bangla,False
+135,"এই পেইজটা ফ্রড, কেউ টাকা পাঠাবেন না, complete fraud!",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+136,"তোকে এসিড মারবো, তোর চেহারা নষ্ট করবো।",🔴 Red,Red,Yellow,Bangla,bangla,False
+137,"কী সুন্দর সিদ্ধান্ত, দেশের ১২ টা বাজিয়ে দিল!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+138,আজকের সূর্যোদয় দেখে মনটা একদম fresh হয়ে গেল,🟢 Green,Green,Yellow,Bangla,bangla,False
+139,"ইন্টারনেট স্পিড ১ Mbps, 5G-এর নামে ধোঁকাবাজি!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+140,তোর পুরো পরিবারকে শেষ করে দেব cheat,🔴 Red,Red,Yellow,Mixed,bangla,False
+141,"তুমি এত জ্ঞানী যে তোমার কথা আমার মাথায় ঢোকে না, Einstein!",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+142,"আমাদের প্রজেক্টের চেষ্টা সফল হয়েছে, feeling proud!",🟢 Green,Green,Green,Mixed,bangla,True
+143,"সিকিউরিটি সিস্টেম এত দুর্বল, হাঁসের মত হ্যাক হয়!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+144,তোর বাড়ি জ্বালিয়ে দেব bastard,🔴 Red,Red,Yellow,Mixed,bangla,False
+145,"কী দুর্দান্ত রোড কন্ট্রাকশন, প্রতি সপ্তাহে গর্ত তৈরি হয়!",🟡 Yellow,Yellow,Yellow,Bangla,bangla,True
+146,বন্ধুদের সাথে ট্যুর দিয়ে খুব relaxed অনুভব করছি,🟢 Green,Green,Yellow,Mixed,bangla,False
+147,"অফিসের বসটা একটা psychopath, প্রচণ্ড mental torture করে।",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+148,তোর রক্ত খাবো তুই একটা শয়তান,🔴 Red,Red,Yellow,Bangla,bangla,False
+149,"কী সুন্দর মোবাইল, ৩ দিনেই display হাওয়া!",🟡 Yellow,Yellow,Yellow,Mixed,bangla,True
+150,"অবশেষে গ্র্যাজুয়েশন সম্পন্ন হলো, super excited for the future!",🟢 Green,Green,Yellow,Mixed,bangla,False

@@ -1,0 +1,22 @@
+ID,Text,Expected AI Signal,Expected,Predicted AI Signal,Language,Pipeline,Correct?
+104,"হ্যাঁ ভাই তুমি তো বিশাল expert, সব বিষয়ে তোমার জ্ঞান অসাধারণ!",🟡 Yellow,Yellow,Green,Bangla,bangla,False
+106,"এই গ্রুপে সবাই শুধু fake news ছড়ায়, disgusting behavior",🟡 Yellow,Yellow,Red,Mixed,english,False
+107,"আজকে আবহাওয়া খুব pleasant, mood দারুণ!",🟢 Green,Green,Yellow,Mixed,bangla,False
+110,"রেস্তোরাঁর food taste ছিল pathetic, একদম money waste",🟡 Yellow,Yellow,Red,Mixed,english,False
+113,"তোমার কথা শুনে তো আমি ধন্য হয়ে গেলাম, genius speaker!",🟡 Yellow,Yellow,Green,Mixed,bangla,False
+114,আজকের event-এর management ছিল একদম top notch,🟢 Green,Green,Yellow,Mixed,english,False
+116,"তুই একটা scammer, তোর আসল রূপ বের করে ছাড়বো।",🔴 Red,Red,Yellow,Mixed,bangla,False
+117,"মাশাল্লাহ, কী চমৎকার logic আপনার!",🟡 Yellow,Yellow,Green,Mixed,bangla,False
+122,"আমাদের নতুন app launch সম্পন্ন হয়েছে, stay tuned!",🟢 Green,Green,Yellow,Mixed,bangla,False
+124,"তোকে একদম শেষ করে দেব, mind my words!",🔴 Red,Red,Yellow,Mixed,bangla,False
+126,বন্ধুর সাথে ল্যাপটপ কিনতে গিয়ে দারুণ experience হলো,🟢 Green,Green,Yellow,Mixed,bangla,False
+132,তোর মত ফালতু মানুষকে লাথি মেরে বের করা দরকার।,🔴 Red,Red,Yellow,Bangla,bangla,False
+134,"নতুন রেসিপি ট্রাই করলাম, taste ছিল দারুণ Yummy!",🟢 Green,Green,Yellow,Mixed,bangla,False
+136,"তোকে এসিড মারবো, তোর চেহারা নষ্ট করবো।",🔴 Red,Red,Yellow,Bangla,bangla,False
+138,আজকের সূর্যোদয় দেখে মনটা একদম fresh হয়ে গেল,🟢 Green,Green,Yellow,Bangla,bangla,False
+140,তোর পুরো পরিবারকে শেষ করে দেব cheat,🔴 Red,Red,Yellow,Mixed,bangla,False
+146,বন্ধুদের সাথে ট্যুর দিয়ে খুব relaxed অনুভব করছি,🟢 Green,Green,Yellow,Mixed,bangla,False
+147,"অফিসের বসটা একটা psychopath, প্রচণ্ড mental torture করে।",🟡 Yellow,Yellow,Red,Mixed,bangla,False
+148,তোর রক্ত খাবো তুই একটা শয়তান,🔴 Red,Red,Yellow,Bangla,bangla,False
+149,"কী সুন্দর মোবাইল, ৩ দিনেই display হাওয়া!",🟡 Yellow,Yellow,Green,Mixed,bangla,False
+150,"অবশেষে গ্র্যাজুয়েশন সম্পন্ন হলো, super excited for the future!",🟢 Green,Green,Yellow,Mixed,bangla,False

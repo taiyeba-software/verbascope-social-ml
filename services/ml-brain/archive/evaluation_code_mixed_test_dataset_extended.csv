@@ -1,0 +1,51 @@
+﻿ID,Category,Text,Expected Sentiment,Expected Sarcasm,Expected Toxicity,Expected AI Signal,Why this Label?,Source
+101,Code-Mixed,আজকের presentation টা সত্যিই amazing ছিল,Positive,No,Low,Green,Positive appreciation with English word,Synthetic
+102,Code-Mixed,"এই UI design টা জঘন্য, extremely bad user experience",Negative,No,Moderate,Yellow,Constructive/harsh feedback with mild toxicity,Synthetic
+103,Code-Mixed,"তোর মত stupid ছাগল জীবনে দেখি নাই, দেখে নিবো তোকে।",Negative,No,High,Red,Direct abusive insult and threat in mixed language,Synthetic
+104,Code-Mixed,"হ্যাঁ ভাই তুমি তো বিশাল expert, সব বিষয়ে তোমার জ্ঞান অসাধারণ!",Negative,Yes,Low,Yellow,Sarcastic praise using English word expert,Synthetic
+105,Code-Mixed,"নতুন iPhone-এর camera quality দারুণ, highly recommended!",Positive,No,Low,Green,Positive product review,Synthetic
+106,Code-Mixed,"এই গ্রুপে সবাই শুধু fake news ছড়ায়, disgusting behavior",Negative,No,Moderate,Yellow,Negative complaint about group members,Synthetic
+107,Code-Mixed,"আজকে আবহাওয়া খুব pleasant, mood দারুণ!",Positive,No,Low,Green,Simple daily update with English words,Synthetic
+108,Code-Mixed,"তোকে খুন করে ফেলবো, stupid idiot irgendwo",Negative,No,High,Red,Direct violent threat with insult,Synthetic
+109,Code-Mixed,"কী সুন্দর system, বারবার crash করে!",Negative,Yes,Low,Yellow,Sarcastic comment about system crashing,Synthetic
+110,Code-Mixed,"রেস্তোরাঁর food taste ছিল pathetic, একদম money waste",Negative,No,Moderate,Yellow,Negative review of food service,Synthetic
+111,Code-Mixed,আমাদের team-এর সবাই খুব hardworking এবং helpful,Positive,No,Low,Green,Positive team appreciation,Synthetic
+112,Code-Mixed,তোর মত worthless মানুষকে রাস্তায় পিটিয়ে মারবো।,Negative,No,High,Red,Direct threat of physical violence,Synthetic
+113,Code-Mixed,"তোমার কথা শুনে তো আমি ধন্য হয়ে গেলাম, genius speaker!",Negative,Yes,Low,Yellow,Sarcastic response to a speaker,Synthetic
+114,Code-Mixed,আজকের event-এর management ছিল একদম top notch,Positive,No,Low,Green,Event praise with English slang,Synthetic
+115,Code-Mixed,"প্রজেক্টের deadline কাছাকাছি, ভীষণ stress লাগছে",Negative,No,Low,Yellow,Expressing emotional stress/anxiety,Synthetic
+116,Code-Mixed,"তুই একটা scammer, তোর আসল রূপ বের করে ছাড়বো।",Negative,No,High,Red,Direct accusation and targeted harassment,Synthetic
+117,Code-Mixed,"মাশাল্লাহ, কী চমৎকার logic আপনার!",Negative,Yes,Low,Yellow,Sarcastic logic criticism,Synthetic
+118,Code-Mixed,আপনার সাথে কথা বলে ভীষণ happy অনুভব করছি,Positive,No,Low,Green,Expressing happiness and gratitude,Synthetic
+119,Code-Mixed,"সার্ভার ডাউন, useless developer টিম!",Negative,No,Moderate,Yellow,Aggressive criticism of developers,Synthetic
+120,Code-Mixed,"চুপ কর না হলে তোর মুখ সেলাই করে দেব, shut up!",Negative,No,High,Red,Violent threat combined with English shut up,Synthetic
+121,Code-Mixed,"অনলাইন ক্লাসে নেটওয়ার্কের অবস্থা দারুণ, ১ সেকেন্ড পর পর disonnect হয়!",Negative,Yes,Low,Yellow,Sarcastic complaint about network,Synthetic
+122,Code-Mixed,"আমাদের নতুন app launch সম্পন্ন হয়েছে, stay tuned!",Positive,No,Low,Green,Product announcement,Synthetic
+123,Code-Mixed,এই প্রোডাক্টের quality খুবই cheap এবং horrible,Negative,No,Moderate,Yellow,Negative e-commerce review,Synthetic
+124,Code-Mixed,"তোকে একদম শেষ করে দেব, mind my words!",Negative,No,High,Red,Explicit life threat in English-Bangla,Synthetic
+125,Code-Mixed,"এত সুন্দর অভিনয়, চোখ দিয়ে পানি চলে এলো, Oscar দেওয়া উচিত!",Negative,Yes,Low,Yellow,Sarcastic drama criticism,Synthetic
+126,Code-Mixed,বন্ধুর সাথে ল্যাপটপ কিনতে গিয়ে দারুণ experience হলো,Positive,No,Low,Green,Positive shopping experience,Synthetic
+127,Code-Mixed,"কাস্টমার সার্ভিস একদম hopeless, ১ ঘণ্টাও লাইনে অপেক্ষা করা লাগে।",Negative,No,Moderate,Yellow,Frustrated customer review,Synthetic
+128,Code-Mixed,তোর কলিজা টেনে ছিঁড়ে ফেলবো idiot,Negative,No,High,Red,Severe physical violence threat,Synthetic
+129,Code-Mixed,"হ্যাঁ ভাই তোমরা তো ধোয়া তুলসী পাতা, নোবেল প্রাইজ পাওয়া উচিত!",Negative,Yes,Low,Yellow,Sarcastic moral high-ground mock,Synthetic
+130,Code-Mixed,"আজকের workshop টা অনেক informative ছিল, ধন্যবাদ!",Positive,No,Low,Green,Positive feedback for workshop,Synthetic
+131,Code-Mixed,"পড়াশোনায় মন নেই, রেজাল্ট দেখে depression বাড়লো",Negative,No,Low,Yellow,Emotional/mental health expression,Synthetic
+132,Code-Mixed,তোর মত ফালতু মানুষকে লাথি মেরে বের করা দরকার।,Negative,No,High,Red,Abusive threat of physical ejection,Synthetic
+133,Code-Mixed,"কী চমৎকার ট্রাফিক ব্যবস্থা, ২ কিলোমিটার যেতে ২ ঘণ্টা লাগে!",Negative,Yes,Low,Yellow,Sarcastic traffic complaint,Synthetic
+134,Code-Mixed,"নতুন রেসিপি ট্রাই করলাম, taste ছিল দারুণ Yummy!",Positive,No,Low,Green,Food experience post,Synthetic
+135,Code-Mixed,"এই পেইজটা ফ্রড, কেউ টাকা পাঠাবেন না, complete fraud!",Negative,No,Moderate,Yellow,Scam warning/accusation,Synthetic
+136,Code-Mixed,"তোকে এসিড মারবো, তোর চেহারা নষ্ট করবো।",Negative,No,High,Red,Severe violent attack threat,Synthetic
+137,Code-Mixed,"কী সুন্দর সিদ্ধান্ত, দেশের ১২ টা বাজিয়ে দিল!",Negative,Yes,Low,Yellow,Sarcastic political comment,Synthetic
+138,Code-Mixed,আজকের সূর্যোদয় দেখে মনটা একদম fresh হয়ে গেল,Positive,No,Low,Green,Nature post with English word fresh,Synthetic
+139,Code-Mixed,"ইন্টারনেট স্পিড ১ Mbps, 5G-এর নামে ধোঁকাবাজি!",Negative,No,Moderate,Yellow,Service provider complaint,Synthetic
+140,Code-Mixed,তোর পুরো পরিবারকে শেষ করে দেব cheat,Negative,No,High,Red,Family threat with insult,Synthetic
+141,Code-Mixed,"তুমি এত জ্ঞানী যে তোমার কথা আমার মাথায় ঢোকে না, Einstein!",Negative,Yes,Low,Yellow,Sarcastic genius mock,Synthetic
+142,Code-Mixed,"আমাদের প্রজেক্টের চেষ্টা সফল হয়েছে, feeling proud!",Positive,No,Low,Green,Achievement celebration,Synthetic
+143,Code-Mixed,"সিকিউরিটি সিস্টেম এত দুর্বল, হাঁসের মত হ্যাক হয়!",Negative,No,Moderate,Yellow,System vulnerability complaint,Synthetic
+144,Code-Mixed,তোর বাড়ি জ্বালিয়ে দেব bastard,Negative,No,High,Red,Arson threat with severe abusive word,Synthetic
+145,Code-Mixed,"কী দুর্দান্ত রোড কন্ট্রাকশন, প্রতি সপ্তাহে গর্ত তৈরি হয়!",Negative,Yes,Low,Yellow,Sarcastic infrastructure criticism,Synthetic
+146,Code-Mixed,বন্ধুদের সাথে ট্যুর দিয়ে খুব relaxed অনুভব করছি,Positive,No,Low,Green,Travel relaxation post,Synthetic
+147,Code-Mixed,"অফিসের বসটা একটা psychopath, প্রচণ্ড mental torture করে।",Negative,No,Moderate,Yellow,Workplace complaint,Synthetic
+148,Code-Mixed,তোর রক্ত খাবো তুই একটা শয়তান,Negative,No,High,Red,Extremely severe threat,Synthetic
+149,Code-Mixed,"কী সুন্দর মোবাইল, ৩ দিনেই display হাওয়া!",Negative,Yes,Low,Yellow,Sarcastic product review,Synthetic
+150,Code-Mixed,"অবশেষে গ্র্যাজুয়েশন সম্পন্ন হলো, super excited for the future!",Positive,No,Low,Green,Graduation celebration post,Synthetic

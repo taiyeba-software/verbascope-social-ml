@@ -28,7 +28,16 @@ splits it into sentences and lets every model read only the text it
 understands (Bangla models: the whole sentence; English models: the
 English words). See pipelines/mixed_runner.py and mixed_aggregate.py.
 Pure Bangla and pure English posts use the old pipelines unchanged.
+
+Experiment switch (10 Nov): set the environment variable
+USE_MIXED_PIPELINE=0 before starting the server to send code-mixed posts
+through the old route (dominant-script pipeline, whole post) instead of
+the split-and-merge pipeline. The word-list safety floor (lexicon) stays
+active for code-mixed posts in BOTH settings. Default (variable not set)
+is the split-and-merge pipeline, exactly as before.
 """
+
+import os
 
 from routing.router import route
 from routing.segmenter import BANGLA_CHAR, LATIN_WORD
@@ -42,6 +51,13 @@ MIXED_NOTE = (
     "Code-mixed text analysed sentence by sentence: Bangla models read "
     "the full sentence, English models read the English words."
 )
+
+# Default ON. Start the server with USE_MIXED_PIPELINE=0 (or false/no/off)
+# to use the old dominant-language route for code-mixed posts.
+USE_MIXED_PIPELINE = os.getenv("USE_MIXED_PIPELINE", "1").strip().lower() not in (
+    "0", "false", "no", "off",
+)
+print(f"[analyzer] USE_MIXED_PIPELINE = {USE_MIXED_PIPELINE}")
 
 
 def _is_code_mixed(text: str) -> bool:
@@ -130,7 +146,10 @@ class Analyzer:
     def analyze(self, text: str) -> dict:
         decision = route(text)
 
-        mixed = _is_code_mixed(text)
+        # code_mixed: the post has Bangla letters AND English words.
+        # mixed:      ... AND the split-and-merge pipeline is switched on.
+        code_mixed = _is_code_mixed(text)
+        mixed = USE_MIXED_PIPELINE and code_mixed
 
         if mixed:
             analysis = self._run_mixed_pipeline(text)
@@ -143,7 +162,7 @@ class Analyzer:
         # phrases the models can miss. It can only RAISE toxicity.
         # Scope: ONLY Bangla-script + English code-mixed posts, so pure
         # Bangla and pure English posts behave exactly as before.
-        lexicon_hit = scan_lexicon(text) if mixed else None
+        lexicon_hit = scan_lexicon(text) if code_mixed else None
         if lexicon_hit and lexicon_hit["score"] > analysis["toxicity"]:
             analysis = dict(analysis)
             analysis["toxicity"] = lexicon_hit["score"]

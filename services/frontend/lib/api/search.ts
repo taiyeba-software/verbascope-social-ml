@@ -1,7 +1,13 @@
 import type { SearchResponse, TagSearchResponse, TagPostsResponse } from '@/types/search';
 import { tokenStorage } from '@/lib/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+// Prefer the same env var postService uses (lib/api.ts), then fall back to
+// the older NEXT_PUBLIC_API_URL, so search and postService can never end up
+// pointing at different hosts if only one of them is set.
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_POST_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:3003';
 
 // Same auth strategy as postService (lib/api.ts): post-service lives on a
 // different onrender.com subdomain, so the httpOnly cookie never reaches it

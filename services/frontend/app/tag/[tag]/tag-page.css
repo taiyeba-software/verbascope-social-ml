@@ -1,0 +1,227 @@
+/* Tag page — mirrors app/post/[id]/post-page.css so the navbar and the
+   column line up with /feed and /post/[id]. */
+
+.tag-page-shell {
+  --tag-gutter: var(--vs-space-lg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--tag-gutter);
+}
+
+.tag-page-main {
+  width: 100%;
+  min-width: 0;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 0 60px;
+}
+
+.tag-page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--vs-space-sm);
+  padding: var(--vs-space-lg) 2px var(--vs-space-md);
+}
+
+.tag-page-back-btn {
+  background: none;
+  border: none;
+  color: var(--vs-text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--vs-radius-full);
+  transition: background var(--vs-transition);
+  line-height: 1;
+}
+
+.tag-page-back-btn:hover {
+  background: var(--vs-teal-light);
+}
+
+.tag-page-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--vs-text-primary);
+  word-break: break-word;
+}
+
+.tag-page-count {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--vs-text-muted);
+}
+
+.tag-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vs-space-md);
+}
+
+.tag-page-card {
+  background: var(--vs-surface);
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-lg);
+  padding: var(--vs-space-lg);
+  cursor: pointer;
+  transition: border-color var(--vs-transition), background var(--vs-transition);
+}
+
+.tag-page-card:hover,
+.tag-page-card:focus-visible {
+  border-color: var(--vs-teal);
+  background: var(--vs-surface-hover);
+  outline: none;
+}
+
+.tag-page-author-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tag-page-avatar {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vs-teal);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.tag-page-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tag-page-author {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--vs-text-primary);
+}
+
+.tag-page-time {
+  font-size: 0.75rem;
+  color: var(--vs-text-muted);
+}
+
+.tag-page-content {
+  margin: 0;
+  color: var(--vs-text-secondary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tag-page-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--vs-space-md);
+}
+
+.tag-page-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--vs-radius-full);
+  background: var(--vs-teal-light);
+  color: var(--vs-teal);
+  text-decoration: none;
+  transition: filter var(--vs-transition);
+}
+
+.tag-page-chip:hover {
+  filter: brightness(1.2);
+}
+
+.tag-page-chip.active {
+  background: var(--vs-teal);
+  color: #fff;
+}
+
+.tag-page-loading,
+.tag-page-error {
+  text-align: center;
+  padding: var(--vs-space-lg);
+  color: var(--vs-text-muted);
+}
+
+.tag-page-error {
+  color: #f87171;
+}
+
+.tag-page-empty {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--vs-text-muted);
+}
+
+.tag-page-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--vs-space-md);
+}
+
+.tag-page-empty-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--vs-text-primary);
+}
+
+.tag-page-load-more {
+  display: block;
+  margin: var(--vs-space-lg) auto 0;
+  background: none;
+  border: 1px solid var(--vs-border);
+  color: var(--vs-text-secondary);
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: var(--vs-radius-full);
+  cursor: pointer;
+  transition: all var(--vs-transition);
+}
+
+.tag-page-load-more:hover {
+  border-color: var(--vs-teal);
+  color: var(--vs-teal);
+}
+
+@media (min-width: 1440px) {
+  .tag-page-shell {
+    max-width: 1360px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .tag-page-shell {
+    --tag-gutter: var(--vs-space-md);
+  }
+  .tag-page-shell > nav {
+    margin-inline: calc(-1 * var(--tag-gutter));
+  }
+  .tag-page-main {
+    max-width: 720px;
+  }
+}
+
+@media (max-width: 640px) {
+  .tag-page-shell {
+    --tag-gutter: 12px;
+  }
+  .tag-page-main {
+    padding-bottom: 40px;
+  }
+}

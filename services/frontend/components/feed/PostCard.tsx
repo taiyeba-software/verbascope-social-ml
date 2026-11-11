@@ -147,11 +147,9 @@ function ImageCarousel({ images }: { images: string[] }) {
 }
 
 // ── Community Endorsements popover ──────────────────────────────────────
-// ── RENAMED from SharersPopover ── Reads the flat CommunityEndorsement
-// shape directly (displayName/avatar already computed server-side) — no
-// nested user object. Rendered through a portal to document.body with
-// position: fixed at real screen coordinates, since .post-card has
-// overflow: hidden and would clip a nested position: absolute popover.
+// Rendered through a portal to document.body with position: fixed at real
+// screen coordinates, since .post-card has overflow: hidden and would clip
+// a nested position: absolute popover.
 function CommunityEndorsementsPopover({
   postId,
   anchorRect,
@@ -396,13 +394,24 @@ export function PostCard({
         </div>
       )}
 
+      {/* ── FIXED: tags are now links to /tag/<tag> (lowercased, '#' stripped,
+          URL-encoded so non-English tags work too). ── */}
       {tags.length > 0 && (
         <div className="post-tags">
-          {tags.map((tag) => (
-            <span key={tag} className="post-tag">
-              {tag}
-            </span>
-          ))}
+          {tags.map((tag) => {
+            const clean = tag.replace(/^#/, '');
+            return (
+              <Link
+                key={tag}
+                href={`/tag/${encodeURIComponent(clean.toLowerCase())}`}
+                className="post-tag"
+                style={{ textDecoration: 'none', cursor: 'pointer' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {tag}
+              </Link>
+            );
+          })}
         </div>
       )}
 

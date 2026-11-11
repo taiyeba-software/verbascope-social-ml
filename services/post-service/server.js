@@ -10,8 +10,13 @@ import {
 } from './src/broker/rabbit.js';
 import { pulse } from './src/pulse/pulse.js';
 import Post from './src/models/post.model.js';
-import { initMeilisearch, postsIndex } from './src/search/meiliClient.js';
-import { rebuildSearchIndex } from './src/search/postIndex.js'; // ── NEW: self-heal after ephemeral-disk wipe on redeploy
+import {
+    postsIndex,
+    startSearchBootstrap,
+    startMeiliKeepAlive,
+    reportSearchFailure,
+} from './src/search/meiliClient.js';
+import { rebuildSearchIndex } from './src/search/postIndex.js'; // self-heal after ephemeral-disk wipe on redeploy
 import { handleMLResult } from './src/controllers/post.controller.js';
 import config from './src/config/config.js';
 
@@ -23,6 +28,31 @@ const seedPulseFromDB = async () => {
         console.log(`Pulse seeded from ${posts.length} existing posts.`);
     } catch (err) {
         console.warn('Pulse seed failed:', err.message);
+    }
+};
+
+// Runs after EVERY successful Meilisearch bootstrap (startup, or a later
+// recovery). If the index is empty, this deploy/restart wiped the data, so
+// rebuild it from Mongo. A normal restart where the index survived skips
+// the rebuild entirely.
+//
+// `rebuilding` stops the watchdog below (or a second bootstrap) from
+// starting a duplicate rebuild while one is still running — documents
+// added by a rebuild take a moment to show up in getStats().
+let rebuilding = false;
+
+const rebuildSearchIndexIfEmpty = async () => {
+    if (rebuilding) return;
+    const stats = await postsIndex().getStats();
+    if (stats.numberOfDocuments === 0) {
+        rebuilding = true;
+        try {
+            console.log('🔧 Search index is empty — rebuilding from Mongo...');
+            const { indexed, failed } = await rebuildSearchIndex();
+            console.log(`🔧 Rebuild complete: ${indexed} indexed, ${failed} failed`);
+        } finally {
+            rebuilding = false;
+        }
     }
 };
 
@@ -78,32 +108,33 @@ io.on('connection', (socket) => {
 await connectDB();
 await seedPulseFromDB();
 
-// Meilisearch is non-critical — if it's down, log a warning and keep going.
-await initMeilisearch();
+// ── Meilisearch bootstrap (non-blocking, self-retrying) ────────────
+// Search is non-critical, and a sleeping free-tier Meilisearch can take
+// 30-60s to wake. Instead of trying once and giving up (which forced a
+// manual redeploy), this retries in the background with backoff until
+// Meilisearch answers, then runs index/settings setup and the
+// rebuild-if-empty check. NOT awaited, so the server starts listening
+// immediately.
+startSearchBootstrap({ onReady: rebuildSearchIndexIfEmpty });
 
-// ── NEW: self-heal after ephemeral-disk wipe on redeploy ───────────
-// initMeilisearch() (above) already creates the "posts" index if it
-// doesn't exist — by this point the index always exists. What we
-// actually need to check is whether it's EMPTY, which is the real
-// signal that this deploy wiped previously-indexed data (see
-// Meilisearch_Index_Persistence_Fix.md, confirmed via logs: "Created
-// posts index" appears on every fresh deploy).
-//
-// A normal restart where the index survived intact skips the rebuild
-// entirely (fast startup, no wasted work). Wrapped in its own
-// try/catch, separate from the RabbitMQ try/catch below, so a
-// Meilisearch hiccup here can never take down server startup — same
-// "non-critical" rationale as initMeilisearch() itself.
-try {
-    const stats = await postsIndex().getStats();
-    if (stats.numberOfDocuments === 0) {
-        console.log('🔧 Search index is empty — rebuilding from Mongo...');
-        const { indexed, failed } = await rebuildSearchIndex();
-        console.log(`🔧 Rebuild complete: ${indexed} indexed, ${failed} failed`);
+// Periodic ping so the free-tier Meilisearch doesn't go to sleep.
+startMeiliKeepAlive();
+
+// ── Watchdog ───────────────────────────────────────────────────────
+// Render's free tier can wipe Meilisearch's disk (or put it to sleep)
+// while post-service stays up. A search on an empty index doesn't throw,
+// it just returns nothing, so the retry loop alone would never notice.
+// Every 5 minutes: if the index is empty, rebuild it; if the index is
+// missing or Meilisearch is unreachable, restart the bootstrap loop
+// (recreate index + settings, then rebuild). No redeploy needed.
+setInterval(async () => {
+    try {
+        await rebuildSearchIndexIfEmpty();
+    } catch (err) {
+        console.warn('⚠️ Search watchdog:', err.message);
+        reportSearchFailure();
     }
-} catch (err) {
-    console.warn('⚠️  Could not check/rebuild search index:', err.message);
-}
+}, 5 * 60 * 1000).unref();
 
 try {
     await connectRabbit();

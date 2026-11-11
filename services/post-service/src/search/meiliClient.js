@@ -5,16 +5,15 @@ import { Meilisearch } from 'meilisearch';
 // appears to block/rate-limit automated, non-browser-looking traffic —
 // confirmed via UptimeRobot getting a consistent 502 (with Cf-Ray /
 // Cf-Cache-Status headers) on this same host, while Render's OWN internal
-// health checks (user_agent=Render/1.0) succeed every time. The default
-// User-Agent sent by the meilisearch-js SDK (and by a bare fetch()) looks
-// like automated/bot traffic to that layer. Sending a normal desktop
-// browser User-Agent is a cheap, free thing to try before assuming this
-// requires moving off Render's free tier entirely.
+// health checks (user_agent=Render/1.0) succeed every time. Sending a
+// normal desktop browser User-Agent gets past it.
 const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
+const MEILI_HOST = process.env.MEILI_HOST || 'http://localhost:7700';
+
 export const meiliClient = new Meilisearch({
-  host: process.env.MEILI_HOST || 'http://localhost:7700',
+  host: MEILI_HOST,
   apiKey: process.env.MEILI_MASTER_KEY || 'dev_master_key_change_me',
   requestConfig: {
     headers: {
@@ -26,15 +25,11 @@ export const meiliClient = new Meilisearch({
 const POSTS_INDEX = 'posts';
 
 // Attributes that must be filterable for existing features to work:
-//   - `tags` — searchTagFacets() (postIndex.js) does a facet-distribution
-//     search on `tags`, and searchPostsByTag() filters with `tags = "..."`.
-// Meilisearch does NOT persist this setting outside of data.ms, so it's
-// wiped along with everything else whenever the ephemeral disk resets on
-// redeploy (see Meilisearch_Index_Persistence_Fix.md). ensurePostsIndex()
-// previously only applied it inside the "index didn't exist yet" branch,
-// so a fresh/rebuilt index came back WITHOUT `tags` filterable until
-// someone noticed and fixed it by hand — that's the
-// "Pattern `tags` is not filterable" error seen in searchTags.
+//   - `tags` — searchTagFacets() does a facet-distribution search on
+//     `tags`, and searchPostsByTag() filters with `tags = "..."`.
+// Meilisearch settings live in data.ms, so they're wiped along with
+// everything else whenever Render's ephemeral disk resets. They are
+// therefore re-applied on every successful bootstrap, not just on creation.
 const FILTERABLE_ATTRIBUTES = ['tags'];
 
 async function ensurePostsIndex() {
@@ -50,12 +45,7 @@ async function ensurePostsIndex() {
     }
   }
 
-  // Applied unconditionally on every boot, not just on creation.
-  // updateFilterableAttributes() is idempotent/cheap when the setting is
-  // already correct, so this is safe to call every time — and it's the
-  // only way to guarantee the setting survives an index rebuild after a
-  // disk wipe, since a normal restart (index intact) never re-enters the
-  // "index didn't exist" branch above.
+  // Idempotent and cheap when already correct — safe on every boot.
   try {
     await meiliClient.index(POSTS_INDEX).updateFilterableAttributes(FILTERABLE_ATTRIBUTES);
   } catch (err) {
@@ -63,38 +53,104 @@ async function ensurePostsIndex() {
   }
 }
 
-export async function initMeilisearch() {
-  // ── TEMP DIAGNOSTIC: bypass the meilisearch client entirely, using
-  // raw fetch, to see exactly what post-service's own network gets back
-  // from MEILI_HOST — removes this file's client library as a variable.
-  // Also carries the same User-Agent override so this diagnostic path
-  // and the real client are tested under identical conditions.
-  try {
-    const raw = await fetch(`${process.env.MEILI_HOST}/health`, {
-      headers: {
-        Authorization: `Bearer ${process.env.MEILI_MASTER_KEY}`,
-        'User-Agent': BROWSER_USER_AGENT,
-      },
-    });
-    const text = await raw.text();
-    console.log('🔍 [MEILI DIAGNOSTIC] status:', raw.status);
-    console.log('🔍 [MEILI DIAGNOSTIC] body:', text.slice(0, 300));
-  } catch (err) {
-    console.log('🔍 [MEILI DIAGNOSTIC] fetch itself threw:', err.message);
-  }
+// ── Readiness state ─────────────────────────────────────────────────
+let ready = false;
+let bootstrapping = false;
+let savedOnReady = null;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const isSearchReady = () => ready;
+
+/**
+ * Single attempt: health check → ensure index → ensure settings.
+ * Returns true on success, false on failure. Never throws.
+ */
+export async function initMeilisearch() {
   try {
     await meiliClient.health();
-    console.log('✅ Meilisearch connected');
     await ensurePostsIndex();
+    ready = true;
+    console.log('✅ Meilisearch connected');
     return true;
   } catch (err) {
-    console.warn('⚠️ Meilisearch unavailable — search disabled.');
-    console.warn(err.message);
+    ready = false;
+    console.warn('⚠️ Meilisearch unavailable:', err.message);
     return false;
   }
 }
 
+/**
+ * Keeps trying to initialise Meilisearch in the background until it
+ * succeeds, with exponential backoff (5s → 10s → 20s → 40s → 60s cap).
+ * Does NOT block server startup — a sleeping free-tier Meilisearch can
+ * take 30-60s to wake, and search is non-critical.
+ *
+ * `onReady` runs once after each successful bootstrap (e.g. to rebuild
+ * an empty index). It's remembered so a later failure can re-trigger the
+ * whole sequence via reportSearchFailure().
+ *
+ * Safe to call repeatedly: it's a no-op while a bootstrap loop is
+ * already running or search is already ready.
+ */
+export function startSearchBootstrap({ onReady } = {}) {
+  if (onReady) savedOnReady = onReady;
+  if (ready || bootstrapping) return;
+
+  bootstrapping = true;
+
+  (async () => {
+    let attempt = 0;
+    while (!ready) {
+      const ok = await initMeilisearch();
+      if (ok) break;
+      const delay = Math.min(5000 * 2 ** attempt, 60000);
+      attempt += 1;
+      console.log(`🔁 Retrying Meilisearch in ${delay / 1000}s (attempt ${attempt})`);
+      await sleep(delay);
+    }
+    bootstrapping = false;
+
+    if (savedOnReady) {
+      try {
+        await savedOnReady();
+      } catch (err) {
+        console.warn('⚠️ Post-bootstrap search setup failed:', err.message);
+      }
+    }
+  })();
+}
+
+/**
+ * Call this from a catch block when a real search request to Meilisearch
+ * fails. It marks search as down and restarts the bootstrap loop, so the
+ * service heals itself without a redeploy.
+ */
+export function reportSearchFailure() {
+  ready = false;
+  startSearchBootstrap();
+}
+
+/**
+ * Pings Meilisearch's public /health endpoint on an interval so Render's
+ * free tier doesn't put it to sleep after ~15 minutes of no traffic.
+ * Uses the browser User-Agent so Cloudflare doesn't block it.
+ * Disable with MEILI_KEEPALIVE=false. Skipped for localhost.
+ */
+export function startMeiliKeepAlive(intervalMs = 10 * 60 * 1000) {
+  if (process.env.MEILI_KEEPALIVE === 'false') return;
+  if (/localhost|127\.0\.0\.1/.test(MEILI_HOST)) return;
+
+  const timer = setInterval(() => {
+    fetch(`${MEILI_HOST}/health`, {
+      headers: { 'User-Agent': BROWSER_USER_AGENT },
+    }).catch(() => {
+      /* ignore — the bootstrap loop handles real failures */
+    });
+  }, intervalMs);
+
+  timer.unref?.(); // never keep the process alive just for this timer
+}
 
 export function postsIndex() {
   return meiliClient.index(POSTS_INDEX);

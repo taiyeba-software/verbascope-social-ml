@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Globe } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
 import { postService, tokenStorage } from '@/lib/api';
 import './CommunityInsights.css';
@@ -114,6 +115,7 @@ const loadSummary = (force = false): Promise<Summary> => {
    socket connection in this app — see Architecture_Cookie_to_JWT.md. */
 let insightsSocket: Socket | null = null;
 let insightsSocketRefCount = 0;
+let insightsSocketHasConnected = false;
 
 const getInsightsSocket = (): Socket => {
   if (!insightsSocket) {
@@ -122,6 +124,14 @@ const getInsightsSocket = (): Socket => {
 
     insightsSocket.on('connect', () => {
       console.log('[CommunityInsights] socket connected', insightsSocket?.id);
+
+      // UPDATED: phones suspend sockets when the tab is in the background or
+      // the network changes. Any 'community-insights:update' sent while the
+      // socket was down is lost, so on a RE-connect refetch right away.
+      // The very first connect is skipped — the widget already loaded the
+      // summary when it mounted.
+      if (insightsSocketHasConnected) loadSummary(true);
+      insightsSocketHasConnected = true;
     });
     insightsSocket.on('connect_error', (err) => {
       console.log('[CommunityInsights] socket error:', err.message);
@@ -139,6 +149,7 @@ const releaseInsightsSocket = () => {
   if (insightsSocketRefCount === 0 && insightsSocket) {
     insightsSocket.disconnect();
     insightsSocket = null;
+    insightsSocketHasConnected = false;
   }
 };
 
@@ -170,9 +181,18 @@ export function CommunityInsights({
     subscribers.add(onUpdate);
     getInsightsSocket();
 
+    // UPDATED: coming back to the tab (very common on phones) refreshes the
+    // numbers if the cached copy is older than the TTL. Fresh data reaches
+    // every mounted instance through `subscribers`.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') loadSummary();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       cancelled = true;
       subscribers.delete(onUpdate);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       releaseInsightsSocket();
     };
   }, []);
@@ -184,7 +204,13 @@ export function CommunityInsights({
   return (
     <div className="sidebar-card community-insights">
       <div className="sidebar-card-header">
-        <div className="sidebar-card-icon">🌐</div>
+        {/* UPDATED: a Lucide icon instead of the 🌐 emoji. Emoji keep their
+            own pale-blue colours (CSS `color` can't change them), which
+            looked washed out on the teal box; the SVG inherits the box's
+            white. */}
+        <div className="sidebar-card-icon">
+          <Globe size={20} strokeWidth={2} aria-hidden="true" />
+        </div>
         <h3 className="sidebar-card-title">Community Insights</h3>
         <span className="insight-window">This month</span>
       </div>
@@ -199,7 +225,9 @@ export function CommunityInsights({
         <div className="follow-loading">Loading insights...</div>
       ) : visible.length === 0 ? (
         <div className="follow-empty">
-          <div className="follow-empty-icon">🌐</div>
+          <div className="follow-empty-icon">
+            <Globe size={28} strokeWidth={1.5} aria-hidden="true" />
+          </div>
           <div>No marks yet this month from people you follow. Share a post with a reason to get things started.</div>
         </div>
       ) : (

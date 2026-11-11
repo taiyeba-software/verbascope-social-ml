@@ -1405,3 +1405,37 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   APPEND THIS BLOCK TO THE VERY END OF app/feed/feed.css
+   (it must come after the existing rules so it wins)
+   ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+  /* ── Background: no more light strip at the bottom in dark mode ──
+     `background-attachment: fixed` on <body> is unreliable in mobile
+     browsers: when the address bar collapses, the screen becomes taller than
+     the body and whatever sits behind it shows through. Painting the same
+     theme-aware gradient on a fixed full-screen layer always covers the
+     whole screen. Desktop keeps the original body background. */
+  body {
+    background: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--vs-bg-gradient);
+    pointer-events: none;
+  }
+
+  /* ── Trending chips: scroll edge to edge instead of being cut off at the
+     page padding (the last chip used to be clipped at "#Soci…") ── */
+  .mobile-trending-bar {
+    margin-inline: calc(-1 * var(--feed-gutter));
+    padding-inline: var(--feed-gutter);
+  }
+}
+

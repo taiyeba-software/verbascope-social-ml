@@ -17,6 +17,20 @@ export const ThemeContext = createContext<ThemeContextValue>({
 const COOKIE_NAME = 'vs-theme';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
+/* The server (app/layout.tsx) stamps an inline background colour on <html>
+   for the very first paint. That inline colour used to stay on <html> after
+   the user toggled the theme, so on a phone — when the browser bar collapses
+   and the screen becomes taller than the page — the OLD theme's colour showed
+   as a light strip below the dark page (or the other way round).
+
+   IMPORTANT: these two values must be the same two colours layout.tsx stamps
+   (search for `backgroundColor` in app/layout.tsx and copy them here), so the
+   first paint and later toggles always match. */
+const THEME_BACKGROUND: Record<Theme, string> = {
+  dark: '#0f172a',
+  light: '#d9ecf7',
+};
+
 function setThemeCookie(theme: Theme) {
   document.cookie = `${COOKIE_NAME}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
 }
@@ -38,8 +52,10 @@ export function ThemeProvider({
   // and the cookie (so the *next* server render already knows the choice)
   // all in sync whenever the theme changes.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.style.colorScheme = theme;
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    root.style.colorScheme = theme;
+    root.style.backgroundColor = THEME_BACKGROUND[theme]; // NEW: keep in step with the theme
     localStorage.setItem('vs-theme', theme);
     setThemeCookie(theme);
   }, [theme]);

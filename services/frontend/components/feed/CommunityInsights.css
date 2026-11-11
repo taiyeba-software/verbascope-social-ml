@@ -81,11 +81,13 @@
   flex-shrink: 0;
 }
 
-/* ── Mobile / compact: 2×2 grid of large tap targets ── */
+/* ── Mobile / compact: 2-column grid of large tap targets ── */
 .insight-list--compact {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
+  /* UPDATED: inset the grid so the boxes no longer touch the card's edges */
+  padding: 0 12px 12px;
 }
 
 .insight-list--compact .insight-row {
@@ -95,6 +97,17 @@
 
 .insight-list--compact .insight-chevron {
   display: none;
+}
+
+/* UPDATED: with an odd number of rows (1 or 3) the last box used to sit in
+   half a row and leave an empty cell beside it. It now spans the full width,
+   and shows the chevron again since there is room for it. */
+.insight-list--compact .insight-row:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.insight-list--compact .insight-row:last-child:nth-child(odd) .insight-chevron {
+  display: inline;
 }
 
 /* ── Active-filter banner above the feed ── */
@@ -132,4 +145,41 @@
 
 .insight-banner-clear:hover {
   text-decoration: underline;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — tablet and phone only; desktop is unchanged
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Tablet + phone (≤1024px) ── */
+@media (max-width: 1024px) {
+  /* "Marked by people you follow" used to start flush against the card's
+     left edge, outside the header's padding. */
+  .community-insights .insight-subtitle {
+    margin: 0;
+    padding: 10px 16px 8px;
+    opacity: 0.65;
+  }
+
+  /* the empty-state message gets the same breathing room */
+  .community-insights .follow-empty {
+    padding-inline: 16px;
+  }
+}
+
+/* ── Phones (≤480px): stop "COMMUNITY INSIGHTS" wrapping onto two lines ── */
+@media (max-width: 480px) {
+  .community-insights .sidebar-card-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .community-insights .sidebar-card-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+  }
+
+  .community-insights .insight-window {
+    font-size: 0.6rem;
+  }
 }

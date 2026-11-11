@@ -380,3 +380,60 @@
 .risk-banner-clear:hover {
   background: rgba(127, 127, 127, 0.42);
 }
+
+/* ──────────────────────────────────────────────────────────
+   AI Feed Filter — phone bottom sheet, dark theme
+
+   The sheet is rendered in a portal on <body> and was only styled for
+   light mode: white background, with text colours that come from the dark
+   theme (hence the near-invisible cream title on white). These overrides
+   give it the same dark surface as the notification dropdown in Navbar.css.
+
+   Light mode is untouched — everything below only applies when
+   html[data-theme='dark'].
+   ────────────────────────────────────────────────────────── */
+
+html[data-theme='dark'] .ai-filter-sheet {
+  background: rgba(30, 41, 59, 0.98) !important;
+  border-color: rgba(148, 197, 210, 0.18) !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-theme='dark'] .ai-filter-sheet-handle {
+  background: rgba(248, 250, 252, 0.25) !important;
+}
+
+html[data-theme='dark'] .ai-filter-sheet-title {
+  color: #f8fafc !important;
+}
+
+/* option rows */
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-checkbox-row {
+  background: transparent !important;
+  border-color: rgba(148, 197, 210, 0.12) !important;
+}
+
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-checkbox-row:hover,
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-checkbox-row.checked {
+  background: rgba(20, 184, 166, 0.12) !important;
+}
+
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-option-label {
+  color: #f1f5f9 !important;
+}
+
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-option-desc {
+  color: rgba(248, 250, 252, 0.55) !important;
+}
+
+/* Reset button (the "Apply" button keeps its existing look) */
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-btn--ghost {
+  background: transparent !important;
+  border-color: rgba(148, 197, 210, 0.25) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .ai-filter-sheet .ai-filter-btn--ghost:hover {
+  background: rgba(20, 184, 166, 0.12) !important;
+}

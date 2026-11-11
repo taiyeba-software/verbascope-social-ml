@@ -212,18 +212,29 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
           {avatarUrl ? <img src={avatarUrl} alt={firstName} /> : initials}
         </div>
 
-        {/* The one and only text field (see the auto-grow note above). */}
-        <textarea
-          ref={textareaRef}
-          className="create-post-input"
-          aria-label="Write a post"
-          placeholder={`What's on your mind, ${firstName}?`}
-          value={content}
-          rows={1}
-          onChange={(e) => updateContent(e.target.value)}
-          onFocus={() => setIsExpanded(true)}
-          onKeyDown={handleKeyDown}
-        />
+        {/* The one and only text field (see the auto-grow note above).
+            UPDATED: the placeholder is drawn by the <span> below instead of
+            the native `placeholder` attribute. A textarea always wraps its
+            native placeholder, so on a narrow phone the "?" dropped onto a
+            second line. The span stays on one line and ends in "…" when it
+            doesn't fit. */}
+        <div className="create-post-field">
+          <textarea
+            ref={textareaRef}
+            className="create-post-input"
+            aria-label={`What's on your mind, ${firstName}?`}
+            value={content}
+            rows={1}
+            onChange={(e) => updateContent(e.target.value)}
+            onFocus={() => setIsExpanded(true)}
+            onKeyDown={handleKeyDown}
+          />
+          {!content && (
+            <span className="create-post-placeholder" aria-hidden="true">
+              {`What's on your mind, ${firstName}?`}
+            </span>
+          )}
+        </div>
 
         {/* Collapsed state only — once expanded, the image button lives in
             the footer so there is never a duplicate. */}

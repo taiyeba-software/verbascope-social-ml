@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -12,12 +12,12 @@ import { postApi, postService } from '@/lib/api/posts';
 import { tokenStorage } from '@/lib/api';
 import { PostCard, type FeedPost } from '@/components/feed/PostCard';
 import { ShareSheet } from '@/components/feed/ShareSheet';
-import { MobileTrendingBar } from './MobileTrendingBar';
+import { MobileTrendingBar, tagsFromPulse } from './MobileTrendingBar';
 import { WhoToFollowInline } from './WhoToFollowInline';
 import { Sidebar } from '@/components/feed/Sidebar';
 import { CommunityInsights, InsightBanner, findInsight } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
 import { parseRiskParam, getRiskBannerConfig } from '@/components/feed/FilterDropdown'; // ── NEW: AI Filter (multi-select)
-import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
+import { useFeedSocket, type TrendingTag, type WeeklyPulse } from '@/components/feed/useFeedSocket';
 import {
   DEFAULT_COMMENT_STATE,
   type CommentState,
@@ -93,6 +93,42 @@ function FeedPageContent() {
   // UPDATED: `weeklyPulse` (live 'pulse:update' data) is what <Sidebar />
   // actually accepts; the old `pulseSignal` prop no longer exists on it.
   const { weeklyPulse, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
+
+  // ── UPDATED: the mobile trending chips now use the SAME live source as the
+  // desktop "Trending Now" card. `weeklyPulse` only fills in once a
+  // 'pulse:update' socket event arrives, so — exactly like <Sidebar /> — the
+  // first value comes from a one-off fetch of the weekly pulse. (The Sidebar
+  // still does its own fetch; it is one tiny GET, and both then stay in sync
+  // through the same socket updates.) ──
+  const [initialPulse, setInitialPulse] = useState<WeeklyPulse | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    postService
+      .getWeeklyPulse()
+      .then((res) => {
+        if (cancelled) return;
+        const { success, ...data } = res.data;
+        if (success) setInitialPulse(data as WeeklyPulse);
+      })
+      .catch(() => {
+        // non-critical — the socket will fill it in live
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Featured topic first, then "Other Topics" with their post counts — the
+  // same order the Sidebar shows them. Falls back to the plain trending list
+  // only if the weekly pulse has nothing.
+  const mobileTags = useMemo<TrendingTag[]>(() => {
+    const fromPulse = tagsFromPulse(weeklyPulse ?? initialPulse);
+    return fromPulse.length > 0 ? fromPulse : trendingTags;
+  }, [weeklyPulse, initialPulse, trendingTags]);
 
   // NEW: capture the ?token= param appended by auth-service's Google OAuth
   // redirect (googleCallback → `/feed?token=...`). This is the only way a
@@ -454,8 +490,11 @@ function FeedPageContent() {
           }}
         />
 
-        {/* Mobile trending bar — hidden on desktop via CSS */}
-        <MobileTrendingBar trendingTags={trendingTags} />
+        {/* Mobile trending bar — hidden on desktop via CSS.
+            UPDATED: fed by the live weekly pulse (same data as the desktop
+            "Trending Now" card). It hides itself when there is nothing to
+            show, and loads the pulse on its own if none has arrived yet. */}
+        <MobileTrendingBar trendingTags={mobileTags} />
 
         {/* ── NEW: Community Insights, compact 2×2 version — mobile only
             (the desktop version lives in <Sidebar />) ── */}
@@ -539,8 +578,11 @@ function FeedPageContent() {
                   onSubmitComment={handleSubmitComment}
                   onDeleteComment={handleDeleteComment}
                 />
-                {/* Inject "People you may know" after every 4th post — mobile only */}
-                {(index + 1) % 4 === 0 && (
+                {/* UPDATED: "People you may know" — mobile only, shown ONCE,
+                    right after the 2nd post (it used to repeat after every
+                    4th post). Infinite scroll appends to this same array, so
+                    index 1 is only ever hit once. */}
+                {index === 1 && (
                   <div className="mobile-only">
                     <WhoToFollowInline />
                   </div>

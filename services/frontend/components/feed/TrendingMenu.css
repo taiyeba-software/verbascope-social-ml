@@ -1,0 +1,98 @@
+/* ──────────────────────────────────────────────────────────
+   Trending Now — hamburger-menu entry (tablet + phone)
+
+   The row itself reuses .navbar-mobile-menu-link from Navbar.css.
+   Everything below uses currentColor / translucent greys / the teal accent,
+   so it follows the menu's text colour and works in light AND dark mode
+   without any theme overrides.
+   ────────────────────────────────────────────────────────── */
+
+.trending-menu-chevron {
+  margin-left: auto;
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.trending-menu-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* Indented list under the row, with a thin teal guide line */
+.trending-menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px 18px;
+  padding: 2px 0 4px 10px;
+  border-left: 2px solid rgba(14, 159, 171, 0.35);
+  animation: menu-slide 0.2s ease-out; /* defined in Navbar.css */
+}
+
+.trending-menu-status {
+  padding: 4px 10px 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0e9fab;
+}
+
+.trending-menu-label {
+  padding: 8px 10px 2px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.trending-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px; /* comfortable tap target */
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.trending-menu-item:hover,
+.trending-menu-item:focus-visible {
+  background: rgba(14, 159, 171, 0.1);
+  outline: none;
+}
+
+.trending-menu-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #0e9fab;
+  box-shadow: 0 0 0 3px rgba(14, 159, 171, 0.2);
+}
+
+.trending-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.trending-menu-tag {
+  font-size: 0.88rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.trending-menu-count {
+  font-size: 0.74rem;
+  opacity: 0.65;
+}
+
+.trending-menu-note {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  opacity: 0.7;
+}

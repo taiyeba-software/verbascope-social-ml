@@ -74,10 +74,50 @@
    Expanded  → grows with the text (height is set from JS) and only starts
    scrolling once it reaches max-height. */
 
-.create-post-input {
+/* Wrapper so the placeholder overlay can sit on top of the textarea */
+.create-post-field {
+	position: relative;
 	flex: 1;
 	min-width: 0;
+}
+
+/* Placeholder drawn by us (not the native attribute): a textarea always
+   wraps its native placeholder, which pushed the "?" onto a second line on
+   narrow phones. This one stays on a single line and ends in "…". The
+   padding/line-height mirror the textarea in each state, so it lines up. */
+.create-post-placeholder {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	padding: 12px 16px;
+	border: 1px solid transparent; /* same box as the textarea's border */
+	color: var(--vs-text-muted);
+	font-family: 'DM Sans', sans-serif;
+	font-size: 0.95rem;
+	line-height: 1.4;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none; /* clicks go through to the textarea */
+}
+
+.create-post-box.is-expanded .create-post-placeholder {
+	padding: 14px 16px;
+	line-height: 1.6;
+}
+
+/* feed.css sets textareas to 16px on ≤767px (stops iOS zooming in on
+   focus), so the overlay has to match or it would look smaller */
+@media (max-width: 767px) {
+	.create-post-placeholder {
+		font-size: 16px;
+	}
+}
+
+.create-post-input {
 	display: block;
+	width: 100%;
 	resize: none;
 	height: 46px;
 	background: var(--vs-surface-hover);
@@ -391,11 +431,19 @@
 		padding: 10px 14px;
 	}
 
+	.create-post-placeholder {
+		padding: 10px 14px;
+	}
+
 	.create-post-box.is-expanded .create-post-input {
 		min-height: 96px;
 		max-height: 320px;
 		max-height: min(40vh, 320px);
 		max-height: min(40dvh, 320px);
+		padding: 12px 14px;
+	}
+
+	.create-post-box.is-expanded .create-post-placeholder {
 		padding: 12px 14px;
 	}
 

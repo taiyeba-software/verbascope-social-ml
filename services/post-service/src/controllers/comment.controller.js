@@ -7,6 +7,7 @@ import { updateUserPulse } from '../pulse/updateUserPulse.js';
 import { io } from '../../server.js';
 import { classifyComment } from '../services/commentSentiment.js';
 import { resolveUser } from '../utils/resolveUser.js';
+import { attachAuthors } from '../utils/attachAuthors.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -113,11 +114,7 @@ export const addComment = async (req, res) => {
 		}
 
 		// notify post owner — fire and forget
-		// ── FIX: replaced User.findById() with resolveUser(), same
-		// self-healing fallback as like.controller.js — this was silently
-		// dropping every comment/reply notification whenever the actor's
-		// local mirror entry was missing, with zero logging to even
-		// notice it was happening. ──
+		// resolveUser() has the self-healing fallback to auth-service.
 		resolveUser(req.user.id).then((actor) => {
 			if (actor && updatedPost) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
@@ -138,12 +135,13 @@ export const addComment = async (req, res) => {
 			console.error('🔍 [COMMENT] Notification publish failed:', err.message);
 		});
 
-		// avatar added alongside fullname so comment authors render their
-		// real photo instead of always falling back to initials
-		const populated = await comment.populate('user', 'fullname avatar');
+		// ── FIX: was comment.populate('user', ...) which only checks the
+		// local mirror and returns null when the user is missing.
+		// attachAuthors() uses resolveUser() → falls back to auth-service. ──
+		const [withAuthor] = await attachAuthors([comment.toObject()]);
 		return res.status(201).json({
 			success: true,
-			comment: { ...populated.toObject(), author: populated.user },
+			comment: withAuthor,
 		});
 	} catch (err) {
 		console.error('addComment error:', err);
@@ -158,18 +156,16 @@ export const getComments = async (req, res) => {
 			return res.status(400).json({ success: false, message: 'Invalid post ID.' });
 		}
 
+		// FIX: no .populate() — authors are resolved with the
+		// self-healing resolveUser() instead, so no more "Anonymous".
 		const comments = await Comment.find({
 			post: req.params.id,
 			parentComment: null,
 		})
 			.sort({ createdAt: -1 })
-			.populate('user', 'fullname avatar')
 			.lean();
 
-		const mapped = comments.map((c) => ({
-			...c,
-			author: c.user,
-		}));
+		const mapped = await attachAuthors(comments);
 		return res.status(200).json({ success: true, comments: mapped });
 	} catch (err) {
 		console.error('getComments error:', err);
@@ -189,15 +185,12 @@ export const getReplies = async (req, res) => {
 			return res.status(404).json({ success: false, message: 'Comment not found.' });
 		}
 
+		// FIX: same as getComments — resolve authors via resolveUser().
 		const replies = await Comment.find({ parentComment: req.params.commentId })
 			.sort({ createdAt: 1 })
-			.populate('user', 'fullname avatar')
 			.lean();
 
-		const mapped = replies.map((c) => ({
-			...c,
-			author: c.user,
-		}));
+		const mapped = await attachAuthors(replies);
 		return res.status(200).json({ success: true, replies: mapped });
 	} catch (err) {
 		console.error('getReplies error:', err);

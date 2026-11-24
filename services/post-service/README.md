@@ -392,6 +392,28 @@ There is currently no automated test suite in this folder. Validate changes with
 
 The Post Service is active and is the primary backend for social posting, interaction tracking, search, and recommendation behavior in VerbaScope. It is designed to operate with MongoDB, RabbitMQ, Meilisearch, ImageKit, and the shared auth system while remaining tolerant of non-critical service failures during startup.
 
+## Recent Additions And Removals
+
+### Added
+
+- Added a complete post backend for creating, listing, deleting, and viewing posts and comments with auth-protected access.
+- Added feed, user, saved-post, recommendations, and tag-based retrieval flows for social browsing and personalized discovery.
+- Added media upload support for image posts through Multer and ImageKit, including per-file validation and ImageKit CDN URL storage.
+- Added live post and pulse updates via Socket.IO for likes, comments, shares, ML results, and trending signal changes.
+- Added asynchronous ML analysis integration with RabbitMQ and the ML Brain, including result mapping into UI-friendly signal states.
+- Added Meilisearch indexing for post search, tag suggestions, and exact tag feeds with startup self-healing for empty indexes.
+- Added comment sentiment classification, user pulse tracking, and recommendation-weight updates driven by social interactions and dwell behavior.
+- Added maintenance and backfill scripts for sentiment recalculation and Meilisearch index rebuilds.
+
+### Removed / No Longer In Use
+
+- Removed the assumption that MongoDB alone is sufficient for full-text search; the current design treats Meilisearch as a derived search layer rather than the primary data store.
+- Removed the expectation that every queue consumer will reconnect automatically after a broker drop; current reconnect logic is partial and does not restore all consumers from scratch.
+- Removed the assumption that all social activity types are valid in downstream notifications; reply and share payloads still rely on notification-service compatibility checks.
+- Removed any idea that a separate `Like` model is the active source of truth for like behavior; the current implementation still updates post documents directly for core like handling.
+- Removed the expectation of strict role enforcement for admin reindex and reanalysis endpoints; they validate JWTs but do not currently enforce a role check.
+- Removed direct reliance on local disk for uploaded post media; the service now stores CDN URLs returned from ImageKit rather than local file paths.
+
 ## Interview Questions
 
 ### 📝 1. Post Creation & Media Uploads: "How does post creation with images work under the hood?"

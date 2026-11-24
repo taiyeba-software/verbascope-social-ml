@@ -174,6 +174,25 @@ The service listens on port 3000.
 - Avatar uploads are held in memory during the request and stored in ImageKit rather than on local disk.
 - `ProtectedRoute` redirects unauthenticated visitors from `/feed` and its nested paths after the frontend checks session state through `/api/auth/me`. Other protected API endpoints must still verify the JWT server-side; hiding or redirecting a frontend page alone is not an authorization boundary.
 
+## Recent Additions And Removals
+
+### Added
+
+- Added a complete auth and user-profile service for registration, login, JWT issuance, logout, profile retrieval, profile editing, follow/unfollow actions, and user lookups.
+- Added Google OAuth login and account linking through Passport, including automatic user creation and callback handling.
+- Added RabbitMQ publishing for `user_created` and `user_updated` events to keep downstream services synchronized with profile and identity changes.
+- Added avatar upload handling with Multer and ImageKit, including validation, in-memory buffering, and cleanup of previous images.
+- Added JWT-based session management with an HTTP-only auth cookie for browser routes and a JSON token for frontend cross-service Bearer requests.
+- Added the maintenance backfill script to re-publish user updates for existing accounts when downstream services need a sync refresh.
+
+### Removed / No Longer In Use
+
+- Removed any assumption that service-to-service requests can rely on the auth cookie alone; cross-service communication now explicitly uses the frontend-stored Bearer JWT.
+- Removed the idea of a separate token-storage module in the auth service itself; token persistence is handled in the frontend client rather than a dedicated backend utility.
+- Removed the expectation of local avatar persistence; the current design delegates user image storage to ImageKit instead of saving files on disk.
+- Removed any built-in token revocation or refresh-token flow from the current auth design; JWTs remain valid until expiry unless the client removes them.
+- Removed the assumption that frontend-only redirects are sufficient as an authorization boundary; the API layer still validates JWTs server-side.
+
 ## Interview Questions
 
 ### 🔑 2. Auth Service & Service-to-Service Security: "How did you connect services with Bearer Tokens and protect pages?"

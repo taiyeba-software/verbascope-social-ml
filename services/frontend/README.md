@@ -372,6 +372,25 @@ No authored automated test files or test scripts were found in this folder. `tsc
 - The root favicon metadata declares the wrong MIME type for `favicon.jpg`.
 - There is no authored frontend test suite.
 
+## Recent Additions And Removals
+
+### Added
+
+- Added a complete authenticated frontend shell for the feed, bookmarks, post detail, profile, search, and tag pages.
+- Added the client-side auth flow with JWT hydration, Google OAuth, logout handling, and route-level protection for feed routes.
+- Added real-time post and notification updates through Socket.IO, including pulse updates, ML risk analysis, unread notification badges, and live feed mutation behavior.
+- Added reusable feature components for create-post composer, profile editing, post cards, comments, search dropdowns, and navbar interactions.
+- Added shared UI primitives and styling support for light/dark mode, responsive layouts, and a consistent social-media design system.
+- Added browser-side upload preview support, post/media rendering, share actions, dwell tracking, and saved-post workflows.
+
+### Removed / No Longer In Use
+
+- Removed any assumption of a dedicated `/explore` page or app route in the current frontend structure.
+- Removed the idea of a full people-search flow from the navbar and result logic; the current search experience is post- and tag-focused.
+- Removed placeholder-only or unused assets that are not wired into current source files.
+- Removed the expectation of a password-reset flow from the login UI and the related backend action path.
+- Removed the concept of a fully centralized route guard for all authenticated pages; profile, search, and tag flows rely on page-local checks instead of a single global guard.
+
 ## Project Status
 
 This frontend is part of the VerbaScope social platform and is under active development. It is designed to run alongside the auth, post, notification, and ML services in the repository.

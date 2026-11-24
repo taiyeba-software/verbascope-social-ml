@@ -171,6 +171,25 @@ In the frontend, `Navbar.tsx` opens the socket using the stored token, prepends 
 - Current integration caveat: post-service sends reply activity as `type: "reply"`, but the notification model only permits `like`, `comment`, and `share`. Reply events therefore fail schema validation and are not persisted by this consumer. Also, the listener's message builder formats `pass_forward`, while share events currently arrive as `type: "share"`; the persisted message for those events uses the generic fallback text.
 - The RabbitMQ listener catches errors while handling user/notification events. Since the queue helper acknowledges messages once the callback completes, a caught processing failure does not automatically requeue that message.
 
+## Recent Additions And Removals
+
+### Added
+
+- Added an Express-based notification service for user notification history, unread tracking, and authenticated REST access.
+- Added Socket.IO live delivery for in-app updates using verified JWT room membership and `notification:new` emissions.
+- Added RabbitMQ consumers for `user_created` welcome emails and `notification_created` persistence/live delivery.
+- Added Gmail SMTP email delivery, test-email support, and runtime configuration for mail credentials and queue connectivity.
+- Added MongoDB persistence for notifications with read-state tracking, timestamps, and message generation.
+- Added frontend-facing notification behavior such as unread badge updates and dropdown hydration after authenticated load.
+
+### Removed / No Longer In Use
+
+- Removed the assumption that the client can choose a notification room directly; room assignment is now derived from the verified JWT user ID instead of a client-supplied room name.
+- Removed any expectation that every activity type is valid in the current notification model; reply events are still emitted by post-service but are not fully supported by the schema.
+- Removed the idea of automatic RabbitMQ retry/requeue behavior for handled failures; the current listener logs errors and acknowledges the message without redelivery.
+- Removed the assumption that activity payloads always match the ideal message format; share and reply events still rely on fallback or partial message generation.
+- Removed reliance on a cookie-only auth flow for live sockets; Socket.IO now requires the token in handshake auth for authenticated room routing.
+
 ## Interview Questions
 
 ### 📩 1. Notification Service: "How do notifications work? (File-to-Functionality Flow)"

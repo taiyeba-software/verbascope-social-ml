@@ -1,52 +1,54 @@
 import User from '../models/user.model.js';
 import authClient from './authClient.js';
 
-// ── PERMANENT FIX: self-healing user mirror ─────────────────────────
-// post-service keeps a local mirror of users (synced via RabbitMQ's
-// user_created/user_updated events) so it doesn't have to call
-// auth-service on every read. But that mirror can fall out of sync —
-// an event missed during a RabbitMQ outage, a user created before this
-// sync existed, a message that failed silently — and until now, a
-// missing mirror entry meant a permanent null (actorName unresolved,
-// notifications silently dropped, comments/replies showing "Anonymous"
-// forever, with no way to recover except manually re-running a backfill
-// script).
+// ── self-healing user mirror ────────────────────────────────────────
+// 1. Look in the local mirror.
+// 2. If missing, ask auth-service.
+// 3. Try to save it into the mirror (best-effort).
 //
-// resolveUser() closes that gap: if the local mirror doesn't have the
-// user, it falls back to asking auth-service directly (the same
-// authClient + POST /api/users/bulk pattern already used everywhere in
-// post.controller.js), then upserts the result into the local mirror so
-// every future lookup for that user succeeds without needing any manual
-// intervention. This makes the sync self-healing instead of something
-// that silently breaks and stays broken.
+// FIX: a failed mirror write (e.g. E11000 duplicate email: null) must
+// NOT throw away the user we already fetched from auth-service.
 export async function resolveUser(userId) {
-  if (!userId) return null;
+	if (!userId) return null;
 
-  const local = await User.findById(userId, 'fullname avatar email role').lean();
-  if (local) return local;
+	const local = await User.findById(userId, 'fullname avatar email role').lean();
+	if (local) return local;
 
-  try {
-    const usersRes = await authClient.post('/api/users/bulk', { ids: [userId] });
-    const fetched = usersRes.data.users?.[0] || null;
+	// ── step 2: ask auth-service ──
+	let fetched = null;
+	try {
+		const usersRes = await authClient.post('/api/users/bulk', { ids: [userId] });
+		fetched = usersRes.data.users?.[0] || null;
+	} catch (err) {
+		console.error(`🔧 [resolveUser] auth-service lookup failed for ${userId}:`, err.message);
+		return null;
+	}
 
-    if (fetched) {
-      await User.findByIdAndUpdate(
-        userId,
-        {
-          _id: userId,
-          email: fetched.email,
-          fullname: fetched.fullname,
-          avatar: fetched.avatar,
-          role: fetched.role,
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-      console.log(`🔧 [resolveUser] self-healed missing mirror entry for ${userId}`);
-    }
+	if (!fetched) {
+		console.warn(`🔧 [resolveUser] auth-service has no user ${userId}`);
+		return null;
+	}
 
-    return fetched;
-  } catch (err) {
-    console.error(`🔧 [resolveUser] fallback lookup failed for ${userId}:`, err.message);
-    return null;
-  }
+	// ── step 3: best-effort heal of the mirror ──
+	try {
+		// only write fields that actually have a value — never write
+		// email: null (it collides with the unique email index)
+		const fields = {};
+		if (fetched.email)    fields.email = fetched.email;
+		if (fetched.fullname) fields.fullname = fetched.fullname;
+		if (fetched.avatar)   fields.avatar = fetched.avatar;
+		if (fetched.role)     fields.role = fetched.role;
+
+		await User.findByIdAndUpdate(
+			userId,
+			{ $set: fields },
+			{ upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+		);
+		console.log(`🔧 [resolveUser] self-healed missing mirror entry for ${userId}`);
+	} catch (err) {
+		// mirror write failed, but we still return the fetched user
+		console.warn(`🔧 [resolveUser] mirror heal skipped for ${userId}:`, err.message);
+	}
+
+	return fetched;
 }

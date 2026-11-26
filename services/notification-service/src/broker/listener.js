@@ -7,7 +7,9 @@ import { io } from '../../server.js';
 const buildMessage = (type, actorName, reason) => {
     if (type === 'like')         return `❤️ ${actorName} liked your post.`;
     if (type === 'comment')      return `💬 ${actorName} commented on your post.`;
-    if (type === 'pass_forward') return reason
+    // CHANGED: new reply message
+    if (type === 'reply')        return `↩️ ${actorName} replied on your comment.`;
+    if (type === 'pass_forward' || type === 'share') return reason
         ? `✨ ${actorName} passed your post forward as "${reason}".`
         : `✨ ${actorName} passed your post forward.`;
     return 'You have a new notification.';

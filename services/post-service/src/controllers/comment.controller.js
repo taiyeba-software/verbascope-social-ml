@@ -56,15 +56,21 @@ export const addComment = async (req, res) => {
 		}
 
 		// ── validate parentComment if this is a reply ──
+		// CHANGED: fetch the parent comment's author (not just .exists) so we
+		// know who to notify when someone replies.
 		const { parentComment } = req.body;
+		let parentAuthorId = null;
 		if (parentComment) {
 			if (!isValidId(parentComment)) {
 				return res.status(400).json({ success: false, message: 'Invalid parent comment ID.' });
 			}
-			const parentExists = await Comment.exists({ _id: parentComment, post: req.params.id });
-			if (!parentExists) {
+			const parent = await Comment.findOne({ _id: parentComment, post: req.params.id })
+				.select('user')
+				.lean();
+			if (!parent) {
 				return res.status(404).json({ success: false, message: 'Parent comment not found.' });
 			}
+			parentAuthorId = parent.user.toString();
 		}
 
 		// ── Milestone 3: classify sentiment once, at write time ──
@@ -113,13 +119,18 @@ export const addComment = async (req, res) => {
 			});
 		}
 
-		// notify post owner — fire and forget
-		// resolveUser() has the self-healing fallback to auth-service.
+		// CHANGED: replies notify the PARENT COMMENT's author;
+		// top-level comments notify the post owner.
+		// (The notification-service already skips recipient === actor.)
+		const recipientId = parentComment
+			? parentAuthorId
+			: updatedPost?.author?.toString();
+
 		resolveUser(req.user.id).then((actor) => {
-			if (actor && updatedPost) {
+			if (actor && recipientId) {
 				const actorName = `${actor.fullname?.firstName ?? ''} ${actor.fullname?.lastName ?? ''}`.trim();
 				const published = publish('notification_created', {
-					recipientId: updatedPost.author.toString(),
+					recipientId,
 					actorId:     req.user.id,
 					actorName,
 					type:        parentComment ? 'reply' : 'comment',
@@ -129,7 +140,7 @@ export const addComment = async (req, res) => {
 					console.error('🔍 [COMMENT] notification_created publish FAILED — RabbitMQ channel unavailable');
 				}
 			} else {
-				console.log('🔍 [COMMENT] No actor found — resolveUser returned null (auth-service lookup also failed)');
+				console.log('🔍 [COMMENT] No actor/recipient found — skipping notification');
 			}
 		}).catch((err) => {
 			console.error('🔍 [COMMENT] Notification publish failed:', err.message);
@@ -217,22 +228,53 @@ export const deleteComment = async (req, res) => {
 			return res.status(403).json({ success: false, message: 'Not authorized to delete this comment.' });
 		}
 
+		// If this comment is itself a reply, its parent loses one reply.
 		if (comment.parentComment) {
 			await Comment.findByIdAndUpdate(comment.parentComment, { $inc: { repliesCount: -1 } });
 		}
 
-		await comment.deleteOne();
+		// CHANGED: collect this comment AND all of its descendants (replies,
+		// replies-to-replies, ...) so no orphaned replies keep feeding the
+		// Discussion Pulse or the comment count.
+		const idsToDelete = [comment._id];
+		let frontier = [comment._id];
+		while (frontier.length > 0) {
+			const children = await Comment.find({ parentComment: { $in: frontier } })
+				.select('_id')
+				.lean();
+			frontier = children.map((c) => c._id);
+			idsToDelete.push(...frontier);
+		}
 
+		const { deletedCount } = await Comment.deleteMany({ _id: { $in: idsToDelete } });
+
+		// CHANGED: decrement by the real number of deleted comments, not just 1.
 		const updatedPost = await Post.findByIdAndUpdate(
 			postId,
-			{ $inc: { commentsCount: -1 } },
+			{ $inc: { commentsCount: -deletedCount } },
 			{ returnDocument: 'after', select: 'commentsCount' }
 		);
 
+		// CHANGED: never let the count go negative.
+		if (updatedPost && updatedPost.commentsCount < 0) {
+			updatedPost.commentsCount = 0;
+			await Post.updateOne({ _id: postId }, { $set: { commentsCount: 0 } });
+		}
+
 		io.emit('post:update', {
 			postId,
-			commentsCount: updatedPost.commentsCount,
+			commentsCount: updatedPost?.commentsCount ?? 0,
 		});
+
+		// CHANGED: recompute the Discussion Pulse after a delete, exactly like
+		// addComment does, so the card updates live. Wrapped in try/catch so a
+		// pulse failure can't make a successful delete look like an error.
+		try {
+			const mood = await computeMoodForPost(postId);
+			io.emit('pulse:mood', mood);
+		} catch (moodErr) {
+			console.error('deleteComment: pulse recompute failed:', moodErr);
+		}
 
 		return res.status(200).json({ success: true, message: 'Comment deleted.' });
 	} catch (err) {

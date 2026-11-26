@@ -17,7 +17,9 @@ const notificationSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ['like', 'comment', 'share'],
+            // CHANGED: added 'reply' (and 'pass_forward', which listener.js
+            // already references) so these types no longer fail validation.
+            enum: ['like', 'comment', 'reply', 'share', 'pass_forward'],
             required: true,
         },
         postId: {

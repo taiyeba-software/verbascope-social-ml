@@ -27,7 +27,8 @@ import ThemeToggle from './ThemeToggle';
 /* ── Types ───────────────────────────────────────────────── */
 interface Notification {
   _id: string;
-  type: 'like' | 'comment' | 'share';
+  // CHANGED: added 'reply'
+  type: 'like' | 'comment' | 'reply' | 'share';
   actorName: string;
   postId: string;
   read: boolean;
@@ -60,6 +61,8 @@ const REASON_LABELS: Record<string, string> = {
 function notificationLabel(n: Notification): string {
   if (n.type === 'like')    return `liked your post`;
   if (n.type === 'comment') return `commented on your post`;
+  // CHANGED: reply label
+  if (n.type === 'reply')   return `replied on your comment`;
   if (n.type === 'share') {
     const reasonText = n.reason ? ` ${REASON_LABELS[n.reason as string] ?? ''}` : '';
     return `passed your post forward${reasonText}`;
@@ -69,7 +72,8 @@ function notificationLabel(n: Notification): string {
 
 function notificationIcon(type: Notification['type']) {
   if (type === 'like')    return <Heart size={15} className="notif-icon notif-icon-like" fill="currentColor" />;
-  if (type === 'comment') return <MessageCircle size={15} className="notif-icon notif-icon-comment" />;
+  // CHANGED: reply reuses the comment icon + styling
+  if (type === 'comment' || type === 'reply') return <MessageCircle size={15} className="notif-icon notif-icon-comment" />;
   if (type === 'share')   return <Repeat2 size={15} className="notif-icon notif-icon-share" />;
   return <Bell size={15} className="notif-icon" />;
 }
@@ -333,7 +337,9 @@ export default function Navbar() {
                   }
                 }}
               >
-                <span className={`notif-icon-wrap notif-icon-wrap-${n.type}`}>
+                {/* CHANGED: 'reply' reuses the existing 'comment' icon-wrap
+                    styling, so no new CSS is needed in Navbar.css */}
+                <span className={`notif-icon-wrap notif-icon-wrap-${n.type === 'reply' ? 'comment' : n.type}`}>
                   {notificationIcon(n.type)}
                 </span>
 

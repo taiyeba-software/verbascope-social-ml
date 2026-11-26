@@ -12,12 +12,12 @@ import { postApi, postService } from '@/lib/api/posts';
 import { tokenStorage } from '@/lib/api';
 import { PostCard, type FeedPost } from '@/components/feed/PostCard';
 import { ShareSheet } from '@/components/feed/ShareSheet';
-import { MobileTrendingBar, tagsFromPulse } from './MobileTrendingBar';
+import { MobileTrendingBar, tagsFromNetworkPulse } from './MobileTrendingBar';
 import { WhoToFollowInline } from './WhoToFollowInline';
 import { Sidebar } from '@/components/feed/Sidebar';
 import { CommunityInsights, InsightBanner, findInsight } from '@/components/feed/CommunityInsights'; // ── NEW: Community Insights
 import { parseRiskParam, getRiskBannerConfig } from '@/components/feed/FilterDropdown'; // ── NEW: AI Filter (multi-select)
-import { useFeedSocket, type TrendingTag, type WeeklyPulse } from '@/components/feed/useFeedSocket';
+import { useFeedSocket, type TrendingTag } from '@/components/feed/useFeedSocket';
 import {
   DEFAULT_COMMENT_STATE,
   type CommentState,
@@ -89,46 +89,17 @@ function FeedPageContent() {
   const [openComments, setOpenComments] = useState<OpenComments>({});
   const [shareSheet, setShareSheet] = useState<{ postId: string } | null>(null);
 
-  // Weekly pulse / trending tags + live post:update / post:deleted sync.
-  // UPDATED: `weeklyPulse` (live 'pulse:update' data) is what <Sidebar />
-  // actually accepts; the old `pulseSignal` prop no longer exists on it.
-  const { weeklyPulse, trendingTags, setTrendingTags } = useFeedSocket(setPosts);
+  // Network Pulse (personalized, last 30 days) + live post:update /
+  // post:deleted sync. The hook fetches the pulse itself and refetches when
+  // the server emits 'network-pulse:update', so this page no longer does
+  // its own pulse fetches.
+  const { networkPulse, networkPulseLoading } = useFeedSocket(setPosts);
 
-  // ── UPDATED: the mobile trending chips now use the SAME live source as the
-  // desktop "Trending Now" card. `weeklyPulse` only fills in once a
-  // 'pulse:update' socket event arrives, so — exactly like <Sidebar /> — the
-  // first value comes from a one-off fetch of the weekly pulse. (The Sidebar
-  // still does its own fetch; it is one tiny GET, and both then stay in sync
-  // through the same socket updates.) ──
-  const [initialPulse, setInitialPulse] = useState<WeeklyPulse | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-
-    postService
-      .getWeeklyPulse()
-      .then((res) => {
-        if (cancelled) return;
-        const { success, ...data } = res.data;
-        if (success) setInitialPulse(data as WeeklyPulse);
-      })
-      .catch(() => {
-        // non-critical — the socket will fill it in live
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
-  // Featured topic first, then "Other Topics" with their post counts — the
-  // same order the Sidebar shows them. Falls back to the plain trending list
-  // only if the weekly pulse has nothing.
-  const mobileTags = useMemo<TrendingTag[]>(() => {
-    const fromPulse = tagsFromPulse(weeklyPulse ?? initialPulse);
-    return fromPulse.length > 0 ? fromPulse : trendingTags;
-  }, [weeklyPulse, initialPulse, trendingTags]);
+  // Mobile chips use the SAME Network Pulse data as the desktop sidebar card.
+  const mobileTags = useMemo<TrendingTag[]>(
+    () => tagsFromNetworkPulse(networkPulse),
+    [networkPulse]
+  );
 
   // NEW: capture the ?token= param appended by auth-service's Google OAuth
   // redirect (googleCallback → `/feed?token=...`). This is the only way a
@@ -249,28 +220,6 @@ function FeedPageContent() {
     },
     [hasMore, loadingMore, fetchFeed]
   );
-
-  useEffect(() => {
-    const fetchTrending = async () => {
-      try {
-        const res = await postApi.get<{ trending: Array<string | { tag: string; count?: number }> }>(
-          '/api/posts/pulse/trending'
-        );
-        const next = res.data.trending
-          .map((item) => {
-            if (typeof item === 'string') return { tag: item };
-            if (!item?.tag) return null;
-            return { tag: item.tag, count: item.count != null ? `${item.count} posts` : undefined };
-          })
-          .filter((item): item is TrendingTag => Boolean(item));
-
-        if (next.length > 0) setTrendingTags(next);
-      } catch {
-        // trending is non-critical — socket will update it live
-      }
-    };
-    fetchTrending();
-  }, [setTrendingTags]);
 
   const handleLike = async (postId: string, isLiked: boolean) => {
     setPosts((cur) =>
@@ -625,7 +574,8 @@ function FeedPageContent() {
         </aside>
       ) : (
         <Sidebar
-          weeklyPulse={weeklyPulse}
+          networkPulse={networkPulse}
+          networkPulseLoading={networkPulseLoading}
           activeInsight={activeSignal ?? null}
         />
       )}

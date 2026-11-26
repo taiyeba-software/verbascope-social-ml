@@ -43,10 +43,17 @@ const extractTags = (text = '') =>
 const countWords = (text = '') =>
   (text.match(/\S+/g) ?? []).length;
 
-const broadcastPulseUpdate = () => {
-  pulse.getWeeklyPulse()
-    .then((weeklyPulse) => io.emit('pulse:update', weeklyPulse))
-    .catch((err) => console.error('broadcastPulseUpdate error:', err.message));
+// ── UPDATED: Network Pulse is personalized per user (it depends on who
+// each user follows), so the server can no longer compute ONE payload and
+// io.emit() it to everybody — the old global 'pulse:update' payload would
+// overwrite each user's personalized sidebar data. Instead we emit a
+// payload-free "something changed" event and each client refetches
+// GET /api/posts/pulse/trending for its own data (same pattern as
+// 'community-insights:update').
+// Only called when a post is created or deleted — likes/comments/shares
+// don't change Network Pulse's post/contributor counts.
+const broadcastNetworkPulseUpdate = () => {
+  io.emit('network-pulse:update');
 };
 
 // EXPORTED so savedPost.controller.js's getSavedPosts() can run its results
@@ -100,7 +107,7 @@ export const createPost = async (req, res) => {
     });
 
     pulse.onPostCreated(newPost, req.user.id);
-    broadcastPulseUpdate();
+    broadcastNetworkPulseUpdate(); // ── UPDATED: was broadcastPulseUpdate()
     publish('post.created', { post: newPost });
 
     if (rawContent) {
@@ -389,7 +396,7 @@ export const deletePost = async (req, res) => {
 
     io.emit('post:deleted', { postId: req.params.id });
 
-    broadcastPulseUpdate();
+    broadcastNetworkPulseUpdate(); // ── UPDATED: was broadcastPulseUpdate()
 
     return res.status(200).json({ success: true, message: 'Post deleted.' });
   } catch (err) {
@@ -398,7 +405,10 @@ export const deletePost = async (req, res) => {
   }
 };
 
-// ── GET /api/posts/pulse/trending ────────────────────────────────────
+// ── LEGACY (no longer routed) ─────────────────────────────────────────
+// GET /api/posts/pulse/trending is now served by getNetworkPulseHandler
+// in src/pulse/networkPulse.js. Kept exported so nothing that imports it
+// breaks; safe to delete once you've confirmed nothing else uses it.
 export const getMonthlyPulse = async (req, res) => {
   try {
     const monthlyPulse = await (pulse.getMonthlyPulse ? pulse.getMonthlyPulse() : pulse.getWeeklyPulse());

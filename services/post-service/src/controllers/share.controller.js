@@ -26,11 +26,13 @@ export const INSIGHTS_WINDOW_DAYS = 30;
 export const getInsightsWindowStart = () =>
 	new Date(Date.now() - INSIGHTS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-const broadcastPulseUpdate = () => {
-	pulse.getWeeklyPulse()
-		.then((weeklyPulse) => io.emit('pulse:update', weeklyPulse))
-		.catch((err) => console.error('broadcastPulseUpdate error:', err.message));
-};
+// ── REMOVED: broadcastPulseUpdate() ──
+// It used to io.emit() the GLOBAL monthly pulse after every share/unshare.
+// Network Pulse is personalized and only counts posts + contributors, so
+// sharing can't change it, and emitting the global payload would overwrite
+// each user's personalized sidebar data on the frontend.
+// pulse.onPostShared() below is unchanged — the live in-memory signal
+// (GET /pulse/signal) still gets share events.
 
 const broadcastCommunityInsightsUpdate = () => {
 	io.emit('community-insights:update');
@@ -70,7 +72,6 @@ export const sharePost = async (req, res) => {
 
 		publish('post.shared', { postId: req.params.id, reason });
 		pulse.onPostShared(req.params.id, reason, req.user.id);
-		broadcastPulseUpdate();
 		updateUserPulse(req.user.id, req.params.id, 'share');
 
 		if (reason) {
@@ -148,8 +149,6 @@ export const unsharePost = async (req, res) => {
 			update,
 			{ returnDocument: 'after', select: 'sharesCount' }
 		);
-
-		broadcastPulseUpdate();
 
 		if (shouldDecrementReason) {
 			broadcastCommunityInsightsUpdate();

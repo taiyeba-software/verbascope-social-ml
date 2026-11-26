@@ -30,3 +30,25 @@ export const getVisibleAuthorObjectIds = async (req) => {
     .filter((id) => mongoose.Types.ObjectId.isValid(id))
     .map((id) => new mongoose.Types.ObjectId(id));
 };
+
+// ── NEW: Network Pulse — followed accounts ONLY ──
+// Same source as getVisibleAuthors(), but the current user's own ID is
+// removed, duplicates are dropped, and IDs are cast to ObjectId.
+// If the auth-service call fails, getVisibleAuthors() falls back to
+// [userId], which becomes an empty list here (user sees the empty state).
+export const getFollowedAuthorObjectIds = async (req) => {
+  const currentUserId = String(req.user.id);
+  const visibleAuthors = await getVisibleAuthors(req);
+
+  const uniqueFollowed = [
+    ...new Set(
+      visibleAuthors
+        .map((id) => String(id))
+        .filter((id) => id !== currentUserId)
+    ),
+  ];
+
+  return uniqueFollowed
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+};

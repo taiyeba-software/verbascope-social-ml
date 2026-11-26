@@ -2,9 +2,10 @@ import { Router } from 'express';
 import protect from '../middlewares/auth.middleware.js';
 import { validatePost, validateComment } from '../middlewares/validation.middleware.js';
 import { pulse } from '../pulse/pulse.js';
+import { getNetworkPulseHandler } from '../pulse/networkPulse.js'; // ── NEW: personalized Network Pulse
 import upload, { handleMulterError } from '../middlewares/upload.middleware.js';
 
-import { createPost, getFeed, getPost, getPostsByUser, deletePost, getWeeklyPulse, reindexAllPosts, reanalyzeStalePosts, getPostCommunityEndorsements } from '../controllers/post.controller.js'; // ── UPDATED: getPostSharers renamed to getPostCommunityEndorsements
+import { createPost, getFeed, getPost, getPostsByUser, deletePost, reindexAllPosts, reanalyzeStalePosts, getPostCommunityEndorsements } from '../controllers/post.controller.js'; // ── UPDATED: getWeeklyPulse no longer used here (replaced by getNetworkPulseHandler)
 import { likePost, unlikePost } from '../controllers/like.controller.js';
 import { sharePost, unsharePost, getCommunitySignalsSummary } from '../controllers/share.controller.js';
 import { addComment, getComments, getReplies, deleteComment, getCommentMood } from '../controllers/comment.controller.js';
@@ -17,7 +18,9 @@ import { search, searchTags, getPostsByTag } from '../controllers/search.control
 
 const router = Router();
 
-router.get('/pulse/trending', protect, getWeeklyPulse);
+// ── UPDATED: same URL, now returns the personalized Network Pulse
+// (followed accounts only, last 30 days) instead of the global pulse. ──
+router.get('/pulse/trending', protect, getNetworkPulseHandler);
 
 router.get('/pulse/signal', (req, res) => {
 	res.json(pulse.getSignal());

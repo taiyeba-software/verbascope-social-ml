@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type { SearchResponse } from '@/types/search';
-import type { WeeklyPulse } from '@/components/feed/useFeedSocket';
+import type { NetworkPulse } from '@/types';
 
 /* ──────────────────────────────────────────────────────────
    Google OAuth token capture
@@ -259,7 +259,8 @@ export const postApi = new ApiClient({
   timeout: 30000,
 });
 
-export type WeeklyPulseResponse = { success: boolean } & WeeklyPulse;
+// ── Network Pulse: personalized (people you follow, last 30 days) ──
+export type NetworkPulseResponse = { success: boolean } & NetworkPulse;
 
 export type CommunityInsightsSummaryResponse = {
   success: boolean;
@@ -351,8 +352,11 @@ export const postService = {
   getRecommendedUsers: () =>
     postApi.get('/api/posts/recommendations/users'),
 
-  getWeeklyPulse: () =>
-    postApi.get<WeeklyPulseResponse>('/api/posts/pulse/trending'),
+  // ── UPDATED: same URL as before, but the endpoint now returns the
+  // personalized Network Pulse (replaces getWeeklyPulse). The JWT is
+  // attached by the ApiClient request interceptor like every other call. ──
+  getNetworkPulse: () =>
+    postApi.get<NetworkPulseResponse>('/api/posts/pulse/trending'),
 
   getCommunitySignalsSummary: () =>
     postApi.get<CommunityInsightsSummaryResponse>('/api/posts/community-signals/summary'),

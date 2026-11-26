@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { WeeklyPulse } from './useFeedSocket';
 import { postService, userService } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { CommunityInsights } from '@/components/feed/CommunityInsights';
+import type { NetworkPulse } from '@/types';
 
 interface RecommendedUser {
   _id: string;
@@ -28,11 +28,15 @@ const avatarColor = (id: string) =>
 const initials = (fullname: { firstName: string; lastName: string }) =>
   `${fullname.firstName[0] ?? ''}${fullname.lastName[0] ?? ''}`.toUpperCase();
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 export function Sidebar({
-  weeklyPulse,
+  networkPulse,
+  networkPulseLoading = false,
   activeInsight = null,
 }: {
-  weeklyPulse: WeeklyPulse | null;
+  networkPulse: NetworkPulse | null;
+  networkPulseLoading?: boolean;
   activeInsight?: string | null;
 }) {
   const { user } = useAuth();
@@ -40,23 +44,6 @@ export function Sidebar({
   const [followingIds, setFollowingIds]       = useState<Set<string>>(new Set());
   const [loadingFollow, setLoadingFollow]     = useState<string | null>(null);
   const [loading, setLoading]                 = useState(true);
-
-  const [initialPulse, setInitialPulse] = useState<WeeklyPulse | null>(null);
-  const [pulseLoading, setPulseLoading] = useState(true);
-  const pulse = weeklyPulse ?? initialPulse;
-
-  useEffect(() => {
-    let cancelled = false;
-    postService.getWeeklyPulse()
-      .then((res) => {
-        if (cancelled) return;
-        const { success, ...data } = res.data;
-        if (success) setInitialPulse(data);
-      })
-      .catch((err) => console.error('[Sidebar] Failed to load weekly pulse:', err))
-      .finally(() => { if (!cancelled) setPulseLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -92,16 +79,8 @@ export function Sidebar({
 
         setRecommendations(merged);
 
-        // ── FIX: getMyFollowing() returns full user objects
-        // ({ fullname, _id, headline, avatar }), NOT plain ID strings.
-        // The previous version did `followData.following.map(String)`,
-        // which stringifies each OBJECT to the literal text
-        // "[object Object]" instead of extracting its _id — so
-        // followingIds never actually contained a real user id, and
-        // `followingIds.has(person._id)` was always false. That's why
-        // "Who to Follow" kept showing an already-followed person with
-        // a "Follow" button again after every reload: the app had no
-        // correct record of who was already followed. ──
+        // getMyFollowing() returns full user objects ({ fullname, _id, ... }),
+        // NOT plain ID strings — extract the _id.
         const followRes  = await userService.getMyFollowing();
         const followData = followRes.data as {
           success: boolean;
@@ -144,65 +123,65 @@ export function Sidebar({
   const followed   = recommendations.filter((p) =>  followingIds.has(p._id));
   const displayed  = [...unfollowed, ...followed].slice(0, 5);
 
-  const isQuiet = pulse?.status === '💤 Quiet';
+  const mostActive = networkPulse?.mostActive ?? null;
+  const otherTopics = networkPulse?.others ?? [];
 
   return (
     <aside className="feed-sidebar">
 
       <CommunityInsights activeSlug={activeInsight} />
 
+      {/* ── Your Network Pulse: what the people you follow have been
+          posting about over the last 30 days ── */}
       <div className="sidebar-card">
         <div className="sidebar-card-header">
           <div className="sidebar-card-icon">🔥</div>
-          <h3 className="sidebar-card-title">Trending Now</h3>
+          <div>
+            <h3 className="sidebar-card-title">Your Network Pulse</h3>
+            <div className="trending-count">{networkPulse?.period ?? 'Last 30 Days'}</div>
+          </div>
         </div>
 
-        {pulseLoading && !pulse && (
-          <div className="follow-loading">Reading the room...</div>
+        {networkPulseLoading && !networkPulse && (
+          <div className="follow-loading">Reading your network...</div>
         )}
 
-        {!pulseLoading && (!pulse || !pulse.topic) && !isQuiet && (
+        {!networkPulseLoading && !mostActive && (
           <div className="follow-empty">
             <div className="follow-empty-icon">💤</div>
-            <div>No standout topic yet this month — be the first to start one.</div>
+            <div>
+              Nothing from your network yet. Follow more people to see what they&apos;re talking about.
+            </div>
           </div>
         )}
 
-        {pulse && (isQuiet || pulse.topic) && (
+        {mostActive && (
           <>
-            <div className="pulse-signal-badge">{pulse.status}</div>
-
-            {isQuiet ? (
-              <div className="follow-empty">
-                {pulse.explanation ?? 'Not enough activity this month yet.'}
-              </div>
-            ) : (
-              <div className="trending-list">
-                <div className="trending-item">
-                  <span className="trending-dot" />
-                  <div>
-                    <div className="trending-tag">#{pulse.topic}</div>
-                    <div className="trending-count">{pulse.activityLabel}</div>
-                    {pulse.explanation && (
-                      <div className="trending-explanation">{pulse.explanation}</div>
-                    )}
+            <div className="sidebar-section-label">Most Active Topic</div>
+            <div className="trending-list">
+              <div className="trending-item">
+                <span className="trending-dot" />
+                <div>
+                  <div className="trending-tag">#{mostActive.topic}</div>
+                  <div className="trending-count">
+                    {plural(mostActive.postCount, 'post')} · {plural(mostActive.contributorCount, 'contributor')}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {pulse.topics.length > 0 && (
+            {otherTopics.length > 0 && (
               <>
-                <div className="sidebar-section-label">
-                  {isQuiet ? 'Topics' : 'Other Topics'}
-                </div>
+                <div className="sidebar-section-label">Other Topics</div>
                 <div className="trending-list">
-                  {pulse.topics.map((item) => (
-                    <div key={item.tag} className="trending-item">
+                  {otherTopics.map((item) => (
+                    <div key={item.topic} className="trending-item">
                       <span className="trending-dot" />
                       <div>
-                        <div className="trending-tag">#{item.tag}</div>
-                        <div className="trending-count">{item.posts} post{item.posts === 1 ? '' : 's'}</div>
+                        <div className="trending-tag">#{item.topic}</div>
+                        <div className="trending-count">
+                          {plural(item.postCount, 'post')} · {plural(item.contributorCount, 'contributor')}
+                        </div>
                       </div>
                     </div>
                   ))}

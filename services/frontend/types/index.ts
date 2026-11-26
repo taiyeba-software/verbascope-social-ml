@@ -61,6 +61,27 @@ export interface LoginFormData {
 }
 
 /* ─────────────────────────────────────────────────────────
+   Network Pulse Types
+   ───────────────────────────────────────────────────────── */
+// Shape returned by GET /api/posts/pulse/trending (post-service
+// src/pulse/networkPulse.js). `topic` has NO leading '#' — the UI adds it.
+// `mostActive` is null (and `others` is []) when nobody in the user's
+// network has posted with a hashtag in the last 30 days.
+
+export interface NetworkPulseTopic {
+  topic: string;
+  postCount: number;
+  contributorCount: number;
+}
+
+export interface NetworkPulse {
+  period: string;      // "Last 30 Days"
+  windowDays: number;  // 30
+  mostActive: NetworkPulseTopic | null;
+  others: NetworkPulseTopic[];
+}
+
+/* ─────────────────────────────────────────────────────────
    ML Brain Signal Types
    ───────────────────────────────────────────────────────── */
 // The canonical shape of what post.controller.js's handleMLResult() saves

@@ -5,9 +5,14 @@ import { getTrendingWindowStart, TRENDING_WINDOW_DAYS } from './pulse.js';
 // ── Network Pulse ─────────────────────────────────────────────────────
 // Personalized "what is MY network talking about" view.
 // Only posts authored by people the current user follows (NOT the user
-// themselves), last 30 days, grouped by pulseTopic.
+// themselves), last 30 days.
+//
+// UPDATED: topics now come from EVERY hashtag in a post's `tags` array,
+// not just the first one (pulseTopic). A post with #saveearth #climate
+// counts once toward each, so the ranking reflects the whole month's
+// discussion instead of collapsing to one tag per post.
 
-const MAX_TOPICS = 6; // 1 most-active topic + 5 others
+const MAX_TOPICS = 8; // 1 most-active topic + 7 others
 
 export async function computeNetworkPulse(followedObjectIds, limit = MAX_TOPICS) {
   const empty = {
@@ -24,13 +29,16 @@ export async function computeNetworkPulse(followedObjectIds, limit = MAX_TOPICS)
       $match: {
         author: { $in: followedObjectIds },
         createdAt: { $gte: getTrendingWindowStart() },
-        // 'general' is the fallback for posts with no hashtag, so it isn't a real topic
-        pulseTopic: { $exists: true, $nin: [null, '', 'general'] },
+        'tags.0': { $exists: true }, // only posts that have at least one hashtag
       },
     },
+    // $setUnion with [] removes duplicates inside one post (#a #a counts once)
+    { $project: { author: 1, tags: { $setUnion: ['$tags', []] } } },
+    { $unwind: '$tags' },
+    { $match: { tags: { $ne: '' } } },
     {
       $group: {
-        _id: '$pulseTopic',
+        _id: '$tags',
         postCount: { $sum: 1 },
         contributors: { $addToSet: '$author' },
       },

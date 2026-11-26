@@ -1,6 +1,6 @@
 # VerbaScope Frontend
 
-This directory contains the VerbaScope web application. It is a Next.js App Router frontend with React, TypeScript, Axios, Socket.IO, a server-initialized light/dark theme, and reusable UI primitives. It provides authentication, the social feed, profiles, search, post details, bookmarks, comments, notifications, and real-time pulse and post updates.
+This directory contains the VerbaScope web application. It is a Next.js App Router frontend with React, TypeScript, Axios, Socket.IO, a server-initialized light/dark theme, and reusable feature components styled with CSS. It provides authentication, the social feed, profiles, search, post details, bookmarks, comments, notifications, and real-time pulse and post updates.
 
 ## Architecture Diagram
 
@@ -19,7 +19,6 @@ flowchart LR
     COMP -->|JWT handshake| SOCKET[Socket.IO clients]
     SOCKET --> POST
     SOCKET --> NOTIFY
-    COMP --> UI[shadcn / Radix UI primitives]
     NEXT --> STATE[Theme + Auth Providers]
     NEXT --> IMAGES[ImageKit upload URLs and public assets]
 
@@ -32,13 +31,13 @@ flowchart LR
 ```text
 frontend/
 ├── app/                 # Next.js routes and page-level styles
-├── components/          # Shared, feature, profile, search, and UI components
+├── components/          # Shared and feature components
 ├── hooks/               # Reusable React hooks
 ├── lib/                 # API clients and utilities
 ├── public/              # Static image and icon assets
-├── styles/              # Additional CSS variable stylesheet
+├── styles/              # Legacy stylesheet; not imported by the application
 ├── types/               # Shared TypeScript types
-├── components.json      # shadcn configuration
+├── components.json      # Legacy component-generator metadata
 ├── next.config.mjs      # Next.js configuration
 ├── next-env.d.ts        # Generated Next.js type references
 ├── package.json         # Scripts and dependencies
@@ -46,11 +45,6 @@ frontend/
 ├── pnpm-lock.yaml       # pnpm lockfile
 ├── postcss.config.mjs   # PostCSS configuration
 ├── tsconfig.json        # TypeScript configuration
-├── feed_classes.txt     # Extracted feed CSS selector inventory
-├── feed_sorted.txt      # Sorted feed CSS selector inventory
-├── globals_classes.txt  # Extracted global CSS selector inventory
-├── globals_sorted.txt   # Sorted global CSS selector inventory
-├── tscout.txt           # Checked-in TypeScript diagnostic snapshot
 └── README.md
 ```
 
@@ -63,16 +57,11 @@ frontend/
 | `pnpm-lock.yaml` | pnpm lockfile containing a second resolved dependency tree. Choose one package manager for a deployment rather than mixing lockfiles. |
 | `next.config.mjs` | Configures Next.js to use webpack, disable image optimization, and ignore TypeScript build errors. |
 | `tsconfig.json` | Enables strict TypeScript, bundler module resolution, the Next plugin, and the `@/*` path alias. |
-| `components.json` | shadcn configuration: New York style, Lucide icons, CSS variables, and project path aliases. |
+| `components.json` | Legacy component-generator metadata; it is not used by the rendered application. |
 | `postcss.config.mjs` | Empty PostCSS plugin configuration. |
 | `next-env.d.ts` | Generated Next.js type references and generated route-type import. Do not edit manually. |
 | `.gitignore` | Excludes local environment files, `node_modules`, `.next`, Vercel/v0 artifacts, and other generated files. |
 | `.env.local` | Local environment configuration. Values are intentionally not documented; keep credentials out of source control. |
-| `feed_classes.txt` | Generated/extracted list of CSS selectors found in feed styles. |
-| `feed_sorted.txt` | Sorted version of the feed selector inventory. |
-| `globals_classes.txt` | Generated/extracted list of global CSS selectors. |
-| `globals_sorted.txt` | Sorted version of the global selector inventory. |
-| `tscout.txt` | Stored TypeScript diagnostic snapshot; it is not an executable test suite and may become stale. |
 | `node_modules/` | Generated installed dependencies. |
 | `.next/` | Generated Next.js build and development output, caches, manifests, bundles, and route types. |
 | `README.md` | This documentation. |
@@ -169,69 +158,6 @@ The landing page is public. `/feed` is guarded by `ProtectedRoute`; bookmarks an
 | `SearchResultItem.tsx` | Search post result with author link, avatar fallback, and relative time. |
 | `TagResultItem.tsx` | Tag result row with count and hash icon. |
 
-## `components/ui/` Primitives
-
-This folder contains reusable shadcn/Radix-style primitives. Several are scaffolded for future use and are not imported by the application-specific pages.
-
-| File | Primitive |
-| --- | --- |
-| `accordion.tsx` | Accordion |
-| `alert-dialog.tsx` | Confirmation alert dialog |
-| `alert.tsx` | Alert, title, and description |
-| `aspect-ratio.tsx` | Aspect-ratio wrapper |
-| `avatar.tsx` | Avatar image and fallback |
-| `badge.tsx` | CVA badge variants |
-| `breadcrumb.tsx` | Breadcrumb navigation |
-| `button-group.tsx` | Grouped buttons and separators |
-| `button.tsx` | CVA button variants and sizes |
-| `calendar.tsx` | `react-day-picker` calendar |
-| `carousel.tsx` | Embla carousel context and controls |
-| `chart.tsx` | Recharts container, tooltip, legend, and theme styles |
-| `checkbox.tsx` | Radix checkbox |
-| `collapsible.tsx` | Collapsible root, trigger, and content |
-| `command.tsx` | cmdk command palette |
-| `context-menu.tsx` | Context menu primitives and item variants |
-| `dialog.tsx` | Dialog root, portal, overlay, content, and headings |
-| `drawer.tsx` | Vaul drawer primitives |
-| `dropdown-menu.tsx` | Dropdown, checkbox, radio, submenu, and item primitives |
-| `empty.tsx` | Empty-state layout primitives |
-| `field.tsx` | Form fields, labels, descriptions, errors, and separators |
-| `form.tsx` | React Hook Form integration |
-| `hover-card.tsx` | Hover card |
-| `input-group.tsx` | Input, textarea, addon, and button group |
-| `input-otp.tsx` | OTP input and slots |
-| `input.tsx` | Styled text input |
-| `item.tsx` | Generic item/list primitives |
-| `kbd.tsx` | Keyboard shortcut display |
-| `label.tsx` | Radix label |
-| `menubar.tsx` | Menubar and submenu |
-| `navigation-menu.tsx` | Navigation menu and viewport |
-| `pagination.tsx` | Pagination primitives |
-| `popover.tsx` | Popover root, content, and anchor |
-| `progress.tsx` | Progress bar |
-| `radio-group.tsx` | Radio group and item |
-| `resizable.tsx` | Resizable panel group and handle |
-| `scroll-area.tsx` | Scroll area and scrollbar |
-| `select.tsx` | Select root, trigger, content, items, labels, and separators |
-| `separator.tsx` | Horizontal/vertical separator |
-| `sheet.tsx` | Side sheet based on Radix Dialog |
-| `sidebar.tsx` | Responsive collapsible sidebar with cookie persistence and keyboard shortcut |
-| `skeleton.tsx` | Generic loading pulse |
-| `slider.tsx` | Radix slider |
-| `sonner.tsx` | Sonner toaster adapter using next-themes |
-| `spinner.tsx` | Lucide loading spinner |
-| `switch.tsx` | Radix switch |
-| `table.tsx` | Table primitives |
-| `tabs.tsx` | Radix tabs |
-| `textarea.tsx` | Styled textarea |
-| `toast.tsx` | Radix toast primitives and variants |
-| `toaster.tsx` | Toast renderer |
-| `toggle-group.tsx` | Toggle group |
-| `toggle.tsx` | Toggle variants and primitive |
-| `tooltip.tsx` | Tooltip provider, trigger, and content |
-| `use-mobile.tsx` | 768px mobile media-query hook |
-| `use-toast.ts` | Duplicate toast state/reducer implementation |
-
 ## Hooks
 
 | Path | Purpose |
@@ -240,8 +166,8 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 | `hooks/useDwellTracker.ts` | Sends a dwell event after at least three seconds when at least 50% of a post is visible. |
 | `hooks/useSearch.ts` | Debounces post/tag searches by 300 ms, aborts superseded requests, and maintains dropdown loading/error/results state. |
 | `hooks/useTheme.ts` | Theme context accessor. |
-| `hooks/use-mobile.ts` | Generic mobile media-query hook. |
-| `hooks/use-toast.ts` | Toast reducer and state implementation. |
+| `hooks/use-mobile.ts` | Legacy mobile media-query hook; not imported by the rendered application. |
+| `hooks/use-toast.ts` | Legacy toast state implementation; not imported by the rendered application. |
 
 ## API Clients, Utilities, And Types
 
@@ -250,7 +176,7 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 | `lib/api.ts` | Axios client abstraction plus auth, user, notification, post, recommendation, bookmark, comment, dwell, and post-search services. Browser requests include credentials and attach the locally stored JWT as a Bearer header when present. |
 | `lib/api/posts.ts` | Re-exports `postApi` and `postService`. |
 | `lib/api/search.ts` | Fetch-based post/tag search and tag-post client; consumes `NEXT_PUBLIC_API_URL` and attaches the stored Bearer token. Navbar post search uses Axios while its tag suggestions use this fetch client. |
-| `lib/utils.ts` | `cn` helper built with `clsx` and `tailwind-merge`. |
+| `lib/utils.ts` | Legacy class-merging helper; not imported by the rendered application. |
 | `types/index.ts` | User, auth, form, ML signal, post, follower, and API error types. |
 | `types/search.ts` | Search post, tag, and response types. |
 
@@ -258,7 +184,7 @@ This folder contains reusable shadcn/Radix-style primitives. Several are scaffol
 
 | Path | Purpose |
 | --- | --- |
-| `styles/globals.css` | Additional Tailwind/shadcn variables and base styles. The root layout imports `app/globals.css`; this separate stylesheet is not the root global stylesheet. |
+| `styles/globals.css` | Legacy stylesheet containing Tailwind directives. It is not imported; the root layout uses `app/globals.css`. |
 | `public/favicon.jpg` | Dark VerbaScope V logo. |
 | `public/favicon.svg` | Teal/dark V logo SVG. |
 | `public/placeholder.jpg` | Blank placeholder image. |
@@ -309,8 +235,6 @@ The repository also includes a pnpm lockfile, so the equivalent commands are `pn
 
 The declared application dependencies include Next.js, React, React DOM, Axios, Socket.IO Client, Lucide React, and `@lottiefiles/dotlottie-react`. Development dependencies include TypeScript and the Node/React type packages.
 
-The UI primitives additionally import packages that are not all declared in `package.json`, including Radix UI packages, `class-variance-authority`, `clsx`, `tailwind-merge`, `react-day-picker`, `embla-carousel-react`, `recharts`, `cmdk`, `vaul`, `react-hook-form`, `input-otp`, `react-resizable-panels`, `next-themes`, `sonner`, and Tailwind-related packages. A clean install may therefore fail when importing unused primitives until these dependencies are declared or those files are removed.
-
 ## Authentication And Runtime Behavior
 
 Authentication is provided by `AuthProvider`, which hydrates the current user from `GET /api/auth/me` and exposes login, registration, Google OAuth, logout, and user-state update operations. Login and registration store the returned JWT in `localStorage` under `vs_token`; the Axios request interceptor and the fetch-based search client attach it as `Authorization: Bearer <token>` for calls to services on separate origins. API clients also use `withCredentials`, allowing the auth service's HTTP-only cookie to be sent to the auth origin. Thus the browser uses both mechanisms for their separate purposes: the cookie supports auth-service session requests, while the Bearer header authenticates cross-service HTTP and Socket.IO requests. Logout calls `POST /api/auth/logout`, clears the stored JWT, and redirects to `/`.
@@ -355,13 +279,12 @@ Post text analysis is asynchronous. A text post initially shows an analyzing sta
 
 ## Testing And Diagnostics
 
-No authored automated test files or test scripts were found in this folder. `tscout.txt` is a checked-in diagnostic snapshot rather than a test runner. Validate frontend changes with `npm run build`, `npm run lint` where supported, and the relevant authenticated browser workflows.
+No authored automated test files or test scripts were found in this folder. Validate frontend changes with `npm run build`, `npm run lint` where supported, and the relevant authenticated browser workflows.
 
 ## Known Caveats
 
 - `next.config.mjs` ignores TypeScript build errors, so a successful production build does not guarantee a clean typecheck.
 - The lockfiles may resolve different dependency versions.
-- Some UI primitive imports are not declared in `package.json`.
 - `/explore` has no matching App Router page.
 - The login “Forgot?” link points to `#` and has no password-reset flow.
 - The navbar search advertises people search, but the implementation returns posts and tags only.
@@ -380,14 +303,13 @@ No authored automated test files or test scripts were found in this folder. `tsc
 - Added the client-side auth flow with JWT hydration, Google OAuth, logout handling, and route-level protection for feed routes.
 - Added real-time post and notification updates through Socket.IO, including pulse updates, ML risk analysis, unread notification badges, and live feed mutation behavior.
 - Added reusable feature components for create-post composer, profile editing, post cards, comments, search dropdowns, and navbar interactions.
-- Added shared UI primitives and styling support for light/dark mode, responsive layouts, and a consistent social-media design system.
+- Added feature components and custom CSS for light/dark mode, responsive layouts, and the social-media interface.
 - Added browser-side upload preview support, post/media rendering, share actions, dwell tracking, and saved-post workflows.
 
 ### Removed / No Longer In Use
 
 - Removed any assumption of a dedicated `/explore` page or app route in the current frontend structure.
 - Removed the idea of a full people-search flow from the navbar and result logic; the current search experience is post- and tag-focused.
-- Removed placeholder-only or unused assets that are not wired into current source files.
 - Removed the expectation of a password-reset flow from the login UI and the related backend action path.
 - Removed the concept of a fully centralized route guard for all authenticated pages; profile, search, and tag flows rely on page-local checks instead of a single global guard.
 

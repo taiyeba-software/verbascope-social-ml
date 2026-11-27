@@ -26,7 +26,12 @@ async function computeMoodForPost(postId) {
 		}
 	});
 
-	return pulse.classifyMood(postId, tally);
+	const mood = await pulse.classifyMood(postId, tally);
+
+	// CHANGED: always attach postId. CommentSection.tsx drops any
+	// 'pulse:mood' event whose payload.postId !== its own postId, so if
+	// classifyMood() doesn't return postId, every live update is ignored.
+	return { ...mood, postId: String(postId) };
 }
 
 // ── GET /api/posts/:id/pulse/mood ─────────────────────────────────────
@@ -265,6 +270,15 @@ export const deleteComment = async (req, res) => {
 			postId,
 			commentsCount: updatedPost?.commentsCount ?? 0,
 		});
+
+		// CHANGED: tell other viewers' open threads that a reply was removed
+		// so they refresh that thread live (mirrors 'comment:reply' on add).
+		if (comment.parentComment) {
+			io.emit('comment:deleted', {
+				parentCommentId: comment.parentComment.toString(),
+				postId,
+			});
+		}
 
 		// CHANGED: recompute the Discussion Pulse after a delete, exactly like
 		// addComment does, so the card updates live. Wrapped in try/catch so a

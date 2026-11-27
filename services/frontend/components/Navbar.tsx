@@ -101,28 +101,36 @@ function normalizeNotification(raw: any): Notification {
   };
 }
 
-/* ── Tiny synthetic "ping" — no audio asset required.
-   Only ever called from the live socket handler, never on initial history
-   fetch, so opening the app with 10 unread items doesn't blast 10 beeps. ── */
+/* ── Notification sound ──
+   Plays /public/sounds/notification.mp3. The Audio element is created once
+   (lazily, in the browser only) and reused, so the file is fetched a single
+   time instead of on every notification. Only ever called from the live
+   socket handler, never on the initial history fetch, so opening the app
+   with 10 unread items doesn't play 10 sounds. ── */
+const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3';
+let notificationAudio: HTMLAudioElement | null = null;
+
 function playNotificationSound() {
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.25);
-    osc.onended = () => ctx.close();
+    if (typeof window === 'undefined') return;
+
+    if (!notificationAudio) {
+      notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
+      notificationAudio.preload = 'auto';
+      notificationAudio.volume = 0.6;
+    }
+
+    // Restart from the beginning if a previous sound is still playing.
+    notificationAudio.currentTime = 0;
+    const result = notificationAudio.play();
+    if (result !== undefined) {
+      result.catch(() => {
+        // Browsers block audio until the user has interacted with the page
+        // (click, tap, key press). Fail silently — the badge still updates.
+      });
+    }
   } catch {
-    // Autoplay can be blocked before any user interaction — fail silently.
+    // Never let a sound problem break the notification flow.
   }
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import type { Socket } from 'socket.io-client';
 import Link from 'next/link';
 import { SendIcon } from './icons';
 import {
@@ -13,6 +14,11 @@ import {
 } from './feedHelpers';
 import { postService } from '@/lib/api';
 import './CommentThread.css';
+
+// CHANGED: CommentSection owns ONE socket connection to post-service and
+// shares it with every thread through this context, so threads can react
+// to 'comment:reply' / 'comment:deleted' without opening their own sockets.
+export const CommentSocketContext = createContext<Socket | null>(null);
 
 // The base `Comment` type (from feedHelpers) doesn't know about nesting yet.
 // Extending it here rather than editing feedHelpers so this stays a
@@ -62,6 +68,7 @@ export function CommentThread({
   depth = 0,
   currentUserId,
   onDeleteTopLevel,
+  onDeleteReply,
 }: {
   postId: string;
   comment: NestedComment;
@@ -70,7 +77,14 @@ export function CommentThread({
   // Only used when this thread IS a top-level comment, to reuse the existing
   // delete flow your parent component already manages for the top-level list.
   onDeleteTopLevel?: (postId: string, commentId: string) => void;
+  // CHANGED: for replies (depth > 0). The PARENT thread owns the list the
+  // reply lives in, so the parent performs the delete + removes it from its
+  // own list. (Before, the reply's own thread tried to delete itself from
+  // ITS OWN children list, so the reply never disappeared from the screen.)
+  onDeleteReply?: (replyId: string) => void;
 }) {
+  const socket = useContext(CommentSocketContext);
+
   const [replies, setReplies] = useState<NestedComment[] | null>(null);
   const [loadingReplies, setLoadingReplies] = useState(false);
   const [showReplyBox, setShowReplyBox] = useState(false);
@@ -81,21 +95,62 @@ export function CommentThread({
   // without needing the parent's top-level state to know anything happened.
   const [repliesCount, setRepliesCount] = useState(comment.repliesCount ?? 0);
 
+  // CHANGED: keep the count in sync when the parent re-fetches comments and
+  // hands us a fresh `comment` object (e.g. someone else replied).
+  useEffect(() => {
+    setRepliesCount(comment.repliesCount ?? 0);
+  }, [comment.repliesCount]);
+
+  // CHANGED: lets the socket handler know whether the replies list is open
+  // without re-subscribing every time `replies` changes.
+  const repliesOpenRef = useRef(false);
+  useEffect(() => {
+    repliesOpenRef.current = replies !== null;
+  }, [replies]);
+
+  const fetchReplies = async (): Promise<NestedComment[] | null> => {
+    try {
+      const res = await postService.getReplies(comment._id);
+      return (res.data as { replies: NestedComment[] }).replies;
+    } catch (err) {
+      console.error('Failed to load replies:', err);
+      return null;
+    }
+  };
+
   const loadReplies = async () => {
     if (replies !== null) {
       setReplies(null); // toggle closed
       return;
     }
     setLoadingReplies(true);
-    try {
-      const res = await postService.getReplies(comment._id);
-      setReplies((res.data as { replies: NestedComment[] }).replies);
-    } catch (err) {
-      console.error('Failed to load replies:', err);
-    } finally {
-      setLoadingReplies(false);
-    }
+    const fresh = await fetchReplies();
+    if (fresh) setReplies(fresh);
+    setLoadingReplies(false);
   };
+
+  // CHANGED: live updates. When anyone replies to / deletes a reply of THIS
+  // comment, re-read the replies from the server (the source of truth). That
+  // also avoids double-counting when the event is for our own reply.
+  useEffect(() => {
+    if (!socket) return;
+
+    const handler = async (payload: { parentCommentId?: string; postId?: string }) => {
+      if (payload?.parentCommentId !== comment._id) return;
+      const fresh = await fetchReplies();
+      if (!fresh) return;
+      setRepliesCount(fresh.length);
+      if (repliesOpenRef.current) setReplies(fresh);
+    };
+
+    socket.on('comment:reply', handler);
+    socket.on('comment:deleted', handler);
+    return () => {
+      socket.off('comment:reply', handler);
+      socket.off('comment:deleted', handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, comment._id]);
 
   const submitReply = async () => {
     const trimmed = replyText.trim();
@@ -106,10 +161,20 @@ export function CommentThread({
       const res = await postService.addComment(postId, trimmed, comment._id);
       const newReply = (res.data as { comment: NestedComment }).comment;
 
-      setReplies((prev) => [...(prev ?? []), newReply]);
-      setRepliesCount((prev) => prev + 1);
       setReplyText('');
       setShowReplyBox(false);
+
+      // CHANGED: load the full list from the server instead of appending to
+      // whatever happened to be in memory. Previously, if the thread had
+      // existing replies that weren't loaded yet, only the new one showed.
+      const fresh = await fetchReplies();
+      if (fresh) {
+        setReplies(fresh);
+        setRepliesCount(fresh.length);
+      } else {
+        setReplies((prev) => [...(prev ?? []), newReply]);
+        setRepliesCount((prev) => prev + 1);
+      }
     } catch (err) {
       console.error('Failed to post reply:', err);
     } finally {
@@ -118,7 +183,8 @@ export function CommentThread({
   };
 
   // Replies fetched into local state aren't part of the parent's top-level
-  // `comments` array, so deleting one is handled entirely here.
+  // `comments` array, so deleting one is handled entirely here — called by
+  // the child via its `onDeleteReply` prop.
   const deleteReply = async (replyId: string) => {
     try {
       await postService.deleteComment(postId, replyId);
@@ -193,11 +259,11 @@ export function CommentThread({
             >
               ✕
             </button>
-          ) : isOwnComment && depth > 0 ? (
+          ) : isOwnComment && depth > 0 && onDeleteReply ? (
             <button
               type="button"
               className="thread-delete-btn"
-              onClick={() => deleteReply(comment._id)}
+              onClick={() => onDeleteReply(comment._id)}
               aria-label="Delete reply"
             >
               ✕
@@ -268,6 +334,7 @@ export function CommentThread({
                 comment={reply}
                 depth={depth + 1}
                 currentUserId={currentUserId}
+                onDeleteReply={deleteReply}
               />
             ))}
           </div>
